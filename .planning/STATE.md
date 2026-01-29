@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 ## Current Position
 
 Phase: 1 of 6 (Foundation)
-Plan: 0 of 4 in current phase
-Status: Ready to plan
-Last activity: 2026-01-29 -- Roadmap created
+Plan: 0 of 5 in current phase (5 plans created: 01-00 through 01-04)
+Status: Planning complete, ready to execute
+Last activity: 2026-01-29 -- Phase 1 planning complete
 
 Progress: [------------------] 0%
 
@@ -27,7 +27,7 @@ Progress: [------------------] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 0/4 | - | - |
+| 1. Foundation | 0/5 | - | - |
 | 2. TOC Building | 0/3 | - | - |
 | 3. Grips & Provenance | 0/3 | - | - |
 | 4. Query Layer | 0/2 | - | - |
@@ -63,5 +63,15 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Roadmap creation complete
+Stopped at: Phase 1 planning complete, ready to execute
 Resume file: None
+
+## Phase 1 Plans
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 01-00 | 1 | Workspace scaffolding, docs/README.md | Pending |
+| 01-01 | 2 | RocksDB storage layer | Pending |
+| 01-02 | 2 | Domain types (Event, TocNode, Grip, Settings) | Pending |
+| 01-03 | 3 | gRPC service + IngestEvent RPC | Pending |
+| 01-04 | 4 | CLI daemon binary | Pending |

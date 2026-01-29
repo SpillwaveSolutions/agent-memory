@@ -29,13 +29,14 @@ This roadmap delivers a local, append-only conversational memory system with TOC
   3. Events are stored with time-prefixed keys enabling range scans
   4. Configuration loads from file, env vars, and CLI flags in correct precedence
   5. Daemon binary supports start/stop/status commands
-**Plans**: TBD
+**Plans**: 5 plans in 4 waves
 
 Plans:
-- [ ] 01-01: Storage layer (RocksDB setup, column families, compaction)
-- [ ] 01-02: Domain types (Event, TocNode, Grip structs)
-- [ ] 01-03: gRPC service scaffolding (tonic setup, protos, IngestEvent RPC)
-- [ ] 01-04: Configuration and CLI daemon binary
+- [ ] 01-00-PLAN.md — Workspace scaffolding (crate structure, proto placeholder, docs/README.md)
+- [ ] 01-01-PLAN.md — Storage layer (RocksDB setup, column families, compaction, time-prefixed keys)
+- [ ] 01-02-PLAN.md — Domain types (Event, TocNode, Grip, OutboxEntry, Settings configuration)
+- [ ] 01-03-PLAN.md — gRPC service scaffolding (tonic setup, protos, IngestEvent RPC, health, reflection)
+- [ ] 01-04-PLAN.md — CLI daemon binary (start/stop/status commands, config loading, graceful shutdown)
 
 ### Phase 2: TOC Building
 **Goal**: Construct the time-based Table of Contents hierarchy with summaries at each level
@@ -125,7 +126,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Not started | - |
+| 1. Foundation | 0/5 | Planning complete | - |
 | 2. TOC Building | 0/3 | Not started | - |
 | 3. Grips & Provenance | 0/3 | Not started | - |
 | 4. Query Layer | 0/2 | Not started | - |
@@ -134,5 +135,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 ---
 *Roadmap created: 2026-01-29*
-*Total plans: 17 across 6 phases*
+*Phase 1 planned: 2026-01-29*
+*Total plans: 18 across 6 phases*
 *Total v1 requirements: 42 (41 mapped to phases, 1 external)*

@@ -10,6 +10,27 @@ A local, append-only conversational memory system for AI agents (Claude Code, Op
 
 Time-based TOC navigation beats brute-force search. If everything else fails, the TOC + time hierarchy must work.
 
+### Progressive Disclosure Architecture (PDA)
+
+The TOC implements **Progressive Disclosure Architecture** — the same pattern used in well-designed Agentic Skills. Just as a skill reveals complexity progressively, Agent Memory reveals conversation detail progressively:
+
+| Agentic Skills | Agent Memory |
+|----------------|--------------|
+| Start simple, reveal options as needed | Start with summaries, reveal events as needed |
+| Agent discovers capabilities through exploration | Agent discovers answers through navigation |
+| Complexity hidden until required | Raw events hidden until required |
+
+**The key insight: Agentic search beats brute-force scanning.**
+
+Instead of loading thousands of events into context, an agent navigates:
+1. **Year** → "2024: heavy focus on authentication" → drill down
+2. **Week** → "Week 3: JWT implementation" → drill down
+3. **Day** → "Thursday: token expiration debugging" → drill down
+4. **Segment** → Summary bullets with grip links → expand grip
+5. **Grip** → Raw event excerpt with full context → answer verified
+
+This mirrors how humans search email: filter by date, scan subjects, open the relevant thread. The agent never reads everything — it uses summaries to navigate to exactly what it needs.
+
 ## Requirements
 
 ### Validated
