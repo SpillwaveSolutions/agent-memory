@@ -9,6 +9,8 @@
 
 pub mod column_families;
 pub mod error;
+pub mod keys;
 
-// Re-export for Task 1 verification (db and keys added in later tasks)
+// Re-export for Task 2 verification (db added in Task 3)
 pub use error::StorageError;
+pub use keys::{EventKey, OutboxKey, CheckpointKey};
