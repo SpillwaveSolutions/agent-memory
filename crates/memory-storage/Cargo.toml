@@ -1,0 +1,16 @@
+[package]
+name = "memory-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+memory-types = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Storage backend (to be enabled in Phase 1, Plan 01)
+# rocksdb = { workspace = true }

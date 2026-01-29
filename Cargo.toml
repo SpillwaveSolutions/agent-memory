@@ -1,0 +1,57 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/memory-types",
+    "crates/memory-storage",
+    "crates/memory-service",
+    "crates/memory-daemon",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/spillwave/agent-memory"
+
+[workspace.dependencies]
+# Internal crates
+memory-types = { path = "crates/memory-types" }
+memory-storage = { path = "crates/memory-storage" }
+memory-service = { path = "crates/memory-service" }
+
+# Async runtime
+tokio = { version = "1.43", features = ["full"] }
+
+# gRPC
+tonic = "0.12"
+tonic-build = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Storage (to be used in later phases)
+rocksdb = "0.22"
+
+# ID generation
+ulid = "1.1"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Configuration
+config = "0.14"
+directories = "6.0"

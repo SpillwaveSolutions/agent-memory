@@ -1,0 +1,196 @@
+// Agent Memory gRPC Service Definition
+//
+// This file defines the gRPC interface for the Agent Memory system.
+// Agents use these RPCs to ingest events and query conversational memory.
+
+syntax = "proto3";
+
+package memory;
+
+option java_multiple_files = true;
+option java_package = "com.spillwave.agentmemory";
+
+// MemoryService provides operations for ingesting events and querying memory.
+// Agents use this service to:
+// 1. Ingest conversation events from hooks
+// 2. Navigate the TOC (Table of Contents) hierarchy
+// 3. Expand grips to get source event context
+service MemoryService {
+  // Ingest a new event into the memory system.
+  // Events are appended to the immutable event log.
+  rpc IngestEvent(IngestEventRequest) returns (IngestEventResponse);
+
+  // Get the root of the TOC hierarchy (top-level time periods).
+  rpc GetTocRoot(GetTocRootRequest) returns (GetTocRootResponse);
+
+  // Get a specific TOC node by ID, including its children.
+  rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
+
+  // Expand a grip to get the source events it references.
+  rpc ExpandGrip(ExpandGripRequest) returns (ExpandGripResponse);
+
+  // Get raw events within a time range (fallback for when TOC navigation isn't enough).
+  rpc GetEvents(GetEventsRequest) returns (GetEventsResponse);
+}
+
+// Request to ingest a new event.
+message IngestEventRequest {
+  // Session identifier for grouping related events.
+  string session_id = 1;
+
+  // Event type (e.g., "user_message", "assistant_message", "tool_result").
+  string event_type = 2;
+
+  // Role of the event source (e.g., "user", "assistant", "tool").
+  string role = 3;
+
+  // Text content of the event.
+  string text = 4;
+
+  // Optional metadata as JSON string.
+  string metadata_json = 5;
+}
+
+// Response after ingesting an event.
+message IngestEventResponse {
+  // The assigned event ID (ULID-based, time-sortable).
+  string event_id = 1;
+
+  // Whether the event was successfully ingested.
+  bool success = 2;
+
+  // Error message if success is false.
+  string error = 3;
+}
+
+// Request to get the TOC root nodes.
+message GetTocRootRequest {
+  // Optional: project filter for multi-project mode.
+  string project_id = 1;
+}
+
+// Response containing root TOC nodes.
+message GetTocRootResponse {
+  // Root nodes (typically years).
+  repeated TocNode nodes = 1;
+}
+
+// Request to get a specific TOC node.
+message GetNodeRequest {
+  // The node ID to retrieve.
+  string node_id = 1;
+}
+
+// Response containing the requested TOC node.
+message GetNodeResponse {
+  // The requested node with children.
+  TocNode node = 1;
+}
+
+// A TOC (Table of Contents) node in the time hierarchy.
+message TocNode {
+  // Unique identifier for this node.
+  string node_id = 1;
+
+  // Human-readable title (e.g., "January 2024", "Week of Jan 15").
+  string title = 2;
+
+  // Node level in hierarchy: "year", "month", "week", "day", "segment".
+  string level = 3;
+
+  // Summary bullets describing content in this time period.
+  repeated string bullets = 4;
+
+  // Keywords for search/filtering.
+  repeated string keywords = 5;
+
+  // Child node IDs for drill-down.
+  repeated string children = 6;
+
+  // Grip IDs associated with this node's bullets.
+  repeated string grip_ids = 7;
+}
+
+// Request to expand a grip.
+message ExpandGripRequest {
+  // The grip ID to expand.
+  string grip_id = 1;
+}
+
+// Response containing expanded grip with source events.
+message ExpandGripResponse {
+  // The grip details.
+  Grip grip = 1;
+
+  // Source events referenced by this grip.
+  repeated Event events = 2;
+}
+
+// A grip anchors a summary bullet to source events.
+message Grip {
+  // Unique identifier for this grip.
+  string grip_id = 1;
+
+  // The excerpt/summary text.
+  string excerpt = 2;
+
+  // Starting event ID in the range.
+  string event_id_start = 3;
+
+  // Ending event ID in the range.
+  string event_id_end = 4;
+
+  // When this grip was created.
+  string timestamp = 5;
+
+  // Source of the grip (e.g., "segment_summarizer").
+  string source = 6;
+}
+
+// An event in the memory system.
+message Event {
+  // Unique identifier (ULID-based).
+  string event_id = 1;
+
+  // Session this event belongs to.
+  string session_id = 2;
+
+  // When the event occurred.
+  string timestamp = 3;
+
+  // Event type.
+  string event_type = 4;
+
+  // Role of source.
+  string role = 5;
+
+  // Text content.
+  string text = 6;
+
+  // Metadata as JSON string.
+  string metadata_json = 7;
+}
+
+// Request to get events in a time range.
+message GetEventsRequest {
+  // Start of time range (ISO 8601).
+  string from_timestamp = 1;
+
+  // End of time range (ISO 8601).
+  string to_timestamp = 2;
+
+  // Optional session filter.
+  string session_id = 3;
+
+  // Maximum events to return.
+  int32 limit = 4;
+}
+
+// Response containing events.
+message GetEventsResponse {
+  // Events in the requested range.
+  repeated Event events = 1;
+
+  // Whether more events exist beyond the limit.
+  bool has_more = 2;
+}

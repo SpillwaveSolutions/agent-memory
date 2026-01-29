@@ -1,0 +1,19 @@
+[package]
+name = "memory-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+memory-types = { workspace = true }
+memory-storage = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }

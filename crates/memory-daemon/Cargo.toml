@@ -1,0 +1,23 @@
+[package]
+name = "memory-daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "memory-daemon"
+path = "src/main.rs"
+
+[dependencies]
+memory-types = { workspace = true }
+memory-storage = { workspace = true }
+memory-service = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+clap = { workspace = true }
+config = { workspace = true }
+directories = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

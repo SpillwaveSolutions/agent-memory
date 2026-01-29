@@ -1,0 +1,38 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Debug files
+*.dSYM/
+*.pdb
+
+# Data directories (agent memory databases)
+/data/
+*.db/
+
+# Configuration with secrets
+config.local.toml
+*.local.toml
+.env
+.env.local
+
+# Log files
+*.log
+logs/
+
+# Generated protobuf code (regenerated on build)
+# Uncomment if you want to commit generated code:
+# !crates/memory-service/src/proto/
+
+# Test artifacts
+*.profraw
+coverage/
