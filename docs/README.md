@@ -115,15 +115,18 @@ about refreshing tokens without forcing logout, and we solved the multi-tab race
 condition using a sliding window approach. [Source: conversation from January 18]"
 ```
 
-### Why This Beats Vector Search
+### Why PDA is Primary (Vector Search is an Accelerator)
 
 | Approach | Tokens Used | Accuracy | Verifiability |
 |----------|-------------|----------|---------------|
 | **Brute-force scan** | 50,000+ | Medium | High (has source) |
-| **Vector similarity** | 2,000 | Medium | Low (no context) |
+| **Vector similarity alone** | 2,000 | Medium | Low (no context) |
 | **PDA navigation** | 500 | High | High (grips link to source) |
+| **PDA + Vector teleport** | 300 | High | High (best of both) |
 
-Vector search might return "JWT refresh logic" as a match, but without the surrounding context, the agent can't verify if it's the right conversation or understand the full discussion. PDA gives both the answer AND the provenance.
+Vector search alone might return "JWT refresh logic" as a match, but without the surrounding context, the agent can't verify if it's the right conversation or understand the full discussion. PDA gives both the answer AND the provenance.
+
+**In Phase 2**, we add vector and BM25 indexes as *teleport accelerators* - they help the agent jump directly to promising TOC nodes, but the agent still navigates the hierarchy to get context. This combines the speed of similarity search with the verifiability of structured navigation.
 
 ## Architecture
 
@@ -304,11 +307,48 @@ agent-memory/
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1. Foundation | Storage, types, gRPC scaffolding, daemon | In Progress |
-| 2. TOC Building | Segmentation, summarization, hierarchy | Planned |
-| 3. Grips & Provenance | Excerpt storage, linking, expansion | Planned |
+| 2. TOC Building + Teleport Indexes | Segmentation, summarization, hierarchy, BM25 & vector search | Planned |
+| 3. Grips & Provenance | Excerpt storage, linking, expansion (graph DB under discussion) | Planned |
 | 4. Query Layer | Navigation RPCs, event retrieval | Planned |
 | 5. Integration | Hook handlers, CLI, admin commands | Planned |
 | 6. End-to-End Demo | Full workflow validation | Planned |
+
+### Phase 2: Teleport Indexes (Accelerators)
+
+While TOC navigation is the primary search mechanism, Phase 2 adds **teleport indexes** as accelerators for direct jumps into the hierarchy:
+
+- **BM25 Keyword Search** (Tantivy) - Full-text search over event content and TOC summaries. Query "JWT refresh" returns matching TOC node IDs and grip IDs, letting the agent teleport directly to relevant time periods.
+
+- **Vector Similarity Search** (HNSW) - Semantic search using embeddings. Query "how did we handle token expiration" finds conceptually similar conversations even if the exact words weren't used.
+
+**Key principle**: Teleports return *pointers* (node IDs, grip IDs), not content. The agent still navigates the TOC to get context and verify relevance. Indexes are disposable accelerators - if they fail or drift, TOC navigation still works.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Teleport Indexes                          │
+│  ┌─────────────────┐        ┌─────────────────┐             │
+│  │ BM25 (Tantivy)  │        │ Vector (HNSW)   │             │
+│  │ Keyword search  │        │ Semantic search │             │
+│  └────────┬────────┘        └────────┬────────┘             │
+│           │                          │                       │
+│           └──────────┬───────────────┘                       │
+│                      ▼                                       │
+│              Return node_ids / grip_ids                      │
+│                      │                                       │
+│                      ▼                                       │
+│              Agent navigates TOC from entry point            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Phase 3: Graph Database (Under Discussion)
+
+For v2, we're evaluating whether to add a **graph database layer** to capture relationships that don't fit the time hierarchy:
+
+- **Entity relationships**: "Project X" mentioned across multiple conversations
+- **Topic threads**: Authentication discussions spanning weeks
+- **Cross-references**: "As we discussed on Tuesday" links
+
+This would complement (not replace) the TOC. The graph would provide alternative navigation paths while TOC remains the primary structure. Technologies under consideration include embedded graph stores or extending RocksDB with graph-like indexes.
 
 ## Technology Stack
 
@@ -353,11 +393,11 @@ Events are captured via agent hooks with zero token overhead:
 4. **Per-Project Stores**: Simpler mental model, configurable for unified mode
 5. **Hook-Based Ingestion**: Zero token overhead, passive capture
 
-## Out of Scope
+## Out of Scope (v1)
 
-The following are explicitly excluded from v1:
+The following are excluded from v1:
 
-- Graph database (TOC is a tree, not a graph)
+- ~~Graph database~~ → Under discussion for v2 (see Phase 3 above)
 - Multi-tenant support (single agent, local deployment)
 - Delete/update events (append-only truth)
 - HTTP API (gRPC only)
