@@ -10,24 +10,24 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 ## Current Position
 
 Phase: 1 of 6 (Foundation)
-Plan: 1 of 5 in current phase (completed: 01-00)
+Plan: 2 of 5 in current phase (completed: 01-00, 01-02)
 Status: In progress
-Last activity: 2026-01-29 -- Completed 01-00-PLAN.md (Workspace scaffolding)
+Last activity: 2026-01-29 -- Completed 01-02-PLAN.md (Domain types)
 
-Progress: [#-----------------] 5.5% (1/18 plans)
+Progress: [##----------------] 11% (2/18 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 4min
-- Total execution time: 4min
+- Total plans completed: 2
+- Average duration: 8min
+- Total execution time: 16min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 1/5 | 4min | 4min |
+| 1. Foundation | 2/5 | 16min | 8min |
 | 2. TOC Building | 0/3 | - | - |
 | 3. Grips & Provenance | 0/3 | - | - |
 | 4. Query Layer | 0/2 | - | - |
@@ -35,7 +35,7 @@ Progress: [#-----------------] 5.5% (1/18 plans)
 | 6. End-to-End Demo | 0/2 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-00 (4min)
+- Last 5 plans: 01-00 (4min), 01-02 (12min)
 - Trend: N/A (need more data)
 
 *Updated after each plan completion*
@@ -58,6 +58,12 @@ Recent decisions affecting current work:
 - Proto compilation deferred to Phase 1 Plan 03
 - Layer separation: types -> storage -> service -> daemon
 
+**From 01-02:**
+- All domain types implement Serialize/Deserialize
+- Timestamps stored as milliseconds (chrono::serde::ts_milliseconds)
+- Config env vars prefixed with MEMORY_
+- Builder pattern with with_* methods for optional fields
+
 ### Pending Todos
 
 None yet.
@@ -68,8 +74,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-29T21:42:02Z
-Stopped at: Completed 01-00-PLAN.md
+Last session: 2026-01-29T21:56:37Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
 
 ## Phase 1 Plans
@@ -77,7 +83,7 @@ Resume file: None
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
 | 01-00 | 1 | Workspace scaffolding, docs/README.md | Complete |
-| 01-01 | 2 | RocksDB storage layer | Pending |
-| 01-02 | 2 | Domain types (Event, TocNode, Grip, Settings) | Pending |
+| 01-01 | 2 | RocksDB storage layer | In Progress |
+| 01-02 | 2 | Domain types (Event, TocNode, Grip, Settings) | Complete |
 | 01-03 | 3 | gRPC service + IngestEvent RPC | Pending |
 | 01-04 | 4 | CLI daemon binary | Pending |
