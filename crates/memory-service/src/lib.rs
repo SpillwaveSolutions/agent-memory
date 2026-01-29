@@ -16,4 +16,4 @@ pub mod pb {
 }
 
 pub use ingest::MemoryServiceImpl;
-pub use server::run_server;
+pub use server::{run_server, run_server_with_shutdown};
