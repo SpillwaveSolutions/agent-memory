@@ -18,7 +18,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### TOC Hierarchy
 
-- [ ] **TOC-01**: Full time hierarchy (Year → Month → Week → Day → Segment)
+- [ ] **TOC-01**: Full time hierarchy (Year -> Month -> Week -> Day -> Segment)
 - [ ] **TOC-02**: TOC nodes store title, bullets, keywords, child_node_ids
 - [ ] **TOC-03**: Segment creation on time threshold (30 min) or token threshold (4K)
 - [ ] **TOC-04**: Segment overlap for context continuity (5 min or 500 tokens)
@@ -70,7 +70,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Configuration
 
-- [ ] **CFG-01**: Layered config: defaults → config file → env vars → CLI flags
+- [ ] **CFG-01**: Layered config: defaults -> config file -> env vars -> CLI flags
 - [ ] **CFG-02**: Config includes: db_path, grpc_port, summarizer settings
 - [ ] **CFG-03**: Config file location: ~/.config/agent-memory/config.toml
 
@@ -133,49 +133,50 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STOR-04 | Phase 1 | Pending |
 | STOR-05 | Phase 1 | Pending |
 | STOR-06 | Phase 1 | Pending |
+| ING-01 | Phase 1 | Pending |
+| ING-02 | Phase 1 | Pending |
+| ING-03 | Phase 1 | Pending |
+| ING-04 | Phase 1 | Pending |
+| ING-05 | Phase 1 | Pending |
+| GRPC-01 | Phase 1 | Pending |
+| GRPC-02 | Phase 1 | Pending |
+| GRPC-03 | Phase 1 | Pending |
+| GRPC-04 | Phase 1 | Pending |
+| CFG-01 | Phase 1 | Pending |
+| CFG-02 | Phase 1 | Pending |
+| CFG-03 | Phase 1 | Pending |
+| CLI-01 | Phase 1 | Pending |
 | TOC-01 | Phase 2 | Pending |
 | TOC-02 | Phase 2 | Pending |
 | TOC-03 | Phase 2 | Pending |
 | TOC-04 | Phase 2 | Pending |
 | TOC-05 | Phase 2 | Pending |
 | TOC-06 | Phase 2 | Pending |
+| SUMM-01 | Phase 2 | Pending |
+| SUMM-02 | Phase 2 | Pending |
+| SUMM-04 | Phase 2 | Pending |
 | GRIP-01 | Phase 3 | Pending |
 | GRIP-02 | Phase 3 | Pending |
 | GRIP-03 | Phase 3 | Pending |
 | GRIP-04 | Phase 3 | Pending |
-| SUMM-01 | Phase 2 | Pending |
-| SUMM-02 | Phase 2 | Pending |
 | SUMM-03 | Phase 3 | Pending |
-| SUMM-04 | Phase 2 | Pending |
-| ING-01 | Phase 1 | Pending |
-| ING-02 | Phase 1 | Pending |
-| ING-03 | Phase 1 | Pending |
-| ING-04 | Phase 1 | Pending |
-| ING-05 | Phase 1 | Pending |
 | QRY-01 | Phase 4 | Pending |
 | QRY-02 | Phase 4 | Pending |
 | QRY-03 | Phase 4 | Pending |
 | QRY-04 | Phase 4 | Pending |
 | QRY-05 | Phase 4 | Pending |
-| GRPC-01 | Phase 1 | Pending |
-| GRPC-02 | Phase 1 | Pending |
-| GRPC-03 | Phase 1 | Pending |
-| GRPC-04 | Phase 1 | Pending |
 | HOOK-01 | External | Pending |
 | HOOK-02 | Phase 5 | Pending |
 | HOOK-03 | Phase 5 | Pending |
-| CFG-01 | Phase 1 | Pending |
-| CFG-02 | Phase 1 | Pending |
-| CFG-03 | Phase 1 | Pending |
-| CLI-01 | Phase 1 | Pending |
 | CLI-02 | Phase 5 | Pending |
 | CLI-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 42 total
-- Mapped to phases: 42
-- Unmapped: 0 ✓
+- Mapped to phases: 41
+- External (HOOK-01): 1
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-29*
-*Last updated: 2026-01-29 after initial definition*
+*Last updated: 2026-01-29 after roadmap creation*
