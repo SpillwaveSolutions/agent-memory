@@ -25,6 +25,8 @@ tokio = { version = "1.43", features = ["full"] }
 # gRPC
 tonic = "0.12"
 tonic-build = "0.12"
+tonic-health = "0.12"
+tonic-reflection = "0.12"
 prost = "0.13"
 prost-types = "0.13"
 
@@ -55,3 +57,7 @@ clap = { version = "4.5", features = ["derive"] }
 # Configuration
 config = "0.14"
 directories = "6.0"
+
+# Testing
+tempfile = "3.15"
+rand = "0.9"

@@ -1,19 +1,11 @@
-//! Build script for memory-service.
-//!
-//! Compiles the protobuf definitions into Rust code using tonic-build.
+use std::{env, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Note: Proto compilation will be enabled in Phase 1, Plan 03
-    // when the gRPC service is fully implemented.
-    //
-    // For now, we just ensure the proto file exists.
-    println!("cargo:rerun-if-changed=../../proto/memory.proto");
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
-    // Uncomment when ready to compile protos:
-    // tonic_build::configure()
-    //     .build_server(true)
-    //     .build_client(true)
-    //     .compile(&["../../proto/memory.proto"], &["../../proto"])?;
+    tonic_build::configure()
+        .file_descriptor_set_path(out_dir.join("memory_descriptor.bin"))
+        .compile_protos(&["../../proto/memory.proto"], &["../../proto"])?;
 
     Ok(())
 }

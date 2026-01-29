@@ -9,11 +9,19 @@ memory-types = { workspace = true }
 memory-storage = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
+tonic-health = { workspace = true }
+tonic-reflection = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
+chrono = { workspace = true }
+ulid = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+rand = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }
