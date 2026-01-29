@@ -11,46 +11,14 @@
 //! ## Usage
 //!
 //! ```rust
-//! use memory_types::Event;
+//! use memory_types::{Event, EventRole, EventType};
 //! ```
 
-/// Placeholder module for event types.
-/// Will be implemented in Phase 1, Plan 02.
-pub mod event {
-    /// Placeholder for Event type.
-    /// Events are immutable records of agent interactions.
-    pub struct Event;
-}
+pub mod error;
+pub mod event;
+pub mod outbox;
 
-/// Placeholder module for TOC (Table of Contents) node types.
-/// Will be implemented in Phase 1, Plan 02.
-pub mod toc {
-    /// Placeholder for TocNode type.
-    /// TOC nodes form a time-based hierarchy for navigation.
-    pub struct TocNode;
-}
-
-/// Placeholder module for grip types.
-/// Will be implemented in Phase 3.
-pub mod grip {
-    /// Placeholder for Grip type.
-    /// Grips anchor summary bullets to source events.
-    pub struct Grip;
-}
-
-/// Placeholder module for settings types.
-/// Will be implemented in Phase 1, Plan 02.
-pub mod settings {
-    /// Placeholder for Settings type.
-    /// Configuration for the memory daemon.
-    pub struct Settings;
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn placeholder_test() {
-        // Placeholder test to verify crate compiles
-        assert!(true);
-    }
-}
+// Re-export main types at crate root
+pub use error::MemoryError;
+pub use event::{Event, EventRole, EventType};
+pub use outbox::{OutboxAction, OutboxEntry};
