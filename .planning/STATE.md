@@ -10,24 +10,24 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 ## Current Position
 
 Phase: 1 of 6 (Foundation)
-Plan: 3 of 5 in current phase (completed: 01-00, 01-01, 01-02)
+Plan: 4 of 5 in current phase (completed: 01-00, 01-01, 01-02, 01-03)
 Status: In progress
-Last activity: 2026-01-29 -- Completed 01-01-PLAN.md (RocksDB storage layer)
+Last activity: 2026-01-29 -- Completed 01-03-PLAN.md (gRPC service with IngestEvent RPC)
 
-Progress: [###---------------] 17% (3/18 plans)
+Progress: [####--------------] 22% (4/18 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 10min
-- Total execution time: 31min
+- Total plans completed: 4
+- Average duration: 11min
+- Total execution time: 43min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 3/5 | 31min | 10min |
+| 1. Foundation | 4/5 | 43min | 11min |
 | 2. TOC Building | 0/3 | - | - |
 | 3. Grips & Provenance | 0/3 | - | - |
 | 4. Query Layer | 0/2 | - | - |
@@ -35,8 +35,8 @@ Progress: [###---------------] 17% (3/18 plans)
 | 6. End-to-End Demo | 0/2 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-00 (4min), 01-01 (15min), 01-02 (12min)
-- Trend: Stable (~10min average)
+- Last 5 plans: 01-00 (4min), 01-01 (15min), 01-02 (12min), 01-03 (12min)
+- Trend: Stable (~11min average)
 
 *Updated after each plan completion*
 
@@ -70,6 +70,13 @@ Recent decisions affecting current work:
 - Config env vars prefixed with MEMORY_
 - Builder pattern with with_* methods for optional fields
 
+**From 01-03:**
+- Proto enums use EVENT_ROLE_ and EVENT_TYPE_ prefixes for protobuf compatibility
+- Graceful shutdown via run_server_with_shutdown for daemon use
+- Health reporter marks MemoryService as serving for monitoring
+- Proto-to-domain conversion via separate convert_* methods
+- Service holds Arc<Storage> for thread-safe access
+
 ### Pending Todos
 
 None yet.
@@ -80,8 +87,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-29T22:00:00Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-01-29T22:14:48Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
 
 ## Phase 1 Plans
@@ -91,5 +98,5 @@ Resume file: None
 | 01-00 | 1 | Workspace scaffolding, docs/README.md | Complete |
 | 01-01 | 2 | RocksDB storage layer | Complete |
 | 01-02 | 2 | Domain types (Event, TocNode, Grip, Settings) | Complete |
-| 01-03 | 3 | gRPC service + IngestEvent RPC | Pending |
+| 01-03 | 3 | gRPC service + IngestEvent RPC | Complete |
 | 01-04 | 4 | CLI daemon binary | Pending |
