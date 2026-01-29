@@ -5,29 +5,29 @@
 See: .planning/PROJECT.md (updated 2026-01-29)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Phase 1 - Foundation
+**Current focus:** Phase 1 Complete - Ready for Phase 2
 
 ## Current Position
 
-Phase: 1 of 6 (Foundation)
-Plan: 4 of 5 in current phase (completed: 01-00, 01-01, 01-02, 01-03)
-Status: In progress
-Last activity: 2026-01-29 -- Completed 01-03-PLAN.md (gRPC service with IngestEvent RPC)
+Phase: 1 of 6 (Foundation) - COMPLETE
+Plan: 5 of 5 in current phase (completed: 01-00, 01-01, 01-02, 01-03, 01-04)
+Status: Phase 1 Complete
+Last activity: 2026-01-29 -- Completed 01-04-PLAN.md (CLI daemon binary)
 
-Progress: [####--------------] 22% (4/18 plans)
+Progress: [#####-------------] 28% (5/18 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 11min
-- Total execution time: 43min
+- Total plans completed: 5
+- Average duration: 10min
+- Total execution time: 47min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 4/5 | 43min | 11min |
+| 1. Foundation | 5/5 | 47min | 9min |
 | 2. TOC Building | 0/3 | - | - |
 | 3. Grips & Provenance | 0/3 | - | - |
 | 4. Query Layer | 0/2 | - | - |
@@ -35,8 +35,8 @@ Progress: [####--------------] 22% (4/18 plans)
 | 6. End-to-End Demo | 0/2 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-00 (4min), 01-01 (15min), 01-02 (12min), 01-03 (12min)
-- Trend: Stable (~11min average)
+- Last 5 plans: 01-00 (4min), 01-01 (15min), 01-02 (12min), 01-03 (12min), 01-04 (4min)
+- Trend: Stable (~10min average)
 
 *Updated after each plan completion*
 
@@ -77,6 +77,12 @@ Recent decisions affecting current work:
 - Proto-to-domain conversion via separate convert_* methods
 - Service holds Arc<Storage> for thread-safe access
 
+**From 01-04:**
+- PID file location via directories::BaseDirs::runtime_dir() with fallback
+- Process checking via libc::kill(pid, 0) on Unix
+- Background daemonization deferred; use process managers (systemd, launchd)
+- CLI structure: global flags -> subcommand -> subcommand options
+
 ### Pending Todos
 
 None yet.
@@ -87,8 +93,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-29T22:14:48Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-01-29T22:20:13Z
+Stopped at: Completed 01-04-PLAN.md (Phase 1 Complete)
 Resume file: None
 
 ## Phase 1 Plans
@@ -99,4 +105,4 @@ Resume file: None
 | 01-01 | 2 | RocksDB storage layer | Complete |
 | 01-02 | 2 | Domain types (Event, TocNode, Grip, Settings) | Complete |
 | 01-03 | 3 | gRPC service + IngestEvent RPC | Complete |
-| 01-04 | 4 | CLI daemon binary | Pending |
+| 01-04 | 4 | CLI daemon binary | Complete |
