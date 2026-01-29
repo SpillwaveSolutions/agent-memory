@@ -310,6 +310,41 @@ agent-memory/
 | 5. Integration | Hook handlers, CLI, admin commands | Planned |
 | 6. End-to-End Demo | Full workflow validation | Planned |
 
+## Technology Stack
+
+| Component | Technology | Rationale |
+|-----------|------------|-----------|
+| Language | Rust | Single binary, fast scans, predictable memory |
+| Storage | RocksDB | Embedded, fast range scans, column families |
+| API | gRPC (tonic) | Clean contract, efficient serialization |
+| Summarizer | Pluggable | API (Claude/GPT) or local inference |
+
+## Query Tools
+
+Agents interact with memory through these gRPC operations:
+
+| Operation | Description |
+|-----------|-------------|
+| `get_toc_root` | Top-level time periods |
+| `get_node(node_id)` | Drill into specific period |
+| `get_events(time_range)` | Raw events (last resort) |
+| `expand_grip(grip_id)` | Context around excerpt |
+| `teleport_query(query)` | Index-based jump (v2) |
+
+## Event Types
+
+Events are captured via agent hooks with zero token overhead:
+
+| Hook Event | Memory Event |
+|------------|--------------|
+| SessionStart | session_start |
+| UserPromptSubmit | user_message |
+| PostToolUse | tool_result |
+| Stop | assistant_stop |
+| SubagentStart | subagent_start |
+| SubagentStop | subagent_stop |
+| SessionEnd | session_end |
+
 ## Key Design Decisions
 
 1. **TOC as Primary Navigation**: Agentic search via hierarchical drill-down beats brute-force scanning
@@ -317,6 +352,20 @@ agent-memory/
 3. **gRPC Only**: No HTTP server overhead
 4. **Per-Project Stores**: Simpler mental model, configurable for unified mode
 5. **Hook-Based Ingestion**: Zero token overhead, passive capture
+
+## Out of Scope
+
+The following are explicitly excluded from v1:
+
+- Graph database (TOC is a tree, not a graph)
+- Multi-tenant support (single agent, local deployment)
+- Delete/update events (append-only truth)
+- HTTP API (gRPC only)
+- MCP integration (hooks are passive, no token overhead)
+
+## Related Projects
+
+- **code_agent_context_hooks** - Hook handlers for Claude Code that feed events into this memory system
 
 ## License
 
