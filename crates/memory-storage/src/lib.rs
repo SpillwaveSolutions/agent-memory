@@ -8,9 +8,10 @@
 //! - Checkpoint-based crash recovery (STOR-03)
 
 pub mod column_families;
+pub mod db;
 pub mod error;
 pub mod keys;
 
-// Re-export for Task 2 verification (db added in Task 3)
+pub use db::Storage;
 pub use error::StorageError;
 pub use keys::{EventKey, OutboxKey, CheckpointKey};
