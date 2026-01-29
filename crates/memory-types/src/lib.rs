@@ -16,9 +16,13 @@
 
 pub mod error;
 pub mod event;
+pub mod grip;
 pub mod outbox;
+pub mod toc;
 
 // Re-export main types at crate root
 pub use error::MemoryError;
 pub use event::{Event, EventRole, EventType};
+pub use grip::Grip;
 pub use outbox::{OutboxAction, OutboxEntry};
+pub use toc::{TocBullet, TocLevel, TocNode};
