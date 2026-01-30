@@ -5,6 +5,7 @@ members = [
     "crates/memory-storage",
     "crates/memory-service",
     "crates/memory-daemon",
+    "crates/memory-toc",
 ]
 
 [workspace.package]
@@ -61,3 +62,18 @@ directories = "6.0"
 # Testing
 tempfile = "3.15"
 rand = "0.9"
+
+# Token counting
+tiktoken-rs = "0.5"
+
+# Async trait support
+async-trait = "0.1"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# Retry logic
+backoff = { version = "0.4", features = ["tokio"] }
+
+# Secret handling
+secrecy = { version = "0.10", features = ["serde"] }
