@@ -6,12 +6,13 @@
 //! - Events: Immutable records of agent interactions
 //! - TOC Nodes: Time-hierarchical table of contents entries
 //! - Grips: Provenance anchors linking summaries to source events
+//! - Segments: Groups of events for summarization
 //! - Settings: Configuration types
 //!
 //! ## Usage
 //!
 //! ```rust
-//! use memory_types::{Event, EventRole, EventType, Settings};
+//! use memory_types::{Event, EventRole, EventType, Segment, Settings};
 //! ```
 
 pub mod config;
@@ -19,6 +20,7 @@ pub mod error;
 pub mod event;
 pub mod grip;
 pub mod outbox;
+pub mod segment;
 pub mod toc;
 
 // Re-export main types at crate root
@@ -27,4 +29,5 @@ pub use error::MemoryError;
 pub use event::{Event, EventRole, EventType};
 pub use grip::Grip;
 pub use outbox::{OutboxAction, OutboxEntry};
+pub use segment::Segment;
 pub use toc::{TocBullet, TocLevel, TocNode};

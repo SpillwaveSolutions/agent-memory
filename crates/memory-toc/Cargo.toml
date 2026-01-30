@@ -1,0 +1,27 @@
+[package]
+name = "memory-toc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+memory-types = { path = "../memory-types" }
+memory-storage = { path = "../memory-storage" }
+tiktoken-rs = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+ulid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+backoff = { workspace = true }
+secrecy = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+rand = { workspace = true }
+wiremock = "0.6"
