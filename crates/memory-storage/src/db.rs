@@ -11,9 +11,12 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::{debug, info};
 
-use crate::column_families::{build_cf_descriptors, ALL_CF_NAMES, CF_EVENTS, CF_OUTBOX, CF_CHECKPOINTS};
+use crate::column_families::{build_cf_descriptors, ALL_CF_NAMES, CF_EVENTS, CF_OUTBOX, CF_CHECKPOINTS, CF_TOC_NODES, CF_TOC_LATEST};
 use crate::error::StorageError;
 use crate::keys::{EventKey, OutboxKey, CheckpointKey};
+
+// Re-export TocLevel for use in this crate
+pub use memory_types::TocLevel;
 
 /// Main storage interface for agent-memory
 pub struct Storage {
@@ -178,6 +181,156 @@ impl Storage {
         }
         Ok(())
     }
+
+    // ==================== TOC Node Methods ====================
+
+    /// Store a TOC node with versioning (TOC-06).
+    ///
+    /// Appends a new version rather than mutating.
+    /// Updates toc_latest to point to new version.
+    pub fn put_toc_node(&self, node: &memory_types::TocNode) -> Result<(), StorageError> {
+        let nodes_cf = self.db.cf_handle(CF_TOC_NODES)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_NODES.to_string()))?;
+        let latest_cf = self.db.cf_handle(CF_TOC_LATEST)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_LATEST.to_string()))?;
+
+        // Get current version
+        let latest_key = format!("latest:{}", node.node_id);
+        let current_version = self.db.get_cf(&latest_cf, &latest_key)?
+            .map(|b| {
+                if b.len() >= 4 {
+                    u32::from_be_bytes([b[0], b[1], b[2], b[3]])
+                } else {
+                    0
+                }
+            })
+            .unwrap_or(0);
+
+        let new_version = current_version + 1;
+        let versioned_key = format!("toc:{}:v{:06}", node.node_id, new_version);
+
+        // Update node version
+        let mut versioned_node = node.clone();
+        versioned_node.version = new_version;
+
+        let node_bytes = versioned_node.to_bytes()
+            .map_err(|e| StorageError::Serialization(e.to_string()))?;
+
+        // Atomic write: node + latest pointer
+        let mut batch = WriteBatch::default();
+        batch.put_cf(&nodes_cf, versioned_key.as_bytes(), &node_bytes);
+        batch.put_cf(&latest_cf, latest_key.as_bytes(), &new_version.to_be_bytes());
+
+        self.db.write(batch)?;
+
+        debug!(node_id = %node.node_id, version = new_version, "Stored TOC node");
+        Ok(())
+    }
+
+    /// Get the latest version of a TOC node.
+    pub fn get_toc_node(&self, node_id: &str) -> Result<Option<memory_types::TocNode>, StorageError> {
+        let nodes_cf = self.db.cf_handle(CF_TOC_NODES)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_NODES.to_string()))?;
+        let latest_cf = self.db.cf_handle(CF_TOC_LATEST)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_LATEST.to_string()))?;
+
+        // Get latest version number
+        let latest_key = format!("latest:{}", node_id);
+        let version = match self.db.get_cf(&latest_cf, &latest_key)? {
+            Some(b) if b.len() >= 4 => u32::from_be_bytes([b[0], b[1], b[2], b[3]]),
+            _ => return Ok(None),
+        };
+
+        // Get versioned node
+        let versioned_key = format!("toc:{}:v{:06}", node_id, version);
+        match self.db.get_cf(&nodes_cf, versioned_key.as_bytes())? {
+            Some(bytes) => {
+                let node = memory_types::TocNode::from_bytes(&bytes)
+                    .map_err(|e| StorageError::Serialization(e.to_string()))?;
+                Ok(Some(node))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Get TOC nodes by level, optionally filtered by time range.
+    pub fn get_toc_nodes_by_level(
+        &self,
+        level: memory_types::TocLevel,
+        start_time: Option<chrono::DateTime<chrono::Utc>>,
+        end_time: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<Vec<memory_types::TocNode>, StorageError> {
+        let nodes_cf = self.db.cf_handle(CF_TOC_NODES)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_NODES.to_string()))?;
+        let latest_cf = self.db.cf_handle(CF_TOC_LATEST)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_LATEST.to_string()))?;
+
+        let level_prefix = format!("latest:toc:{}:", level);
+        let mut nodes = Vec::new();
+
+        // Iterate through latest pointers to find all nodes of this level
+        let iter = self.db.iterator_cf(
+            &latest_cf,
+            IteratorMode::From(level_prefix.as_bytes(), Direction::Forward),
+        );
+
+        for item in iter {
+            let (key, value) = item?;
+            let key_str = String::from_utf8_lossy(&key);
+
+            // Stop if we've passed this level's prefix
+            if !key_str.starts_with(&level_prefix) {
+                break;
+            }
+
+            // Get the node_id from key
+            let node_id = key_str.trim_start_matches("latest:");
+            if value.len() >= 4 {
+                let version = u32::from_be_bytes([value[0], value[1], value[2], value[3]]);
+                let versioned_key = format!("{}:v{:06}", node_id, version);
+
+                if let Some(bytes) = self.db.get_cf(&nodes_cf, versioned_key.as_bytes())? {
+                    let node = memory_types::TocNode::from_bytes(&bytes)
+                        .map_err(|e| StorageError::Serialization(e.to_string()))?;
+
+                    // Filter by time range if specified
+                    let include = match (start_time, end_time) {
+                        (Some(start), Some(end)) => node.end_time >= start && node.start_time <= end,
+                        (Some(start), None) => node.end_time >= start,
+                        (None, Some(end)) => node.start_time <= end,
+                        (None, None) => true,
+                    };
+
+                    if include {
+                        nodes.push(node);
+                    }
+                }
+            }
+        }
+
+        // Sort by start_time
+        nodes.sort_by(|a, b| a.start_time.cmp(&b.start_time));
+
+        Ok(nodes)
+    }
+
+    /// Get child nodes of a parent node.
+    pub fn get_child_nodes(&self, parent_node_id: &str) -> Result<Vec<memory_types::TocNode>, StorageError> {
+        let parent = self.get_toc_node(parent_node_id)?;
+        match parent {
+            Some(node) => {
+                let mut children = Vec::new();
+                for child_id in &node.child_node_ids {
+                    if let Some(child) = self.get_toc_node(child_id)? {
+                        children.push(child);
+                    }
+                }
+                children.sort_by(|a, b| a.start_time.cmp(&b.start_time));
+                Ok(children)
+            }
+            None => Ok(Vec::new()),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -265,5 +418,99 @@ mod tests {
         let retrieved = storage.get_checkpoint(job_name).unwrap();
 
         assert_eq!(retrieved, Some(checkpoint_data.to_vec()));
+    }
+
+    #[test]
+    fn test_toc_node_roundtrip() {
+        let (storage, _temp) = create_test_storage();
+
+        let node = memory_types::TocNode::new(
+            "toc:day:2024-01-15".to_string(),
+            memory_types::TocLevel::Day,
+            "Monday, January 15, 2024".to_string(),
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        );
+
+        storage.put_toc_node(&node).unwrap();
+        let retrieved = storage.get_toc_node("toc:day:2024-01-15").unwrap();
+
+        assert!(retrieved.is_some());
+        let retrieved_node = retrieved.unwrap();
+        assert_eq!(retrieved_node.node_id, node.node_id);
+        assert_eq!(retrieved_node.title, node.title);
+        assert_eq!(retrieved_node.version, 1);
+    }
+
+    #[test]
+    fn test_toc_node_versioning() {
+        let (storage, _temp) = create_test_storage();
+
+        let mut node = memory_types::TocNode::new(
+            "toc:day:2024-01-16".to_string(),
+            memory_types::TocLevel::Day,
+            "Tuesday".to_string(),
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        );
+
+        // First version
+        storage.put_toc_node(&node).unwrap();
+
+        // Update and store again
+        node.title = "Tuesday (updated)".to_string();
+        storage.put_toc_node(&node).unwrap();
+
+        // Should get latest version
+        let retrieved = storage.get_toc_node("toc:day:2024-01-16").unwrap().unwrap();
+        assert_eq!(retrieved.title, "Tuesday (updated)");
+        assert_eq!(retrieved.version, 2);
+    }
+
+    #[test]
+    fn test_toc_node_not_found() {
+        let (storage, _temp) = create_test_storage();
+
+        let result = storage.get_toc_node("toc:nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_child_nodes_empty() {
+        let (storage, _temp) = create_test_storage();
+
+        let result = storage.get_child_nodes("toc:nonexistent").unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_get_child_nodes() {
+        let (storage, _temp) = create_test_storage();
+
+        // Create child segment node
+        let child = memory_types::TocNode::new(
+            "toc:segment:2024-01-15:abc123".to_string(),
+            memory_types::TocLevel::Segment,
+            "Conversation about testing".to_string(),
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        );
+        storage.put_toc_node(&child).unwrap();
+
+        // Create parent day node with child reference
+        let mut parent = memory_types::TocNode::new(
+            "toc:day:2024-01-15".to_string(),
+            memory_types::TocLevel::Day,
+            "January 15".to_string(),
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        );
+        parent.child_node_ids.push("toc:segment:2024-01-15:abc123".to_string());
+        storage.put_toc_node(&parent).unwrap();
+
+        // Get children
+        let children = storage.get_child_nodes("toc:day:2024-01-15").unwrap();
+        assert_eq!(children.len(), 1);
+        assert_eq!(children[0].node_id, "toc:segment:2024-01-15:abc123");
     }
 }
