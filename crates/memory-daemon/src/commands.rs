@@ -14,9 +14,13 @@ use anyhow::{Context, Result};
 use tokio::signal;
 use tracing::{info, warn};
 
+use memory_client::MemoryClient;
 use memory_service::run_server_with_shutdown;
+use memory_service::pb::TocLevel as ProtoTocLevel;
 use memory_storage::Storage;
 use memory_types::Settings;
+
+use crate::cli::QueryCommands;
 
 /// Get the PID file path
 fn pid_file_path() -> PathBuf {
@@ -246,6 +250,194 @@ pub fn show_status() -> Result<()> {
     }
 }
 
+/// Handle query commands.
+pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> {
+    let mut client = MemoryClient::connect(endpoint)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    match command {
+        QueryCommands::Root => {
+            let nodes = client.get_toc_root().await.context("Failed to get TOC root")?;
+            if nodes.is_empty() {
+                println!("No TOC nodes found.");
+            } else {
+                println!("Root TOC Nodes ({} found):\n", nodes.len());
+                for node in nodes {
+                    let level = level_to_string(node.level);
+                    println!("  {} [{}]", node.title, level);
+                    println!("    ID: {}", node.node_id);
+                    println!("    Children: {}", node.child_node_ids.len());
+                    println!();
+                }
+            }
+        }
+
+        QueryCommands::Node { node_id } => {
+            match client.get_node(&node_id).await.context("Failed to get node")? {
+                Some(node) => {
+                    print_node_details(&node);
+                }
+                None => {
+                    println!("Node not found: {}", node_id);
+                }
+            }
+        }
+
+        QueryCommands::Browse { parent_id, limit, token } => {
+            let result = client.browse_toc(&parent_id, limit, token)
+                .await
+                .context("Failed to browse TOC")?;
+
+            if result.children.is_empty() {
+                println!("No children found for: {}", parent_id);
+            } else {
+                println!("Children of {} ({} found):\n", parent_id, result.children.len());
+                for child in result.children {
+                    let level = level_to_string(child.level);
+                    println!("  {} [{}]", child.title, level);
+                    println!("    ID: {}", child.node_id);
+                }
+            }
+
+            if result.has_more {
+                if let Some(token) = result.continuation_token {
+                    println!("\nMore results available. Use --token {}", token);
+                }
+            }
+        }
+
+        QueryCommands::Events { from, to, limit } => {
+            let result = client.get_events(from, to, limit)
+                .await
+                .context("Failed to get events")?;
+
+            if result.events.is_empty() {
+                println!("No events found in time range.");
+            } else {
+                println!("Events ({} found):\n", result.events.len());
+                for event in result.events {
+                    let role = match event.role {
+                        1 => "user",
+                        2 => "assistant",
+                        3 => "system",
+                        4 => "tool",
+                        _ => "unknown",
+                    };
+                    let text_preview = if event.text.len() > 80 {
+                        format!("{}...", &event.text[..80])
+                    } else {
+                        event.text.clone()
+                    };
+                    println!("  [{}] {}: {}", event.timestamp_ms, role, text_preview);
+                }
+            }
+
+            if result.has_more {
+                println!("\nMore events available. Increase --limit to see more.");
+            }
+        }
+
+        QueryCommands::Expand { grip_id, before, after } => {
+            let result = client.expand_grip(&grip_id, Some(before), Some(after))
+                .await
+                .context("Failed to expand grip")?;
+
+            match result.grip {
+                Some(grip) => {
+                    println!("Grip: {}\n", grip.grip_id);
+                    println!("Excerpt: {}\n", grip.excerpt);
+
+                    if !result.events_before.is_empty() {
+                        println!("=== Events Before ({}) ===", result.events_before.len());
+                        for event in result.events_before {
+                            println!("  {}", truncate_text(&event.text, 100));
+                        }
+                        println!();
+                    }
+
+                    if !result.excerpt_events.is_empty() {
+                        println!("=== Excerpt Events ({}) ===", result.excerpt_events.len());
+                        for event in result.excerpt_events {
+                            println!("  {}", truncate_text(&event.text, 100));
+                        }
+                        println!();
+                    }
+
+                    if !result.events_after.is_empty() {
+                        println!("=== Events After ({}) ===", result.events_after.len());
+                        for event in result.events_after {
+                            println!("  {}", truncate_text(&event.text, 100));
+                        }
+                    }
+                }
+                None => {
+                    println!("Grip not found: {}", grip_id);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn level_to_string(level: i32) -> &'static str {
+    match level {
+        l if l == ProtoTocLevel::Year as i32 => "Year",
+        l if l == ProtoTocLevel::Month as i32 => "Month",
+        l if l == ProtoTocLevel::Week as i32 => "Week",
+        l if l == ProtoTocLevel::Day as i32 => "Day",
+        l if l == ProtoTocLevel::Segment as i32 => "Segment",
+        _ => "Unknown",
+    }
+}
+
+fn print_node_details(node: &memory_service::pb::TocNode) {
+    let level = level_to_string(node.level);
+    println!("TOC Node: {}", node.title);
+    println!("  ID: {}", node.node_id);
+    println!("  Level: {}", level);
+    println!("  Version: {}", node.version);
+    println!("  Time Range: {} - {}", node.start_time_ms, node.end_time_ms);
+
+    if let Some(summary) = &node.summary {
+        println!("\nSummary: {}", summary);
+    }
+
+    if !node.bullets.is_empty() {
+        println!("\nBullets:");
+        for bullet in &node.bullets {
+            println!("  • {}", bullet.text);
+            if !bullet.grip_ids.is_empty() {
+                println!("    Grips: {}", bullet.grip_ids.join(", "));
+            }
+        }
+    }
+
+    if !node.keywords.is_empty() {
+        println!("\nKeywords: {}", node.keywords.join(", "));
+    }
+
+    if !node.child_node_ids.is_empty() {
+        println!("\nChildren ({}):", node.child_node_ids.len());
+        for (i, child_id) in node.child_node_ids.iter().enumerate() {
+            if i >= 10 {
+                println!("  ... and {} more", node.child_node_ids.len() - 10);
+                break;
+            }
+            println!("  {}", child_id);
+        }
+    }
+}
+
+fn truncate_text(text: &str, max_len: usize) -> String {
+    if text.len() > max_len {
+        format!("{}...", &text[..max_len])
+    } else {
+        text.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -266,5 +458,18 @@ mod tests {
         // Just verify it doesn't panic
         let result = show_status();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_level_to_string() {
+        assert_eq!(level_to_string(ProtoTocLevel::Year as i32), "Year");
+        assert_eq!(level_to_string(ProtoTocLevel::Month as i32), "Month");
+        assert_eq!(level_to_string(ProtoTocLevel::Segment as i32), "Segment");
+    }
+
+    #[test]
+    fn test_truncate_text() {
+        assert_eq!(truncate_text("hello", 10), "hello");
+        assert_eq!(truncate_text("hello world!", 5), "hello...");
     }
 }

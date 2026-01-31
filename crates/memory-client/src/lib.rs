@@ -35,7 +35,10 @@ pub mod client;
 pub mod error;
 pub mod hook_mapping;
 
-pub use client::{MemoryClient, DEFAULT_ENDPOINT};
+pub use client::{
+    BrowseTocResult, ExpandGripResult, GetEventsResult,
+    MemoryClient, DEFAULT_ENDPOINT,
+};
 pub use error::ClientError;
 pub use hook_mapping::{map_hook_event, HookEvent, HookEventType};
 

@@ -47,6 +47,72 @@ pub enum Commands {
 
     /// Show daemon status
     Status,
+
+    /// Query the memory system
+    Query {
+        /// gRPC endpoint (default: http://[::1]:50051)
+        #[arg(short, long, default_value = "http://[::1]:50051")]
+        endpoint: String,
+
+        #[command(subcommand)]
+        command: QueryCommands,
+    },
+}
+
+/// Query subcommands
+#[derive(Subcommand, Debug, Clone)]
+pub enum QueryCommands {
+    /// List root TOC nodes (year level)
+    Root,
+
+    /// Get a specific TOC node
+    Node {
+        /// Node ID to retrieve
+        node_id: String,
+    },
+
+    /// Browse children of a node
+    Browse {
+        /// Parent node ID
+        parent_id: String,
+
+        /// Maximum results
+        #[arg(short, long, default_value = "20")]
+        limit: u32,
+
+        /// Continuation token for pagination
+        #[arg(short, long)]
+        token: Option<String>,
+    },
+
+    /// Get events in time range
+    Events {
+        /// Start time (Unix ms)
+        #[arg(long)]
+        from: i64,
+
+        /// End time (Unix ms)
+        #[arg(long)]
+        to: i64,
+
+        /// Maximum results
+        #[arg(short, long, default_value = "50")]
+        limit: u32,
+    },
+
+    /// Expand a grip to show context
+    Expand {
+        /// Grip ID to expand
+        grip_id: String,
+
+        /// Number of events before excerpt
+        #[arg(long, default_value = "3")]
+        before: u32,
+
+        /// Number of events after excerpt
+        #[arg(long, default_value = "3")]
+        after: u32,
+    },
 }
 
 impl Cli {

@@ -7,10 +7,17 @@ use tracing::{debug, info};
 
 use memory_service::pb::{
     memory_service_client::MemoryServiceClient,
+    BrowseTocRequest,
     Event as ProtoEvent,
     EventRole as ProtoEventRole,
     EventType as ProtoEventType,
+    ExpandGripRequest,
+    GetEventsRequest,
+    GetNodeRequest,
+    GetTocRootRequest,
     IngestEventRequest,
+    TocNode as ProtoTocNode,
+    Grip as ProtoGrip,
 };
 use memory_types::{Event, EventRole, EventType};
 
@@ -89,6 +96,126 @@ impl MemoryClient {
         }
         Ok(created_count)
     }
+
+    // ===== Query Methods =====
+
+    /// Get root TOC nodes (year level).
+    ///
+    /// Per QRY-01: Returns top-level time nodes sorted by time descending.
+    pub async fn get_toc_root(&mut self) -> Result<Vec<ProtoTocNode>, ClientError> {
+        debug!("GetTocRoot request");
+        let request = tonic::Request::new(GetTocRootRequest {});
+        let response = self.inner.get_toc_root(request).await?;
+        Ok(response.into_inner().nodes)
+    }
+
+    /// Get a specific TOC node by ID.
+    ///
+    /// Per QRY-02: Returns node with children and summary.
+    pub async fn get_node(&mut self, node_id: &str) -> Result<Option<ProtoTocNode>, ClientError> {
+        debug!("GetNode request: {}", node_id);
+        let request = tonic::Request::new(GetNodeRequest {
+            node_id: node_id.to_string(),
+        });
+        let response = self.inner.get_node(request).await?;
+        Ok(response.into_inner().node)
+    }
+
+    /// Browse children of a TOC node with pagination.
+    ///
+    /// Per QRY-03: Supports pagination of children.
+    pub async fn browse_toc(
+        &mut self,
+        parent_id: &str,
+        limit: u32,
+        continuation_token: Option<String>,
+    ) -> Result<BrowseTocResult, ClientError> {
+        debug!("BrowseToc request: parent={}, limit={}", parent_id, limit);
+        let request = tonic::Request::new(BrowseTocRequest {
+            parent_id: parent_id.to_string(),
+            limit: limit as i32,
+            continuation_token,
+        });
+        let response = self.inner.browse_toc(request).await?;
+        let resp = response.into_inner();
+        Ok(BrowseTocResult {
+            children: resp.children,
+            continuation_token: resp.continuation_token,
+            has_more: resp.has_more,
+        })
+    }
+
+    /// Get events in a time range.
+    ///
+    /// Per QRY-04: Retrieves raw events by time range.
+    pub async fn get_events(
+        &mut self,
+        from_timestamp_ms: i64,
+        to_timestamp_ms: i64,
+        limit: u32,
+    ) -> Result<GetEventsResult, ClientError> {
+        debug!("GetEvents request: from={} to={} limit={}", from_timestamp_ms, to_timestamp_ms, limit);
+        let request = tonic::Request::new(GetEventsRequest {
+            from_timestamp_ms,
+            to_timestamp_ms,
+            limit: limit as i32,
+        });
+        let response = self.inner.get_events(request).await?;
+        let resp = response.into_inner();
+        Ok(GetEventsResult {
+            events: resp.events,
+            has_more: resp.has_more,
+        })
+    }
+
+    /// Expand a grip to show context events.
+    ///
+    /// Per QRY-05: Retrieves context around grip excerpt.
+    pub async fn expand_grip(
+        &mut self,
+        grip_id: &str,
+        events_before: Option<u32>,
+        events_after: Option<u32>,
+    ) -> Result<ExpandGripResult, ClientError> {
+        debug!("ExpandGrip request: {}", grip_id);
+        let request = tonic::Request::new(ExpandGripRequest {
+            grip_id: grip_id.to_string(),
+            events_before: events_before.map(|v| v as i32),
+            events_after: events_after.map(|v| v as i32),
+        });
+        let response = self.inner.expand_grip(request).await?;
+        let resp = response.into_inner();
+        Ok(ExpandGripResult {
+            grip: resp.grip,
+            events_before: resp.events_before,
+            excerpt_events: resp.excerpt_events,
+            events_after: resp.events_after,
+        })
+    }
+}
+
+/// Result of browse_toc operation.
+#[derive(Debug)]
+pub struct BrowseTocResult {
+    pub children: Vec<ProtoTocNode>,
+    pub continuation_token: Option<String>,
+    pub has_more: bool,
+}
+
+/// Result of get_events operation.
+#[derive(Debug)]
+pub struct GetEventsResult {
+    pub events: Vec<ProtoEvent>,
+    pub has_more: bool,
+}
+
+/// Result of expand_grip operation.
+#[derive(Debug)]
+pub struct ExpandGripResult {
+    pub grip: Option<ProtoGrip>,
+    pub events_before: Vec<ProtoEvent>,
+    pub excerpt_events: Vec<ProtoEvent>,
+    pub events_after: Vec<ProtoEvent>,
 }
 
 /// Convert domain Event to proto Event.
