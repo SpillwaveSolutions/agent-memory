@@ -1,0 +1,30 @@
+{
+  "name": "memory-setup-agentic-plugin",
+  "owner": {
+    "name": "SpillwaveSolutions",
+    "email": "rick@spillwave.com"
+  },
+  "metadata": {
+    "description": "Setup, configure, and troubleshoot agent-memory installation",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "memory-setup",
+      "description": "Setup, configure, and troubleshoot agent-memory installation. Use when asked to 'install agent-memory', 'setup memory', 'check memory status', 'configure memory', 'fix memory daemon', or 'troubleshoot memory'. Provides /memory-setup (interactive wizard), /memory-status (health check), /memory-config (configuration management).",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/memory-setup"
+      ],
+      "commands": [
+        "./commands/memory-setup.md",
+        "./commands/memory-status.md",
+        "./commands/memory-config.md"
+      ],
+      "agents": [
+        "./agents/setup-troubleshooter.md"
+      ]
+    }
+  ]
+}
