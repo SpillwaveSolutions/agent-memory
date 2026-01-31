@@ -11,7 +11,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::{debug, info};
 
-use crate::column_families::{build_cf_descriptors, ALL_CF_NAMES, CF_EVENTS, CF_OUTBOX, CF_CHECKPOINTS, CF_TOC_NODES, CF_TOC_LATEST};
+use crate::column_families::{build_cf_descriptors, ALL_CF_NAMES, CF_EVENTS, CF_OUTBOX, CF_CHECKPOINTS, CF_TOC_NODES, CF_TOC_LATEST, CF_GRIPS};
 use crate::error::StorageError;
 use crate::keys::{EventKey, OutboxKey, CheckpointKey};
 
@@ -331,6 +331,96 @@ impl Storage {
             None => Ok(Vec::new()),
         }
     }
+
+    // ==================== Grip Methods ====================
+
+    /// Store a grip.
+    pub fn put_grip(&self, grip: &memory_types::Grip) -> Result<(), StorageError> {
+        let grips_cf = self.db.cf_handle(CF_GRIPS)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
+
+        let grip_bytes = grip.to_bytes()
+            .map_err(|e| StorageError::Serialization(e.to_string()))?;
+
+        self.db.put_cf(&grips_cf, grip.grip_id.as_bytes(), &grip_bytes)?;
+
+        // If linked to a TOC node, create index entry
+        if let Some(ref node_id) = grip.toc_node_id {
+            let index_key = format!("node:{}:{}", node_id, grip.grip_id);
+            self.db.put_cf(&grips_cf, index_key.as_bytes(), &[])?;
+        }
+
+        debug!(grip_id = %grip.grip_id, "Stored grip");
+        Ok(())
+    }
+
+    /// Get a grip by ID.
+    pub fn get_grip(&self, grip_id: &str) -> Result<Option<memory_types::Grip>, StorageError> {
+        let grips_cf = self.db.cf_handle(CF_GRIPS)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
+
+        match self.db.get_cf(&grips_cf, grip_id.as_bytes())? {
+            Some(bytes) => {
+                let grip = memory_types::Grip::from_bytes(&bytes)
+                    .map_err(|e| StorageError::Serialization(e.to_string()))?;
+                Ok(Some(grip))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Get all grips linked to a TOC node.
+    pub fn get_grips_for_node(&self, node_id: &str) -> Result<Vec<memory_types::Grip>, StorageError> {
+        let grips_cf = self.db.cf_handle(CF_GRIPS)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
+
+        let prefix = format!("node:{}:", node_id);
+        let mut grips = Vec::new();
+
+        let iter = self.db.iterator_cf(
+            &grips_cf,
+            IteratorMode::From(prefix.as_bytes(), Direction::Forward),
+        );
+
+        for item in iter {
+            let (key, _) = item?;
+            let key_str = String::from_utf8_lossy(&key);
+
+            // Stop if we've passed this node's prefix
+            if !key_str.starts_with(&prefix) {
+                break;
+            }
+
+            // Extract grip_id from key
+            let grip_id = key_str.trim_start_matches(&prefix);
+            if let Some(grip) = self.get_grip(grip_id)? {
+                grips.push(grip);
+            }
+        }
+
+        Ok(grips)
+    }
+
+    /// Delete a grip and its index entry.
+    pub fn delete_grip(&self, grip_id: &str) -> Result<(), StorageError> {
+        let grips_cf = self.db.cf_handle(CF_GRIPS)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
+
+        // Get grip first to find index entry
+        if let Some(grip) = self.get_grip(grip_id)? {
+            // Delete index entry if exists
+            if let Some(ref node_id) = grip.toc_node_id {
+                let index_key = format!("node:{}:{}", node_id, grip_id);
+                self.db.delete_cf(&grips_cf, index_key.as_bytes())?;
+            }
+        }
+
+        // Delete grip itself
+        self.db.delete_cf(&grips_cf, grip_id.as_bytes())?;
+
+        debug!(grip_id = %grip_id, "Deleted grip");
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -512,5 +602,78 @@ mod tests {
         let children = storage.get_child_nodes("toc:day:2024-01-15").unwrap();
         assert_eq!(children.len(), 1);
         assert_eq!(children[0].node_id, "toc:segment:2024-01-15:abc123");
+    }
+
+    #[test]
+    fn test_grip_roundtrip() {
+        let (storage, _temp) = create_test_storage();
+
+        let grip = memory_types::Grip::new(
+            "grip:1706540400000:test123".to_string(),
+            "User asked about authentication".to_string(),
+            "event-001".to_string(),
+            "event-003".to_string(),
+            chrono::Utc::now(),
+            "segment_summarizer".to_string(),
+        );
+
+        storage.put_grip(&grip).unwrap();
+        let retrieved = storage.get_grip("grip:1706540400000:test123").unwrap();
+
+        assert!(retrieved.is_some());
+        let retrieved_grip = retrieved.unwrap();
+        assert_eq!(retrieved_grip.excerpt, grip.excerpt);
+    }
+
+    #[test]
+    fn test_grip_with_node_index() {
+        let (storage, _temp) = create_test_storage();
+
+        let grip = memory_types::Grip::new(
+            "grip:1706540400000:test456".to_string(),
+            "Discussed JWT tokens".to_string(),
+            "event-010".to_string(),
+            "event-015".to_string(),
+            chrono::Utc::now(),
+            "segment_summarizer".to_string(),
+        ).with_toc_node("toc:day:2024-01-29".to_string());
+
+        storage.put_grip(&grip).unwrap();
+
+        let grips = storage.get_grips_for_node("toc:day:2024-01-29").unwrap();
+        assert_eq!(grips.len(), 1);
+        assert_eq!(grips[0].grip_id, "grip:1706540400000:test456");
+    }
+
+    #[test]
+    fn test_grip_not_found() {
+        let (storage, _temp) = create_test_storage();
+
+        let result = storage.get_grip("grip:nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_delete_grip() {
+        let (storage, _temp) = create_test_storage();
+
+        let grip = memory_types::Grip::new(
+            "grip:1706540400000:del123".to_string(),
+            "Test excerpt".to_string(),
+            "event-001".to_string(),
+            "event-002".to_string(),
+            chrono::Utc::now(),
+            "test".to_string(),
+        ).with_toc_node("toc:day:2024-01-30".to_string());
+
+        storage.put_grip(&grip).unwrap();
+        assert!(storage.get_grip("grip:1706540400000:del123").unwrap().is_some());
+
+        storage.delete_grip("grip:1706540400000:del123").unwrap();
+        assert!(storage.get_grip("grip:1706540400000:del123").unwrap().is_none());
+
+        // Index should also be deleted
+        let grips = storage.get_grips_for_node("toc:day:2024-01-30").unwrap();
+        assert!(grips.is_empty());
     }
 }
