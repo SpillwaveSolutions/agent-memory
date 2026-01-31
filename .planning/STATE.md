@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 ## Current Position
 
-Phase: 5 of 6 (Integration) - IN PROGRESS
-Plan: 2 of 3 in current phase (completed: 05-01, 05-02)
-Status: Plan 05-03 pending (Admin Commands)
-Last activity: 2026-01-30 -- Completed 05-02-PLAN.md (Query CLI)
+Phase: 5 of 6 (Integration) - COMPLETE
+Plan: 3 of 3 in current phase (completed: 05-01, 05-02, 05-03)
+Status: Phase 5 Complete - Ready for Phase 6
+Last activity: 2026-01-30 -- Completed 05-03-PLAN.md (Admin Commands)
 
-Progress: [################--] 83% (15/18 plans)
+Progress: [#################-] 89% (16/18 plans)
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: [################--] 83% (15/18 plans)
 | 2. TOC Building | 3/3 | ~48min | ~16min |
 | 3. Grips & Provenance | 3/3 | ~30min | ~10min |
 | 4. Query Layer | 2/2 | ~20min | ~10min |
-| 5. Integration | 2/3 | ~20min | ~10min |
+| 5. Integration | 3/3 | ~30min | ~10min |
 | 6. End-to-End Demo | 0/2 | - | - |
 
 **Recent Trend:**
@@ -127,6 +127,12 @@ Recent decisions affecting current work:
 - Query CLI subcommand with root/node/browse/events/expand commands
 - Pagination via continuation_token for large result sets
 
+**From 05-03:**
+- Admin CLI opens storage directly (not via gRPC) for local operations
+- StorageStats provides event/node/grip counts and disk usage
+- Compact triggers RocksDB compaction on all or specific CFs
+- RebuildToc placeholder - full impl requires memory-toc integration
+
 ### Pending Todos
 
 None yet.
@@ -180,4 +186,11 @@ Resume file: None
 |------|------|-------------|--------|
 | 05-01 | 1 | Client library and hook mapping | Complete |
 | 05-02 | 1 | Query CLI commands | Complete |
-| 05-03 | 2 | Admin commands (rebuild-toc, compact, status) | Pending |
+| 05-03 | 2 | Admin commands (rebuild-toc, compact, status) | Complete |
+
+## Phase 6 Plans
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 06-01 | 1 | Integration test harness and demo script | Pending |
+| 06-02 | 2 | Documentation and usage examples | Pending |

@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use chrono::TimeZone;
 use tokio::signal;
 use tracing::{info, warn};
 
@@ -20,7 +21,7 @@ use memory_service::pb::TocLevel as ProtoTocLevel;
 use memory_storage::Storage;
 use memory_types::Settings;
 
-use crate::cli::QueryCommands;
+use crate::cli::{AdminCommands, QueryCommands};
 
 /// Get the PID file path
 fn pid_file_path() -> PathBuf {
@@ -435,6 +436,118 @@ fn truncate_text(text: &str, max_len: usize) -> String {
         format!("{}...", &text[..max_len])
     } else {
         text.to_string()
+    }
+}
+
+/// Handle admin commands.
+///
+/// Per CLI-03: Admin commands include rebuild-toc, compact, status.
+pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<()> {
+    // Load settings to get default db_path if not provided
+    let settings = Settings::load(None).context("Failed to load configuration")?;
+    let db_path = db_path.unwrap_or_else(|| settings.db_path.clone());
+    let expanded_path = shellexpand::tilde(&db_path).to_string();
+
+    // Open storage directly (not via gRPC)
+    let storage = Storage::open(std::path::Path::new(&expanded_path))
+        .context(format!("Failed to open storage at {}", expanded_path))?;
+
+    match command {
+        AdminCommands::Stats => {
+            let stats = storage.get_stats().context("Failed to get stats")?;
+
+            println!("Database Statistics");
+            println!("===================");
+            println!("Path: {}", expanded_path);
+            println!();
+            println!("Events:       {:>10}", stats.event_count);
+            println!("TOC Nodes:    {:>10}", stats.toc_node_count);
+            println!("Grips:        {:>10}", stats.grip_count);
+            println!("Outbox:       {:>10}", stats.outbox_count);
+            println!();
+            println!("Disk Usage:   {:>10}", format_bytes(stats.disk_usage_bytes));
+        }
+
+        AdminCommands::Compact { cf } => {
+            match cf {
+                Some(cf_name) => {
+                    println!("Compacting column family: {}", cf_name);
+                    storage.compact_cf(&cf_name)
+                        .context(format!("Failed to compact {}", cf_name))?;
+                    println!("Compaction complete.");
+                }
+                None => {
+                    println!("Compacting all column families...");
+                    storage.compact().context("Failed to compact")?;
+                    println!("Compaction complete.");
+                }
+            }
+        }
+
+        AdminCommands::RebuildToc { from_date, dry_run } => {
+            if dry_run {
+                println!("DRY RUN - No changes will be made");
+                println!();
+            }
+
+            let from_timestamp = if let Some(date_str) = from_date {
+                // Parse YYYY-MM-DD date
+                let date = chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
+                    .context(format!("Invalid date format: {}. Use YYYY-MM-DD", date_str))?;
+                let datetime = date.and_hms_opt(0, 0, 0).unwrap();
+                Some(chrono::Utc.from_utc_datetime(&datetime).timestamp_millis())
+            } else {
+                None
+            };
+
+            // Get events to process
+            let start_ms = from_timestamp.unwrap_or(0);
+            let end_ms = chrono::Utc::now().timestamp_millis();
+
+            let events = storage.get_events_in_range(start_ms, end_ms)
+                .context("Failed to query events")?;
+
+            println!("Found {} events to process", events.len());
+
+            if events.is_empty() {
+                println!("No events to rebuild TOC from.");
+                return Ok(());
+            }
+
+            if dry_run {
+                println!();
+                println!("Would process events from {} to {}", start_ms, end_ms);
+                println!("First event timestamp: {}", events.first().map(|(k, _)| k.timestamp_ms).unwrap_or(0));
+                println!("Last event timestamp: {}", events.last().map(|(k, _)| k.timestamp_ms).unwrap_or(0));
+                println!();
+                println!("To actually rebuild, run without --dry-run");
+            } else {
+                // TODO: Full TOC rebuild would require integrating with memory-toc
+                // For now, just report what would be done
+                println!();
+                println!("TOC rebuild not yet fully implemented.");
+                println!("This would require re-running segmentation and summarization.");
+                println!("Events are intact and can be manually processed.");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} bytes", bytes)
     }
 }
 

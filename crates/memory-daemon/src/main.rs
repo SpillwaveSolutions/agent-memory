@@ -21,7 +21,7 @@
 use anyhow::Result;
 use clap::Parser;
 
-use memory_daemon::{handle_query, show_status, start_daemon, stop_daemon, Cli, Commands};
+use memory_daemon::{handle_admin, handle_query, show_status, start_daemon, stop_daemon, Cli, Commands};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -50,6 +50,9 @@ async fn main() -> Result<()> {
         }
         Commands::Query { endpoint, command } => {
             handle_query(&endpoint, command).await?;
+        }
+        Commands::Admin { db_path, command } => {
+            handle_admin(db_path, command)?;
         }
     }
 

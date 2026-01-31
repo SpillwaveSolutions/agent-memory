@@ -12,6 +12,6 @@ pub mod db;
 pub mod error;
 pub mod keys;
 
-pub use db::Storage;
+pub use db::{Storage, StorageStats};
 pub use error::StorageError;
 pub use keys::{EventKey, OutboxKey, CheckpointKey};

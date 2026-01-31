@@ -57,6 +57,16 @@ pub enum Commands {
         #[command(subcommand)]
         command: QueryCommands,
     },
+
+    /// Administrative commands
+    Admin {
+        /// Database path (default from config)
+        #[arg(long)]
+        db_path: Option<String>,
+
+        #[command(subcommand)]
+        command: AdminCommands,
+    },
 }
 
 /// Query subcommands
@@ -112,6 +122,31 @@ pub enum QueryCommands {
         /// Number of events after excerpt
         #[arg(long, default_value = "3")]
         after: u32,
+    },
+}
+
+/// Admin subcommands
+#[derive(Subcommand, Debug, Clone)]
+pub enum AdminCommands {
+    /// Show database statistics
+    Stats,
+
+    /// Trigger RocksDB compaction
+    Compact {
+        /// Compact only specific column family
+        #[arg(long)]
+        cf: Option<String>,
+    },
+
+    /// Rebuild TOC from raw events
+    RebuildToc {
+        /// Start from this date (YYYY-MM-DD)
+        #[arg(long)]
+        from_date: Option<String>,
+
+        /// Dry run - show what would be done
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 

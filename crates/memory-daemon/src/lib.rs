@@ -10,5 +10,5 @@
 pub mod cli;
 pub mod commands;
 
-pub use cli::{Cli, Commands, QueryCommands};
-pub use commands::{handle_query, show_status, start_daemon, stop_daemon};
+pub use cli::{AdminCommands, Cli, Commands, QueryCommands};
+pub use commands::{handle_admin, handle_query, show_status, start_daemon, stop_daemon};

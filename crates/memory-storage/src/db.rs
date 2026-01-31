@@ -421,6 +421,106 @@ impl Storage {
         debug!(grip_id = %grip_id, "Deleted grip");
         Ok(())
     }
+
+    // ===== Admin Operations =====
+
+    /// Trigger manual compaction on all column families.
+    ///
+    /// Per CLI-03: Admin commands include compact.
+    pub fn compact(&self) -> Result<(), StorageError> {
+        info!("Starting full compaction...");
+        self.db.compact_range::<&[u8], &[u8]>(None, None);
+
+        for cf_name in &[CF_EVENTS, CF_TOC_NODES, CF_TOC_LATEST, CF_GRIPS, CF_OUTBOX, CF_CHECKPOINTS] {
+            if let Some(cf) = self.db.cf_handle(cf_name) {
+                self.db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
+            }
+        }
+        info!("Compaction complete");
+        Ok(())
+    }
+
+    /// Trigger compaction on a specific column family.
+    pub fn compact_cf(&self, cf_name: &str) -> Result<(), StorageError> {
+        let cf = self.db.cf_handle(cf_name)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(cf_name.to_string()))?;
+        info!(cf = %cf_name, "Starting compaction...");
+        self.db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
+        info!(cf = %cf_name, "Compaction complete");
+        Ok(())
+    }
+
+    /// Get database statistics.
+    ///
+    /// Per CLI-03: Admin commands include status.
+    pub fn get_stats(&self) -> Result<StorageStats, StorageError> {
+        let mut stats = StorageStats::default();
+
+        // Count events
+        if let Some(cf) = self.db.cf_handle(CF_EVENTS) {
+            stats.event_count = self.count_cf_entries(&cf)?;
+        }
+
+        // Count TOC nodes
+        if let Some(cf) = self.db.cf_handle(CF_TOC_NODES) {
+            stats.toc_node_count = self.count_cf_entries(&cf)?;
+        }
+
+        // Count grips
+        if let Some(cf) = self.db.cf_handle(CF_GRIPS) {
+            stats.grip_count = self.count_cf_entries(&cf)?;
+        }
+
+        // Count outbox entries
+        if let Some(cf) = self.db.cf_handle(CF_OUTBOX) {
+            stats.outbox_count = self.count_cf_entries(&cf)?;
+        }
+
+        // Get disk usage
+        stats.disk_usage_bytes = self.get_disk_usage()?;
+
+        Ok(stats)
+    }
+
+    fn count_cf_entries(&self, cf: &rocksdb::ColumnFamily) -> Result<u64, StorageError> {
+        let mut count = 0u64;
+        let iter = self.db.iterator_cf(cf, IteratorMode::Start);
+        for item in iter {
+            item?;
+            count += 1;
+        }
+        Ok(count)
+    }
+
+    fn get_disk_usage(&self) -> Result<u64, StorageError> {
+        let path = self.db.path();
+        let mut total_size = 0u64;
+
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                if let Ok(metadata) = entry.metadata() {
+                    total_size += metadata.len();
+                }
+            }
+        }
+
+        Ok(total_size)
+    }
+}
+
+/// Statistics about the storage.
+#[derive(Debug, Default)]
+pub struct StorageStats {
+    /// Number of events stored
+    pub event_count: u64,
+    /// Number of TOC nodes
+    pub toc_node_count: u64,
+    /// Number of grips
+    pub grip_count: u64,
+    /// Number of pending outbox entries
+    pub outbox_count: u64,
+    /// Total disk usage in bytes
+    pub disk_usage_bytes: u64,
 }
 
 #[cfg(test)]
