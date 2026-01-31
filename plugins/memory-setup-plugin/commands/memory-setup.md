@@ -478,7 +478,7 @@ Need help? Run: /memory-status --verbose
 
 ### `--fresh`
 
-Ignore existing configuration and start fresh.
+Ignore existing configuration and re-ask all questions.
 
 **Behavior:**
 - Ignore all existing state during detection
@@ -487,7 +487,21 @@ Ignore existing configuration and start fresh.
 - Stop and restart daemon if running
 - Warn before overwriting (with backup)
 
-**Use case:** Reset to clean state, fix corrupted configuration
+**State Detection Changes:**
+- Treat all checks as "not found" or "not configured"
+- Still detect platform/architecture for installation
+
+**Warning Prompt:**
+```
+Warning: This will overwrite existing configuration.
+Existing files will be backed up with .bak extension:
+  - ~/.config/memory-daemon/config.toml.bak
+  - ~/.claude/code_agent_context_hooks/hooks.yaml.bak
+
+Continue? [y/N]
+```
+
+**Use case:** Reset to clean state, fix corrupted configuration, upgrade with new defaults
 
 ### `--minimal`
 
@@ -497,27 +511,104 @@ Use all defaults without asking questions.
 - Detect state but skip questions with defaults
 - Only prompt for truly required inputs (API key if not in env)
 - Use sensible defaults for all options:
-  - Installation: cargo if available
-  - Provider: anthropic if key set, else openai
+  - Installation: cargo if available, else binary
+  - Location: ~/.cargo/bin (cargo) or ~/.local/bin (binary)
+  - Provider: anthropic if ANTHROPIC_API_KEY set, else openai
   - Hooks: global
-  - Daemon: auto-start
+  - Daemon: start + auto-start
 
-**Use case:** Quick setup for experienced users, CI/CD environments
+**Silent Mode:**
+- Minimal output during execution
+- Only show final success/failure summary
+- No confirmations (assumes "yes" to all)
+
+**API Key Handling:**
+```
+IF ANTHROPIC_API_KEY set THEN
+  provider = anthropic
+ELSE IF OPENAI_API_KEY set THEN
+  provider = openai
+ELSE
+  PROMPT for API key (required)
+END
+```
+
+**Use case:** Quick setup for experienced users, CI/CD environments, scripted deployments
 
 ### `--advanced`
 
-Show all configuration options.
+Show all configuration options including expert settings.
 
 **Behavior:**
 - Ask standard questions plus:
-  - Server port selection
-  - Server host configuration
-  - Database path selection
+  - Server port selection (default: 50051)
+  - Server host configuration (default: [::1])
+  - Database path selection (default: ~/.memory-store)
   - Segmentation tuning parameters
-- Show more detailed status output
-- Offer expert configuration options
 
-**Use case:** Power users, custom deployments
+**Additional Questions:**
+
+```
+Configure server settings:
+  Port: [50051]
+  Host: [[::1]]
+
+Configure storage:
+  Data path: [~/.memory-store]
+
+Configure TOC segmentation:
+  Minimum tokens per segment: [500]
+  Maximum tokens per segment: [4000]
+  Time gap threshold (minutes): [30]
+```
+
+**Extended Status Output:**
+- Show all configuration values after completion
+- Include performance recommendations
+- Display disk usage projections
+
+**Use case:** Power users, custom deployments, non-standard environments
+
+---
+
+## Flag Combinations
+
+| Combination | Effect |
+|-------------|--------|
+| `--fresh --minimal` | Clean install with all defaults (fast reset) |
+| `--fresh --advanced` | Clean install with all options exposed |
+| `--minimal --advanced` | Invalid: mutually exclusive (error) |
+
+### Invalid Combinations
+
+```bash
+/memory-setup --minimal --advanced
+```
+
+**Error:**
+```
+Error: --minimal and --advanced are mutually exclusive.
+
+  --minimal: Use defaults, skip questions
+  --advanced: Show all options, ask more questions
+
+Choose one or use neither for standard setup.
+```
+
+### Flag Priority
+
+When determining behavior, flags are evaluated in order:
+
+1. **`--fresh`** - Applied first (affects state detection)
+2. **`--minimal` or `--advanced`** - Applied second (affects question flow)
+
+### Combining with State Detection
+
+| Existing State | No Flags | --fresh | --minimal | --advanced |
+|----------------|----------|---------|-----------|------------|
+| Nothing installed | Full wizard | Full wizard | Defaults | Extended wizard |
+| Binaries only | Config wizard | Full wizard | Complete defaults | Extended wizard |
+| Fully configured | "Already setup" | Full wizard | Skip all | Extended wizard |
 
 ---
 
