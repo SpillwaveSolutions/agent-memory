@@ -224,6 +224,179 @@ Runtime:        ✗ Daemon not running (port available)
 Recommended:    Configure CCH hook, then start daemon
 ```
 
+## Output Formatting
+
+Use consistent visual formatting throughout the wizard for clear user communication.
+
+### Progress Display
+
+Show wizard progress with step indicators:
+
+```
+Agent Memory Setup
+==================
+
+Checking prerequisites...
+  [check] Claude Code detected
+  [check] cargo available (1.75.0)
+  [x] memory-daemon not found
+  [x] memory-ingest not found
+
+Step 1 of 6: Installation
+-------------------------
+```
+
+### Step Headers
+
+Each wizard step uses consistent header formatting:
+
+```
+Step N of 6: Step Name
+----------------------
+[Question or action content]
+```
+
+### Status Indicators
+
+Use consistent symbols for status:
+
+| Symbol | Meaning | When to Use |
+|--------|---------|-------------|
+| `[check]` | Success/Complete | Item verified or action succeeded |
+| `[x]` | Missing/Failed | Item not found or action failed |
+| `[!]` | Warning | Non-critical issue, can continue |
+| `[?]` | Unknown | Could not determine status |
+| `[>]` | In Progress | Currently executing |
+
+### Success Display
+
+Final success message format:
+
+```
+==================================================
+ Setup Complete!
+==================================================
+
+[check] Binaries installed to ~/.cargo/bin/
+[check] Configuration written to ~/.config/memory-daemon/
+[check] Hooks configured in ~/.claude/code_agent_context_hooks/hooks.yaml
+[check] Daemon started on port 50051
+
+Next steps:
+  * Start a conversation and it will be recorded
+  * Use /memory-recent to see captured events
+  * Use /memory-search <topic> to find past discussions
+```
+
+### Partial Success Display
+
+When some steps succeed but others are skipped or fail:
+
+```
+==================================================
+ Setup Partially Complete
+==================================================
+
+[check] Binaries installed to ~/.cargo/bin/
+[check] Configuration written to ~/.config/memory-daemon/
+[x] CCH hook not configured (manual setup required)
+[check] Daemon started on port 50051
+
+What's missing:
+  * CCH integration not configured - events won't be captured automatically
+
+To complete setup manually:
+  1. Add to ~/.claude/code_agent_context_hooks/hooks.yaml:
+     hooks:
+       - event: all
+         handler:
+           type: pipe
+           command: memory-ingest
+
+  2. Verify with: /memory-status
+```
+
+### Error Display
+
+When setup fails, provide actionable error information:
+
+```
+[x] Setup Failed
+----------------
+
+Error: Could not start daemon - port 50051 in use
+
+To fix:
+  1. Run: lsof -i :50051
+  2. Kill the process using the port
+  3. Run: /memory-setup --fresh
+
+Need help? Run: /memory-status --verbose
+```
+
+### Question Format
+
+When asking user for input:
+
+```
+Which LLM provider should generate summaries?
+
+1. Anthropic (Claude) - Best quality summaries
+2. OpenAI (GPT-4o-mini) - Fast and cost-effective
+3. Local (Ollama) - Private, runs locally
+4. None - Skip summarization
+
+Default: 1 (Anthropic)
+
+Enter selection [1-4]:
+```
+
+### Summary Tables
+
+Use tables for displaying configuration and status summaries:
+
+```
+### Installation Summary
+
+| Component | Status | Version | Path |
+|-----------|--------|---------|------|
+| memory-daemon | Installed | 1.0.0 | ~/.cargo/bin/ |
+| memory-ingest | Installed | 1.0.0 | ~/.cargo/bin/ |
+
+### Configuration
+
+| Setting | Value |
+|---------|-------|
+| Storage Path | ~/.memory-store |
+| Server | [::1]:50051 |
+| LLM Provider | Anthropic (claude-3-5-haiku-latest) |
+| CCH Hooks | Global |
+```
+
+### Progress Bar (Optional)
+
+For long operations like cargo install:
+
+```
+Installing memory-daemon...
+[################----] 80% - Compiling memory-daemon v1.0.0
+```
+
+### Color Guidelines (Terminal Support)
+
+When terminal supports colors:
+
+| Element | Color | ANSI Code |
+|---------|-------|-----------|
+| Success | Green | `\033[32m` |
+| Error | Red | `\033[31m` |
+| Warning | Yellow | `\033[33m` |
+| Info | Blue | `\033[34m` |
+| Headers | Bold | `\033[1m` |
+| Reset | - | `\033[0m` |
+
+**Note:** Always check terminal capability before using colors. Fall back to text indicators ([check], [x], etc.) when colors unavailable.
+
 ## Reference Files
 
 For detailed information, see:
