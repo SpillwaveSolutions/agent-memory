@@ -130,31 +130,212 @@ cargo install --git https://github.com/SpillwaveSolutions/agent-memory memory-da
 # Note: --force is required to overwrite existing binary
 ```
 
+---
+
 ## Method 2: Pre-built Binaries
 
-Download pre-built binaries from GitHub releases:
+Download pre-built binaries directly from GitHub releases. No Rust toolchain required.
+
+### Release URL Pattern
+
+Binaries are published at:
+
+```
+https://github.com/SpillwaveSolutions/agent-memory/releases/download/v{VERSION}/memory-{BINARY}-{OS}-{ARCH}.{EXT}
+```
+
+**Components:**
+
+| Component | Values |
+|-----------|--------|
+| `{VERSION}` | `1.0.0`, `1.0.1`, `latest` |
+| `{BINARY}` | `daemon`, `ingest` |
+| `{OS}` | `darwin`, `linux`, `windows` |
+| `{ARCH}` | `x86_64`, `arm64` |
+| `{EXT}` | `.tar.gz` (macOS/Linux), `.zip` (Windows) |
+
+### Platform Detection
+
+**Detect your platform automatically:**
 
 ```bash
-# Get latest release URL
-RELEASE_URL=$(curl -s https://api.github.com/repos/SpillwaveSolutions/agent-memory/releases/latest | grep browser_download_url | grep $(uname -s | tr '[:upper:]' '[:lower:]') | cut -d'"' -f4)
+# Detect OS
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+case "$OS" in
+  darwin) OS="darwin" ;;
+  linux)  OS="linux" ;;
+  mingw*|msys*|cygwin*) OS="windows" ;;
+esac
 
-# Download and extract
-curl -L "$RELEASE_URL" | tar xz
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64|amd64) ARCH="x86_64" ;;
+  arm64|aarch64) ARCH="arm64" ;;
+esac
 
-# Move to bin directory
-sudo mv memory-daemon /usr/local/bin/
-sudo mv memory-ingest /usr/local/bin/
+echo "Platform: ${OS}-${ARCH}"
 ```
 
 ### Platform-Specific Downloads
 
-| Platform | Architecture | Filename |
-|----------|--------------|----------|
-| macOS | arm64 (Apple Silicon) | `memory-daemon-darwin-arm64.tar.gz` |
-| macOS | x86_64 (Intel) | `memory-daemon-darwin-x86_64.tar.gz` |
-| Linux | x86_64 | `memory-daemon-linux-x86_64.tar.gz` |
-| Linux | arm64 | `memory-daemon-linux-arm64.tar.gz` |
-| Windows | x86_64 | `memory-daemon-windows-x86_64.zip` |
+| Platform | Architecture | Filename | SHA256 |
+|----------|--------------|----------|--------|
+| macOS | arm64 (Apple Silicon) | `memory-daemon-darwin-arm64.tar.gz` | (in .sha256 file) |
+| macOS | x86_64 (Intel) | `memory-daemon-darwin-x86_64.tar.gz` | (in .sha256 file) |
+| Linux | x86_64 | `memory-daemon-linux-x86_64.tar.gz` | (in .sha256 file) |
+| Linux | arm64 | `memory-daemon-linux-arm64.tar.gz` | (in .sha256 file) |
+| Windows | x86_64 | `memory-daemon-windows-x86_64.zip` | (in .sha256 file) |
+
+### Download Commands
+
+**Automated download (latest release):**
+
+```bash
+# Set version (or "latest")
+VERSION="latest"
+
+# Detect platform
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
+[[ "$ARCH" == "aarch64" ]] && ARCH="arm64"
+
+# Get download URL for latest release
+if [[ "$VERSION" == "latest" ]]; then
+  RELEASE_URL=$(curl -sL https://api.github.com/repos/SpillwaveSolutions/agent-memory/releases/latest \
+    | grep "browser_download_url.*memory-daemon-${OS}-${ARCH}" \
+    | cut -d'"' -f4)
+else
+  RELEASE_URL="https://github.com/SpillwaveSolutions/agent-memory/releases/download/v${VERSION}/memory-daemon-${OS}-${ARCH}.tar.gz"
+fi
+
+echo "Downloading from: $RELEASE_URL"
+```
+
+**Download and extract:**
+
+```bash
+# Create temp directory
+TMPDIR=$(mktemp -d)
+cd "$TMPDIR"
+
+# Download binary archive
+curl -fsSL "$RELEASE_URL" -o memory-daemon.tar.gz
+
+# Download checksum
+curl -fsSL "${RELEASE_URL}.sha256" -o memory-daemon.tar.gz.sha256
+
+# Verify checksum
+echo "Verifying checksum..."
+if command -v sha256sum &> /dev/null; then
+  sha256sum -c memory-daemon.tar.gz.sha256
+elif command -v shasum &> /dev/null; then
+  shasum -a 256 -c memory-daemon.tar.gz.sha256
+fi
+
+# Extract
+tar xzf memory-daemon.tar.gz
+
+# List contents
+ls -la
+```
+
+### Checksum Verification
+
+**Always verify checksums to ensure binary integrity:**
+
+```bash
+# Each release includes .sha256 files
+# memory-daemon-darwin-arm64.tar.gz.sha256 contains:
+# abc123...  memory-daemon-darwin-arm64.tar.gz
+
+# Verify on macOS
+shasum -a 256 -c memory-daemon-*.sha256
+
+# Verify on Linux
+sha256sum -c memory-daemon-*.sha256
+
+# Manual verification
+EXPECTED=$(cat memory-daemon-*.sha256 | awk '{print $1}')
+ACTUAL=$(shasum -a 256 memory-daemon-*.tar.gz | awk '{print $1}')
+[[ "$EXPECTED" == "$ACTUAL" ]] && echo "Checksum OK" || echo "CHECKSUM MISMATCH!"
+```
+
+### Install Binary
+
+**Install to user directory (no sudo required):**
+
+```bash
+# Create local bin directory
+mkdir -p ~/.local/bin
+
+# Move binaries
+mv memory-daemon ~/.local/bin/
+mv memory-ingest ~/.local/bin/
+
+# Add to PATH (if not already)
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify
+which memory-daemon
+memory-daemon --version
+```
+
+**Install to system directory (requires sudo):**
+
+```bash
+# Move to /usr/local/bin (common for manually installed binaries)
+sudo mv memory-daemon /usr/local/bin/
+sudo mv memory-ingest /usr/local/bin/
+
+# Set permissions
+sudo chmod 755 /usr/local/bin/memory-daemon
+sudo chmod 755 /usr/local/bin/memory-ingest
+
+# Verify
+memory-daemon --version
+```
+
+### Windows Installation
+
+```powershell
+# Download using PowerShell
+$version = "1.0.0"
+$url = "https://github.com/SpillwaveSolutions/agent-memory/releases/download/v$version/memory-daemon-windows-x86_64.zip"
+$outfile = "$env:TEMP\memory-daemon.zip"
+
+Invoke-WebRequest -Uri $url -OutFile $outfile
+
+# Extract
+Expand-Archive -Path $outfile -DestinationPath "$env:TEMP\memory-daemon"
+
+# Move to user directory
+$bindir = "$env:LOCALAPPDATA\Programs\memory-daemon"
+New-Item -ItemType Directory -Force -Path $bindir
+Move-Item "$env:TEMP\memory-daemon\*" $bindir
+
+# Add to PATH
+$path = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($path -notlike "*$bindir*") {
+  [Environment]::SetEnvironmentVariable("Path", "$path;$bindir", "User")
+}
+
+# Verify (new terminal required for PATH update)
+memory-daemon.exe --version
+```
+
+### Troubleshooting Binary Download
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| 404 Not Found | Wrong version/platform | Check release page for available downloads |
+| Checksum mismatch | Corrupted download | Re-download, check network |
+| Permission denied | Not executable | Run `chmod +x memory-daemon` |
+| "cannot execute binary" | Wrong architecture | Download correct arch (x86_64 vs arm64) |
+| macOS "unidentified developer" | Gatekeeper | Run `xattr -d com.apple.quarantine memory-daemon` |
+
+---
 
 ## Method 3: Build from Source
 
