@@ -4,18 +4,41 @@ Detailed installation instructions for agent-memory components.
 
 ## Prerequisites
 
-### Rust Toolchain
+### Required: Rust Toolchain
+
+The Rust toolchain is required for cargo installation (Method 1).
+
+**Check existing installation:**
 
 ```bash
-# Check if Rust is installed
-rustc --version
-
-# Install Rust if needed
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.cargo/env
+rustc --version    # Should show 1.75.0 or later
+cargo --version    # Should match rustc version
 ```
 
-### Protobuf Compiler (optional, for building from source)
+**Install Rust (if not installed):**
+
+```bash
+# Official installer (recommended)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Follow prompts, then reload shell
+source ~/.cargo/env
+
+# Or restart your terminal
+```
+
+**Troubleshooting Rust installation:**
+
+| Issue | Solution |
+|-------|----------|
+| `command not found: rustc` | Run `source ~/.cargo/env` or restart terminal |
+| Version too old | Run `rustup update stable` |
+| Permission denied | Don't use `sudo` with rustup; it installs to `~/.cargo` |
+| SSL certificate errors | Update CA certificates: `apt-get install ca-certificates` (Linux) |
+
+### Optional: Protobuf Compiler (for building from source only)
+
+Only needed if building from source (Method 3). Pre-built binaries and cargo install do NOT require protobuf.
 
 ```bash
 # macOS
@@ -26,28 +49,85 @@ sudo apt-get install protobuf-compiler
 
 # Fedora
 sudo dnf install protobuf-compiler
+
+# Arch Linux
+sudo pacman -S protobuf
 ```
+
+---
 
 ## Method 1: Cargo Install (Recommended)
 
-Install from crates.io (when published) or directly from GitHub:
+Cargo install is the recommended method. It compiles binaries optimized for your system and places them in `~/.cargo/bin/`.
+
+### Prerequisites
+
+- Rust toolchain (see above)
+- Internet connection
+- C compiler (usually pre-installed on macOS/Linux)
+
+### Installation Commands
+
+**Install from GitHub (latest release):**
 
 ```bash
-# From GitHub (latest)
 cargo install --git https://github.com/SpillwaveSolutions/agent-memory memory-daemon
-
-# From GitHub (specific version)
-cargo install --git https://github.com/SpillwaveSolutions/agent-memory --tag v1.0.0 memory-daemon
-
-# Install with CCH ingest handler
 cargo install --git https://github.com/SpillwaveSolutions/agent-memory memory-ingest
 ```
 
-**Verify installation:**
+**Install specific version:**
 
 ```bash
+# By tag (recommended for stability)
+cargo install --git https://github.com/SpillwaveSolutions/agent-memory --tag v1.0.0 memory-daemon
+
+# By branch
+cargo install --git https://github.com/SpillwaveSolutions/agent-memory --branch main memory-daemon
+
+# By commit
+cargo install --git https://github.com/SpillwaveSolutions/agent-memory --rev abc1234 memory-daemon
+```
+
+**Install from crates.io (when published):**
+
+```bash
+cargo install memory-daemon
+cargo install memory-ingest
+```
+
+### Verify Installation
+
+```bash
+# Check binaries exist and are in PATH
+which memory-daemon
+which memory-ingest
+
+# Check versions
 memory-daemon --version
-memory-ingest --version  # If installed
+memory-ingest --version
+
+# Expected output:
+# memory-daemon 1.0.0
+# memory-ingest 1.0.0
+```
+
+### Troubleshooting Cargo Install
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `error: linker 'cc' not found` | Missing C compiler | macOS: `xcode-select --install`; Linux: `apt install build-essential` |
+| `error: failed to compile` | Missing dependencies | Install libssl-dev (Linux): `apt install pkg-config libssl-dev` |
+| `error: binary already exists` | Previous installation | Add `--force` flag to overwrite |
+| Very slow compile | Debug build | Normal for first install (~5-10 min) |
+| Out of memory | Limited RAM | Add `--jobs 1` to reduce parallelism |
+
+### Updating
+
+```bash
+# Update to latest
+cargo install --git https://github.com/SpillwaveSolutions/agent-memory memory-daemon --force
+
+# Note: --force is required to overwrite existing binary
 ```
 
 ## Method 2: Pre-built Binaries
