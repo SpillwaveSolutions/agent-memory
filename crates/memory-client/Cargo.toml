@@ -1,0 +1,19 @@
+[package]
+name = "memory-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Client library for Agent Memory daemon"
+
+[dependencies]
+memory-service = { path = "../memory-service" }
+memory-types = { path = "../memory-types" }
+tonic = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+ulid = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
