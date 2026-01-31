@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Phase 2 Complete - Ready for Phase 3
+**Current focus:** Phase 3 Complete - Ready for Phase 4
 
 ## Current Position
 
-Phase: 2 of 6 (TOC Building) - COMPLETE
-Plan: 3 of 3 in current phase (completed: 02-01, 02-02, 02-03)
-Status: Phase 2 Complete
-Last activity: 2026-01-30 -- Completed 02-03-PLAN.md (TOC Hierarchy Builder)
+Phase: 3 of 6 (Grips & Provenance) - COMPLETE
+Plan: 3 of 3 in current phase (completed: 03-01, 03-02, 03-03)
+Status: Phase 3 Complete
+Last activity: 2026-01-30 -- Completed 03-03-PLAN.md (Grip Expansion)
 
-Progress: [########----------] 44% (8/18 plans)
+Progress: [###########-------] 61% (11/18 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: ~12min
-- Total execution time: ~95min
+- Total plans completed: 11
+- Average duration: ~11min
+- Total execution time: ~125min
 
 **By Phase:**
 
@@ -29,14 +29,14 @@ Progress: [########----------] 44% (8/18 plans)
 |-------|-------|-------|----------|
 | 1. Foundation | 5/5 | 47min | 9min |
 | 2. TOC Building | 3/3 | ~48min | ~16min |
-| 3. Grips & Provenance | 0/3 | - | - |
+| 3. Grips & Provenance | 3/3 | ~30min | ~10min |
 | 4. Query Layer | 0/2 | - | - |
 | 5. Integration | 0/3 | - | - |
 | 6. End-to-End Demo | 0/2 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (12min), 01-04 (4min), 02-01 (~15min), 02-02 (~15min), 02-03 (~18min)
-- Trend: Stable with slight increase for more complex plans
+- Last 5 plans: 02-01 (~15min), 02-02 (~15min), 02-03 (~18min), 03-01 (~10min), 03-02 (~10min)
+- Trend: Phase 3 plans faster due to solid foundation
 
 *Updated after each plan completion*
 
@@ -102,6 +102,21 @@ Recent decisions affecting current work:
 - Rollup jobs use configurable min_age to avoid incomplete periods
 - Checkpoints stored per job name for crash recovery
 
+**From 03-01:**
+- Grip ID format: "grip:{timestamp_ms}:{ulid}" for time-ordered iteration
+- Grips stored in CF_GRIPS with node index: "node:{node_id}:{grip_id}"
+- Grip validation ensures 26-char ULID with alphanumeric characters
+
+**From 03-02:**
+- GripExtractor uses term-overlap scoring (>30% match threshold)
+- Grips linked to bullets via grip_ids Vec<String> field
+- Excerpt truncation with configurable max length
+
+**From 03-03:**
+- Grip expansion retrieves context events around excerpt
+- Configurable context window (events_before/after, time limits)
+- Events partitioned into before/excerpt/after for structured access
+
 ### Pending Todos
 
 None yet.
@@ -113,7 +128,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 02-03-PLAN.md (Phase 2 Complete)
+Stopped at: Completed 03-03-PLAN.md (Phase 3 Complete)
 Resume file: None
 
 ## Phase 1 Plans
@@ -133,3 +148,11 @@ Resume file: None
 | 02-01 | 1 | Segmentation engine (time/token boundaries) | Complete |
 | 02-02 | 1 | Summarizer trait and implementation | Complete |
 | 02-03 | 2 | TOC hierarchy builder with rollups | Complete |
+
+## Phase 3 Plans
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 03-01 | 1 | Grip storage and data model | Complete |
+| 03-02 | 1 | Summarizer grip extraction integration | Complete |
+| 03-03 | 2 | Grip expansion/context retrieval | Complete |

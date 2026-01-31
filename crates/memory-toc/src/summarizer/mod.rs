@@ -2,12 +2,15 @@
 //!
 //! Per SUMM-01: Pluggable Summarizer trait (async, supports API and local LLM).
 //! Per SUMM-02: Generates title, bullets, keywords from events.
+//! Per SUMM-03: Extracts grips from events during summarization.
 //! Per SUMM-04: Rollup summarizer aggregates child node summaries.
 
 mod api;
+mod grip_extractor;
 mod mock;
 
 pub use api::{ApiSummarizer, ApiSummarizerConfig};
+pub use grip_extractor::{extract_grips, ExtractedGrip, GripExtractor, GripExtractorConfig};
 pub use mock::MockSummarizer;
 
 use async_trait::async_trait;
