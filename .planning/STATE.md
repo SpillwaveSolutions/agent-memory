@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Phase 3 Complete - Ready for Phase 4
+**Current focus:** Phase 5 Integration - Plan 05-03 pending
 
 ## Current Position
 
-Phase: 3 of 6 (Grips & Provenance) - COMPLETE
-Plan: 3 of 3 in current phase (completed: 03-01, 03-02, 03-03)
-Status: Phase 3 Complete
-Last activity: 2026-01-30 -- Completed 03-03-PLAN.md (Grip Expansion)
+Phase: 5 of 6 (Integration) - IN PROGRESS
+Plan: 2 of 3 in current phase (completed: 05-01, 05-02)
+Status: Plan 05-03 pending (Admin Commands)
+Last activity: 2026-01-30 -- Completed 05-02-PLAN.md (Query CLI)
 
-Progress: [###########-------] 61% (11/18 plans)
+Progress: [################--] 83% (15/18 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
+- Total plans completed: 15
 - Average duration: ~11min
-- Total execution time: ~125min
+- Total execution time: ~165min
 
 **By Phase:**
 
@@ -30,13 +30,13 @@ Progress: [###########-------] 61% (11/18 plans)
 | 1. Foundation | 5/5 | 47min | 9min |
 | 2. TOC Building | 3/3 | ~48min | ~16min |
 | 3. Grips & Provenance | 3/3 | ~30min | ~10min |
-| 4. Query Layer | 0/2 | - | - |
-| 5. Integration | 0/3 | - | - |
+| 4. Query Layer | 2/2 | ~20min | ~10min |
+| 5. Integration | 2/3 | ~20min | ~10min |
 | 6. End-to-End Demo | 0/2 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (~15min), 02-02 (~15min), 02-03 (~18min), 03-01 (~10min), 03-02 (~10min)
-- Trend: Phase 3 plans faster due to solid foundation
+- Last 5 plans: 03-03 (~10min), 04-01 (~10min), 04-02 (~10min), 05-01 (~10min), 05-02 (~10min)
+- Trend: Consistent velocity with well-defined plans
 
 *Updated after each plan completion*
 
@@ -117,6 +117,16 @@ Recent decisions affecting current work:
 - Configurable context window (events_before/after, time limits)
 - Events partitioned into before/excerpt/after for structured access
 
+**From 05-01:**
+- memory-client crate provides client API for hook handlers
+- HookEvent maps to Event with 1:1 type mapping (HOOK-03)
+- MemoryClient::connect/ingest for gRPC communication
+
+**From 05-02:**
+- Query RPCs added to proto (GetTocRoot, GetNode, BrowseToc, GetEvents, ExpandGrip)
+- Query CLI subcommand with root/node/browse/events/expand commands
+- Pagination via continuation_token for large result sets
+
 ### Pending Todos
 
 None yet.
@@ -128,7 +138,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 03-03-PLAN.md (Phase 3 Complete)
+Stopped at: Completed 05-02-PLAN.md (Query CLI)
 Resume file: None
 
 ## Phase 1 Plans
@@ -156,3 +166,18 @@ Resume file: None
 | 03-01 | 1 | Grip storage and data model | Complete |
 | 03-02 | 1 | Summarizer grip extraction integration | Complete |
 | 03-03 | 2 | Grip expansion/context retrieval | Complete |
+
+## Phase 4 Plans
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 04-01 | 1 | TOC navigation RPCs (GetTocRoot, GetNode, BrowseToc) | Complete |
+| 04-02 | 2 | Event retrieval RPCs (GetEvents, ExpandGrip) | Complete |
+
+## Phase 5 Plans
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 05-01 | 1 | Client library and hook mapping | Complete |
+| 05-02 | 1 | Query CLI commands | Complete |
+| 05-03 | 2 | Admin commands (rebuild-toc, compact, status) | Pending |
