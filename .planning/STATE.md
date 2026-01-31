@@ -5,16 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** All phases complete - v1 ready
+**Current focus:** v1.0.0 SHIPPED - Planning v2.0
 
 ## Current Position
 
-Phase: 8 of 8 (CCH Hook Integration) - COMPLETE
-Plan: 1 of 1 in current phase (completed: 08-01)
-Status: Phase 8 complete - CCH integration ready
-Last activity: 2026-01-31 -- Completed 08-01-PLAN.md (CCH Hook Handler Binary)
+Milestone: v1.0.0 MVP - ✅ SHIPPED (2026-01-30)
+Status: Milestone complete, archived to .planning/milestones/
+Last activity: 2026-01-30 -- Completed milestone v1.0.0
 
-Progress: [####################] 100% (19/19 plans)
+Progress: [####################] 100% (20/20 plans across 8 phases)
 
 ## Performance Metrics
 
@@ -150,9 +149,14 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-31
-Stopped at: Completed 08-01-PLAN.md (CCH Hook Handler Binary)
+Last session: 2026-01-30
+Stopped at: Milestone v1.0.0 archived and shipped
 Resume file: None
+
+## Milestone History
+
+See: .planning/MILESTONES.md for complete history
+- v1.0.0 MVP: Shipped 2026-01-30 (8 phases, 20 plans, 91 files, 9,135 LOC)
 
 ## Phase 1 Plans
 

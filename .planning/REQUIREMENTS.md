@@ -82,7 +82,19 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ## v2 Requirements
 
-Deferred to fast-follow release. Tracked but not in current roadmap.
+Phase 7 (CCH Integration) and future enhancements.
+
+### CCH Integration (Phase 7)
+
+- [ ] **CCH-01**: Memory-ingest binary that CCH can invoke via `run` action
+- [ ] **CCH-02**: Event mapping from CCH events to memory events (session-start → session_start, user-prompt → user_message, post-tool-use → tool_result, session-end → session_end)
+- [ ] **CCH-03**: hooks.yaml template for agent-memory integration
+
+### Agentic Memory Query Skill (Phase 7)
+
+- [ ] **SKILL-01**: Claude Code skill with commands: /memory-search, /memory-recent, /memory-context
+- [ ] **SKILL-02**: Skill uses memory-client library to communicate with daemon
+- [ ] **SKILL-03**: Skill navigates TOC, expands grips, formats results for agent context
 
 ### Teleport Indexes
 
@@ -127,56 +139,63 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STOR-01 | Phase 1 | Pending |
-| STOR-02 | Phase 1 | Pending |
-| STOR-03 | Phase 1 | Pending |
-| STOR-04 | Phase 1 | Pending |
-| STOR-05 | Phase 1 | Pending |
-| STOR-06 | Phase 1 | Pending |
-| ING-01 | Phase 1 | Pending |
-| ING-02 | Phase 1 | Pending |
-| ING-03 | Phase 1 | Pending |
-| ING-04 | Phase 1 | Pending |
-| ING-05 | Phase 1 | Pending |
-| GRPC-01 | Phase 1 | Pending |
-| GRPC-02 | Phase 1 | Pending |
-| GRPC-03 | Phase 1 | Pending |
-| GRPC-04 | Phase 1 | Pending |
-| CFG-01 | Phase 1 | Pending |
-| CFG-02 | Phase 1 | Pending |
-| CFG-03 | Phase 1 | Pending |
-| CLI-01 | Phase 1 | Pending |
-| TOC-01 | Phase 2 | Pending |
-| TOC-02 | Phase 2 | Pending |
-| TOC-03 | Phase 2 | Pending |
-| TOC-04 | Phase 2 | Pending |
-| TOC-05 | Phase 2 | Pending |
-| TOC-06 | Phase 2 | Pending |
-| SUMM-01 | Phase 2 | Pending |
-| SUMM-02 | Phase 2 | Pending |
-| SUMM-04 | Phase 2 | Pending |
-| GRIP-01 | Phase 3 | Pending |
-| GRIP-02 | Phase 3 | Pending |
-| GRIP-03 | Phase 3 | Pending |
-| GRIP-04 | Phase 3 | Pending |
-| SUMM-03 | Phase 3 | Pending |
-| QRY-01 | Phase 4 | Pending |
-| QRY-02 | Phase 4 | Pending |
-| QRY-03 | Phase 4 | Pending |
-| QRY-04 | Phase 4 | Pending |
-| QRY-05 | Phase 4 | Pending |
-| HOOK-01 | External | Pending |
-| HOOK-02 | Phase 5 | Pending |
-| HOOK-03 | Phase 5 | Pending |
-| CLI-02 | Phase 5 | Pending |
-| CLI-03 | Phase 5 | Pending |
+| STOR-01 | Phase 1 | ✅ Complete |
+| STOR-02 | Phase 1 | ✅ Complete |
+| STOR-03 | Phase 1 | ✅ Complete |
+| STOR-04 | Phase 1 | ✅ Complete |
+| STOR-05 | Phase 1 | ✅ Complete |
+| STOR-06 | Phase 1 | ✅ Complete |
+| ING-01 | Phase 1 | ✅ Complete |
+| ING-02 | Phase 1 | ✅ Complete |
+| ING-03 | Phase 1 | ✅ Complete |
+| ING-04 | Phase 1 | ✅ Complete |
+| ING-05 | Phase 1 | ✅ Complete |
+| GRPC-01 | Phase 1 | ✅ Complete |
+| GRPC-02 | Phase 1 | ✅ Complete |
+| GRPC-03 | Phase 1 | ✅ Complete |
+| GRPC-04 | Phase 1 | ✅ Complete |
+| CFG-01 | Phase 1 | ✅ Complete |
+| CFG-02 | Phase 1 | ✅ Complete |
+| CFG-03 | Phase 1 | ✅ Complete |
+| CLI-01 | Phase 1 | ✅ Complete |
+| TOC-01 | Phase 2 | ✅ Complete |
+| TOC-02 | Phase 2 | ✅ Complete |
+| TOC-03 | Phase 2 | ✅ Complete |
+| TOC-04 | Phase 2 | ✅ Complete |
+| TOC-05 | Phase 2 | ✅ Complete |
+| TOC-06 | Phase 2 | ✅ Complete |
+| SUMM-01 | Phase 2 | ✅ Complete |
+| SUMM-02 | Phase 2 | ✅ Complete |
+| SUMM-04 | Phase 2 | ✅ Complete |
+| GRIP-01 | Phase 3 | ✅ Complete |
+| GRIP-02 | Phase 3 | ✅ Complete |
+| GRIP-03 | Phase 3 | ✅ Complete |
+| GRIP-04 | Phase 3 | ✅ Complete |
+| SUMM-03 | Phase 3 | ✅ Complete |
+| QRY-01 | Phase 4 | ✅ Complete |
+| QRY-02 | Phase 4 | ✅ Complete |
+| QRY-03 | Phase 4 | ✅ Complete |
+| QRY-04 | Phase 4 | ✅ Complete |
+| QRY-05 | Phase 4 | ✅ Complete |
+| HOOK-01 | External | ✅ Complete |
+| HOOK-02 | Phase 5 | ✅ Complete |
+| HOOK-03 | Phase 5 | ✅ Complete |
+| CLI-02 | Phase 5 | ✅ Complete |
+| CLI-03 | Phase 5 | ✅ Complete |
+| CCH-01 | Phase 7 | Pending |
+| CCH-02 | Phase 7 | Pending |
+| CCH-03 | Phase 7 | Pending |
+| SKILL-01 | Phase 7 | Pending |
+| SKILL-02 | Phase 7 | Pending |
+| SKILL-03 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 42 total
-- Mapped to phases: 41
-- External (HOOK-01): 1
-- Unmapped: 0
+- v1 requirements: 42 total (all complete)
+- v2 requirements: 6 new (Phase 7)
+- External (HOOK-01): 1 (complete)
+- Total: 48
 
 ---
 *Requirements defined: 2026-01-29*
-*Last updated: 2026-01-29 after roadmap creation*
+*v1 milestone completed: 2026-01-30*
+*Phase 7 requirements added: 2026-01-30*

@@ -33,41 +33,64 @@ This mirrors how humans search email: filter by date, scan subjects, open the re
 
 ## Requirements
 
-### Validated
+### Validated (v1.0.0 - Shipped 2026-01-30)
 
-(None yet — ship to validate)
+**Storage & Foundation**
+- [x] Append-only event storage in RocksDB with time-prefixed keys
+- [x] 6 column families: events, toc_nodes, toc_latest, grips, outbox, checkpoints
+- [x] Checkpoint-based crash recovery for background jobs
+- [x] Per-project RocksDB instances
+- [x] Configurable multi-agent mode (unified store with tags OR separate stores)
 
-### Active
+**TOC Hierarchy**
+- [x] Time-based TOC hierarchy (Year → Month → Week → Day → Segment)
+- [x] TOC nodes store title, bullets, keywords, child_node_ids
+- [x] Segment creation on time threshold (30 min) or token threshold (4K)
+- [x] Segment overlap for context continuity (5 min or 500 tokens)
+- [x] Day/Week/Month rollup jobs with checkpointing
+- [x] Versioned TOC nodes (append new version, don't mutate)
 
-**Phase 0 — MVP (Minimum Valuable Memory)**
-- [ ] Append-only event storage in RocksDB
-- [ ] Time-based TOC hierarchy (Year → Month → Week → Day → Segment)
-- [ ] Summaries at each TOC node (title, bullets, keywords)
-- [ ] Agent can navigate TOC via gRPC to find answers
-- [ ] Deterministic drill-down path to raw events
-- [ ] Hook handler client (Rust, cross-platform) ingests events via gRPC
-- [ ] End-to-end query: "what did we discuss yesterday?" returns summary-based answer
+**Grips (Provenance)**
+- [x] Grip struct with excerpt, event_id_start, event_id_end, timestamp, source
+- [x] TOC node bullets link to supporting grips
+- [x] Grips stored in dedicated column family
+- [x] ExpandGrip returns context events around excerpt
 
-**Phase 1 — Quality & Trust**
-- [ ] Grips (excerpt + event pointer) anchor TOC summaries
-- [ ] Provenance: every bullet links to source evidence
-- [ ] Better segmentation (token-aware, topic shift boundaries)
+**Summarization**
+- [x] Pluggable Summarizer trait (async, supports API and local LLM)
+- [x] Summarizer generates title, bullets, keywords from events
+- [x] Summarizer extracts grips as evidence for bullets
+- [x] Rollup summarizer aggregates child node summaries
 
-**Phase 2 — Teleport (Indexes as Accelerators)**
+**gRPC Service & Query**
+- [x] gRPC IngestEvent RPC accepts Event message
+- [x] GetTocRoot, GetNode, BrowseToc RPCs for TOC navigation
+- [x] GetEvents, ExpandGrip RPCs for event retrieval
+- [x] Health check and reflection endpoints
+
+**Integration**
+- [x] Hook handlers call daemon's IngestEvent RPC
+- [x] CCH integration via memory-ingest binary (fail-open)
+- [x] Claude Code plugin with 3 commands and memory-navigator agent
+- [x] Query CLI for manual TOC navigation
+- [x] Admin CLI for rebuild-toc, compact, status
+
+### Active (v2.0 Planning)
+
+**Teleport (Indexes as Accelerators)**
 - [ ] BM25 teleport via Tantivy (embedded)
 - [ ] Vector teleport via local HNSW
 - [ ] Outbox-driven index ingestion (rebuildable)
 - [ ] Teleports return TOC node IDs or grip pointers, never content
 
-**Phase 3 — Resilience (Heavy Scan Fallback)**
-- [ ] Parallel scan by time bucket (4 workers)
-- [ ] Range-limited by TOC (month/week)
-- [ ] Produces grips as outputs
+**Additional Hook Adapters**
+- [ ] OpenCode hook adapter
+- [ ] Gemini CLI hook adapter
 
-**Phase 4 — Intelligence (Deferred)**
-- [ ] Learned topic TOC nodes
-- [ ] Summary refinement
-- [ ] Confidence scoring
+**Production Hardening**
+- [ ] Automated E2E tests in CI
+- [ ] RebuildToc admin command full implementation
+- [ ] Performance benchmarks
 
 ### Out of Scope
 
@@ -125,13 +148,14 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| TOC as primary navigation | Agentic search beats brute-force; indexes are disposable | — Pending |
-| Append-only storage | Immutable truth, no deletion complexity | — Pending |
-| Hooks for ingestion | Zero token overhead, works across agents | — Pending |
-| Per-project stores first | Simpler mental model, namespace for unified later | — Pending |
-| Time-only TOC for MVP | Topics deferred to Phase 4, time is sufficient for v1 | — Pending |
-| gRPC only (no HTTP) | Clean contract, no framework churn | — Pending |
-| Pluggable summarizer | Start with API, swap to local later | — Pending |
+| TOC as primary navigation | Agentic search beats brute-force; indexes are disposable | ✓ Validated in v1.0 |
+| Append-only storage | Immutable truth, no deletion complexity | ✓ Validated in v1.0 |
+| Hooks for ingestion | Zero token overhead, works across agents | ✓ Validated in v1.0 |
+| Per-project stores first | Simpler mental model, namespace for unified later | ✓ Validated in v1.0 |
+| Time-only TOC for MVP | Topics deferred to Phase 4, time is sufficient for v1 | ✓ Validated in v1.0 |
+| gRPC only (no HTTP) | Clean contract, no framework churn | ✓ Validated in v1.0 |
+| Pluggable summarizer | Start with API, swap to local later | ✓ Validated in v1.0 |
+| Fail-open CCH integration | Never block Claude if memory is down | ✓ Validated in v1.0 |
 
 ---
-*Last updated: 2026-01-29 after initialization*
+*Last updated: 2026-01-30 after v1.0.0 milestone completion*

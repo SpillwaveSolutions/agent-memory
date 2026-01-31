@@ -10,12 +10,14 @@ This roadmap delivers a local, append-only conversational memory system with TOC
 - Integer phases (1, 2, 3, 4, 5, 6): Planned milestone work
 - Decimal phases (e.g., 2.1): Urgent insertions if needed (marked with INSERTED)
 
-- [ ] **Phase 1: Foundation** - Storage layer, domain types, gRPC scaffolding, configuration, daemon binary
-- [ ] **Phase 2: TOC Building** - Segmentation, summarization, time hierarchy construction
-- [ ] **Phase 3: Grips & Provenance** - Excerpt storage, summary-to-grip linking, expand capability
-- [ ] **Phase 4: Query Layer** - Navigation RPCs for TOC traversal and event retrieval
-- [ ] **Phase 5: Integration** - Hook handler connection, query CLI, admin commands
-- [ ] **Phase 6: End-to-End Demo** - Full workflow validation from ingestion to query answer
+- [x] **Phase 1: Foundation** - Storage layer, domain types, gRPC scaffolding, configuration, daemon binary
+- [x] **Phase 2: TOC Building** - Segmentation, summarization, time hierarchy construction
+- [x] **Phase 3: Grips & Provenance** - Excerpt storage, summary-to-grip linking, expand capability
+- [x] **Phase 4: Query Layer** - Navigation RPCs for TOC traversal and event retrieval
+- [x] **Phase 5: Integration** - Hook handler connection, query CLI, admin commands
+- [x] **Phase 6: End-to-End Demo** - Full workflow validation from ingestion to query answer
+- [x] **Phase 7: Agentic Memory Plugin** - Claude Code marketplace plugin with commands, agents, graded skill
+- [x] **Phase 8: CCH Hook Integration** - Automatic event capture via CCH hooks
 
 ## Phase Details
 
@@ -32,11 +34,11 @@ This roadmap delivers a local, append-only conversational memory system with TOC
 **Plans**: 5 plans in 4 waves
 
 Plans:
-- [ ] 01-00-PLAN.md — Workspace scaffolding (crate structure, proto placeholder, docs/README.md)
-- [ ] 01-01-PLAN.md — Storage layer (RocksDB setup, column families, compaction, time-prefixed keys)
-- [ ] 01-02-PLAN.md — Domain types (Event, TocNode, Grip, OutboxEntry, Settings configuration)
-- [ ] 01-03-PLAN.md — gRPC service scaffolding (tonic setup, protos, IngestEvent RPC, health, reflection)
-- [ ] 01-04-PLAN.md — CLI daemon binary (start/stop/status commands, config loading, graceful shutdown)
+- [x] 01-00-PLAN.md — Workspace scaffolding (crate structure, proto placeholder, docs/README.md)
+- [x] 01-01-PLAN.md — Storage layer (RocksDB setup, column families, compaction, time-prefixed keys)
+- [x] 01-02-PLAN.md — Domain types (Event, TocNode, Grip, OutboxEntry, Settings configuration)
+- [x] 01-03-PLAN.md — gRPC service scaffolding (tonic setup, protos, IngestEvent RPC, health, reflection)
+- [x] 01-04-PLAN.md — CLI daemon binary (start/stop/status commands, config loading, graceful shutdown)
 
 ### Phase 2: TOC Building
 **Goal**: Construct the time-based Table of Contents hierarchy with summaries at each level
@@ -51,9 +53,9 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: Segmentation engine (time/token boundaries, overlap)
-- [ ] 02-02: Summarizer trait and implementation
-- [ ] 02-03: TOC hierarchy builder (nodes, rollups, checkpointing)
+- [x] 02-01: Segmentation engine (time/token boundaries, overlap)
+- [x] 02-02: Summarizer trait and implementation
+- [x] 02-03: TOC hierarchy builder (nodes, rollups, checkpointing)
 
 ### Phase 3: Grips & Provenance
 **Goal**: Anchor TOC summaries to source evidence through grips (excerpt + event pointers)
@@ -67,9 +69,9 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 03-01: Grip storage and data model
-- [ ] 03-02: Summarizer grip extraction integration
-- [ ] 03-03: Grip expansion (context retrieval)
+- [x] 03-01: Grip storage and data model
+- [x] 03-02: Summarizer grip extraction integration
+- [x] 03-03: Grip expansion (context retrieval)
 
 ### Phase 4: Query Layer
 **Goal**: Expose navigation RPCs so agents can traverse the TOC and retrieve events
@@ -84,8 +86,8 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 04-01: TOC navigation RPCs (GetTocRoot, GetNode, BrowseToc)
-- [ ] 04-02: Event retrieval RPCs (GetEvents, ExpandGrip)
+- [x] 04-01: TOC navigation RPCs (GetTocRoot, GetNode, BrowseToc)
+- [x] 04-02: Event retrieval RPCs (GetEvents, ExpandGrip)
 
 ### Phase 5: Integration
 **Goal**: Connect hook handlers for event ingestion and provide CLI tools for querying and administration
@@ -99,9 +101,9 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 05-01: Hook handler integration (IngestEvent client, event mapping)
-- [ ] 05-02: Query CLI (manual navigation, testing)
-- [ ] 05-03: Admin commands (rebuild-toc, compact, status)
+- [x] 05-01: Hook handler integration (IngestEvent client, event mapping)
+- [x] 05-02: Query CLI (manual navigation, testing)
+- [x] 05-03: Admin commands (rebuild-toc, compact, status)
 
 ### Phase 6: End-to-End Demo
 **Goal**: Validate the complete workflow from conversation capture through query resolution
@@ -116,25 +118,97 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 06-01: Integration test harness and demo script
-- [ ] 06-02: Documentation and usage examples
+- [x] 06-01: Integration test harness and demo script
+- [x] 06-02: Documentation and usage examples
+
+### Phase 7: Agentic Memory Plugin
+**Goal**: Provide a Claude Code marketplace plugin for querying past conversations with commands and autonomous agents
+**Depends on**: Phase 6
+**Requirements**: SKILL-01, SKILL-02, SKILL-03, PLUGIN-01, PLUGIN-02
+**Success Criteria** (what must be TRUE):
+  1. ✅ Plugin provides `/memory-search`, `/memory-recent`, `/memory-context` slash commands
+  2. ✅ Autonomous agent handles complex multi-step memory queries
+  3. ✅ Skill follows PDA (Progressive Disclosure Architecture) with layered references
+  4. ✅ Skill passes quality grading (99/100, Grade A)
+  5. ✅ Plugin uses marketplace.json manifest format
+  6. ✅ Skill handles daemon connection failures gracefully via validation checklist
+**Plans**: 1 plan complete
+
+Plans:
+- [x] 07-01: Agentic memory query plugin (marketplace.json, 3 commands, 1 agent, graded skill)
+
+**Implemented Architecture:**
+```
+                                    Agent Memory
+                                    ┌─────────────────┐
+                                    │  memory-daemon  │
+                                    │  (gRPC :50051)  │
+                                    └─────────────────┘
+                                             ▲
+                                             │ CLI query
+                                    ┌────────┴────────┐
+                                    │ memory-query    │
+                                    │ plugin          │
+                                    │ ┌─────────────┐ │
+                                    │ │ 3 commands  │ │
+                                    │ │ 1 agent     │ │
+                                    │ │ SKILL.md    │ │
+                                    │ └─────────────┘ │
+                                    └─────────────────┘
+```
+
+**Plugin Components:**
+| Component | File | Purpose |
+|-----------|------|---------|
+| Skill | skills/memory-query/SKILL.md | Core capability (99/100 grade) |
+| Command | commands/memory-search.md | `/memory-search <topic>` |
+| Command | commands/memory-recent.md | `/memory-recent [--days N]` |
+| Command | commands/memory-context.md | `/memory-context <grip>` |
+| Agent | agents/memory-navigator.md | Complex multi-step queries |
+
+### Phase 8: CCH Hook Integration
+**Goal**: Integrate agent-memory with code_agent_context_hooks (CCH) for automatic event capture
+**Depends on**: Phase 7
+**Requirements**: CCH-01, CCH-02, CCH-03
+**Success Criteria** (what must be TRUE):
+  1. ✅ CCH hooks.yaml can be configured to capture conversation events
+  2. ✅ Hook handler maps CCH events to memory events
+  3. ✅ Hook handler uses memory-client library to communicate with memory-daemon
+  4. ✅ Events are automatically ingested without manual intervention
+**Plans**: 1 plan complete
+
+Plans:
+- [x] 08-01: CCH hook handler (memory-ingest binary, event mapping, hooks.yaml configuration)
+
+**CCH Event Mapping (Future):**
+| CCH Event | Memory Event Type | Notes |
+|-----------|------------------|-------|
+| session-start | session_start | Captures session_id, project context |
+| user-prompt | user_message | User's prompt text |
+| post-tool-use | tool_result | Tool name, result summary |
+| session-end | session_end | Session duration, token count |
+| pre-compact | (no mapping) | Could trigger TOC rebuild |
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/5 | Planning complete | - |
-| 2. TOC Building | 0/3 | Not started | - |
-| 3. Grips & Provenance | 0/3 | Not started | - |
-| 4. Query Layer | 0/2 | Not started | - |
-| 5. Integration | 0/3 | Not started | - |
-| 6. End-to-End Demo | 0/2 | Not started | - |
+| 1. Foundation | 5/5 | ✅ Complete | 2026-01-30 |
+| 2. TOC Building | 3/3 | ✅ Complete | 2026-01-30 |
+| 3. Grips & Provenance | 3/3 | ✅ Complete | 2026-01-30 |
+| 4. Query Layer | 2/2 | ✅ Complete | 2026-01-30 |
+| 5. Integration | 3/3 | ✅ Complete | 2026-01-30 |
+| 6. End-to-End Demo | 2/2 | ✅ Complete | 2026-01-30 |
+| 7. Agentic Memory Plugin | 1/1 | ✅ Complete | 2026-01-30 |
+| 8. CCH Hook Integration | 1/1 | ✅ Complete | 2026-01-30 |
 
 ---
 *Roadmap created: 2026-01-29*
-*Phase 1 planned: 2026-01-29*
-*Total plans: 18 across 6 phases*
-*Total v1 requirements: 42 (41 mapped to phases, 1 external)*
+*v1 Milestone completed: 2026-01-30*
+*Phase 7 completed: 2026-01-30 (Agentic Memory Plugin)*
+*Phase 8 completed: 2026-01-30 (CCH Hook Integration)*
+*Total plans: 20 across 8 phases (18 v1 + 1 plugin + 1 CCH)*
+*All requirements complete: 42 v1 + 5 plugin + 3 CCH = 50 total*

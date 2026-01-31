@@ -1,0 +1,30 @@
+{
+  "name": "memory-query-agentic-plugin",
+  "owner": {
+    "name": "SpillwaveSolutions",
+    "email": "rick@spillwave.com"
+  },
+  "metadata": {
+    "description": "Query past conversations from the agent-memory system",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "memory-query",
+      "description": "Query past conversations from the agent-memory system. Use when asked to 'recall what we discussed', 'search conversation history', 'find previous session', 'what did we talk about', or 'get context from last week'. Provides /memory-search (topic search), /memory-recent (recent summaries), /memory-context (expand excerpts).",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/memory-query"
+      ],
+      "commands": [
+        "./commands/memory-search.md",
+        "./commands/memory-recent.md",
+        "./commands/memory-context.md"
+      ],
+      "agents": [
+        "./agents/memory-navigator.md"
+      ]
+    }
+  ]
+}
