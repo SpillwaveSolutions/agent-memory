@@ -6,6 +6,7 @@ members = [
     "crates/memory-service",
     "crates/memory-daemon",
     "crates/memory-toc",
+    "crates/memory-client",
 ]
 
 [workspace.package]
@@ -19,6 +20,7 @@ repository = "https://github.com/spillwave/agent-memory"
 memory-types = { path = "crates/memory-types" }
 memory-storage = { path = "crates/memory-storage" }
 memory-service = { path = "crates/memory-service" }
+memory-client = { path = "crates/memory-client" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }

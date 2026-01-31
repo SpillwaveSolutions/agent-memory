@@ -12,6 +12,7 @@ path = "src/main.rs"
 memory-types = { workspace = true }
 memory-storage = { workspace = true }
 memory-service = { workspace = true }
+memory-client = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 clap = { workspace = true }
@@ -22,6 +23,8 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 serde = { workspace = true }
+chrono = { workspace = true }
+shellexpand = "3.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

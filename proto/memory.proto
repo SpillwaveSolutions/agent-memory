@@ -14,6 +14,23 @@ service MemoryService {
     // Events are persisted to RocksDB with time-prefixed keys.
     // Idempotent: returns created=false if event_id already exists.
     rpc IngestEvent(IngestEventRequest) returns (IngestEventResponse);
+
+    // Query RPCs (QRY-01 through QRY-05)
+
+    // Get root TOC nodes (year level)
+    rpc GetTocRoot(GetTocRootRequest) returns (GetTocRootResponse);
+
+    // Get a specific TOC node by ID
+    rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
+
+    // Browse children of a TOC node with pagination
+    rpc BrowseToc(BrowseTocRequest) returns (BrowseTocResponse);
+
+    // Get events in a time range
+    rpc GetEvents(GetEventsRequest) returns (GetEventsResponse);
+
+    // Expand a grip to show context events
+    rpc ExpandGrip(ExpandGripRequest) returns (ExpandGripResponse);
 }
 
 // Role of the message author
@@ -78,4 +95,147 @@ message IngestEventResponse {
 
     // True if event was newly created, false if already existed (idempotent)
     bool created = 2;
+}
+
+// ===== TOC Navigation Messages (QRY-01, QRY-02, QRY-03) =====
+
+// Level in the TOC hierarchy
+enum TocLevel {
+    TOC_LEVEL_UNSPECIFIED = 0;
+    TOC_LEVEL_YEAR = 1;
+    TOC_LEVEL_MONTH = 2;
+    TOC_LEVEL_WEEK = 3;
+    TOC_LEVEL_DAY = 4;
+    TOC_LEVEL_SEGMENT = 5;
+}
+
+// A bullet point in a TOC node summary
+message TocBullet {
+    // Bullet text
+    string text = 1;
+    // IDs of grips supporting this bullet
+    repeated string grip_ids = 2;
+}
+
+// A TOC node in the hierarchy
+message TocNode {
+    // Node identifier (e.g., "toc:year:2026")
+    string node_id = 1;
+    // Level in hierarchy
+    TocLevel level = 2;
+    // Display title
+    string title = 3;
+    // Summary text (optional, may be empty for higher levels)
+    optional string summary = 4;
+    // Bullet points
+    repeated TocBullet bullets = 5;
+    // Keywords/tags
+    repeated string keywords = 6;
+    // Child node IDs
+    repeated string child_node_ids = 7;
+    // Start timestamp (ms)
+    int64 start_time_ms = 8;
+    // End timestamp (ms)
+    int64 end_time_ms = 9;
+    // Version number
+    int32 version = 10;
+}
+
+// A grip providing provenance for a bullet
+message Grip {
+    // Grip identifier
+    string grip_id = 1;
+    // Excerpt text
+    string excerpt = 2;
+    // Event ID where excerpt starts
+    string event_id_start = 3;
+    // Event ID where excerpt ends
+    string event_id_end = 4;
+    // Timestamp of first event (ms)
+    int64 timestamp_ms = 5;
+    // Source reference
+    string source = 6;
+}
+
+// Request for root TOC nodes
+message GetTocRootRequest {}
+
+// Response with root TOC nodes
+message GetTocRootResponse {
+    // Year-level nodes, sorted by time descending
+    repeated TocNode nodes = 1;
+}
+
+// Request for a specific node
+message GetNodeRequest {
+    // Node ID to retrieve
+    string node_id = 1;
+}
+
+// Response with the requested node
+message GetNodeResponse {
+    // The requested node (null if not found)
+    optional TocNode node = 1;
+}
+
+// Request to browse children of a node
+message BrowseTocRequest {
+    // Parent node ID
+    string parent_id = 1;
+    // Maximum results to return
+    int32 limit = 2;
+    // Continuation token for pagination (from previous response)
+    optional string continuation_token = 3;
+}
+
+// Response with child nodes
+message BrowseTocResponse {
+    // Child nodes
+    repeated TocNode children = 1;
+    // Token for next page (null if no more results)
+    optional string continuation_token = 2;
+    // Whether more results are available
+    bool has_more = 3;
+}
+
+// ===== Event Retrieval Messages (QRY-04, QRY-05) =====
+
+// Request for events in a time range
+message GetEventsRequest {
+    // Start timestamp (ms, inclusive)
+    int64 from_timestamp_ms = 1;
+    // End timestamp (ms, inclusive)
+    int64 to_timestamp_ms = 2;
+    // Maximum events to return
+    int32 limit = 3;
+}
+
+// Response with events
+message GetEventsResponse {
+    // Events in time range
+    repeated Event events = 1;
+    // Whether more events exist beyond the limit
+    bool has_more = 2;
+}
+
+// Request to expand a grip
+message ExpandGripRequest {
+    // Grip ID to expand
+    string grip_id = 1;
+    // Number of events before excerpt
+    optional int32 events_before = 2;
+    // Number of events after excerpt
+    optional int32 events_after = 3;
+}
+
+// Response with grip context
+message ExpandGripResponse {
+    // The grip being expanded
+    optional Grip grip = 1;
+    // Events before the excerpt
+    repeated Event events_before = 2;
+    // Events containing the excerpt
+    repeated Event excerpt_events = 3;
+    // Events after the excerpt
+    repeated Event events_after = 4;
 }

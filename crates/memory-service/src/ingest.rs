@@ -16,12 +16,18 @@ use memory_types::{Event, EventRole, EventType, OutboxEntry};
 
 use crate::pb::{
     memory_service_server::MemoryService,
+    BrowseTocRequest, BrowseTocResponse,
     Event as ProtoEvent,
     EventRole as ProtoEventRole,
     EventType as ProtoEventType,
+    ExpandGripRequest, ExpandGripResponse,
+    GetEventsRequest, GetEventsResponse,
+    GetNodeRequest, GetNodeResponse,
+    GetTocRootRequest, GetTocRootResponse,
     IngestEventRequest,
     IngestEventResponse,
 };
+use crate::query;
 
 /// Implementation of the MemoryService gRPC service.
 pub struct MemoryServiceImpl {
@@ -155,6 +161,46 @@ impl MemoryService for MemoryServiceImpl {
             event_id,
             created,
         }))
+    }
+
+    /// Get root TOC nodes (year level).
+    async fn get_toc_root(
+        &self,
+        request: Request<GetTocRootRequest>,
+    ) -> Result<Response<GetTocRootResponse>, Status> {
+        query::get_toc_root(self.storage.clone(), request).await
+    }
+
+    /// Get a specific TOC node by ID.
+    async fn get_node(
+        &self,
+        request: Request<GetNodeRequest>,
+    ) -> Result<Response<GetNodeResponse>, Status> {
+        query::get_node(self.storage.clone(), request).await
+    }
+
+    /// Browse children of a TOC node with pagination.
+    async fn browse_toc(
+        &self,
+        request: Request<BrowseTocRequest>,
+    ) -> Result<Response<BrowseTocResponse>, Status> {
+        query::browse_toc(self.storage.clone(), request).await
+    }
+
+    /// Get events in a time range.
+    async fn get_events(
+        &self,
+        request: Request<GetEventsRequest>,
+    ) -> Result<Response<GetEventsResponse>, Status> {
+        query::get_events(self.storage.clone(), request).await
+    }
+
+    /// Expand a grip to show context events.
+    async fn expand_grip(
+        &self,
+        request: Request<ExpandGripRequest>,
+    ) -> Result<Response<ExpandGripResponse>, Status> {
+        query::expand_grip(self.storage.clone(), request).await
     }
 }
 
