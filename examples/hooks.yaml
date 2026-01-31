@@ -1,0 +1,61 @@
+# Agent Memory CCH Hook Configuration
+# ====================================
+#
+# This file configures code_agent_context_hooks (CCH) to automatically
+# capture conversation events and send them to the agent-memory daemon.
+#
+# Installation:
+# 1. Build: cargo build --release -p memory-ingest
+# 2. Install: cp target/release/memory-ingest ~/.local/bin/
+# 3. Start daemon: memory-daemon start
+# 4. Copy this file to your CCH config location
+#
+# For Claude Code: ~/.claude/hooks.yaml
+# For OpenCode: ~/.opencode/hooks.yaml
+
+version: "1.0"
+
+settings:
+  # Always allow Claude to continue, even if memory system fails
+  fail_open: true
+  # Timeout for hook script (seconds)
+  script_timeout: 5
+
+rules:
+  # Capture conversation events to agent-memory
+  - name: capture-to-memory
+    description: Send conversation events to agent-memory daemon for TOC-based recall
+
+    # Which events to capture
+    matchers:
+      operations:
+        # Session lifecycle
+        - SessionStart
+        - SessionEnd
+
+        # User interactions
+        - UserPromptSubmit
+
+        # Tool activity (captures what Claude is doing)
+        - PostToolUse
+
+        # Subagent spawning (for multi-agent workflows)
+        - SubagentStart
+        - SubagentStop
+
+    # Run the memory-ingest binary
+    actions:
+      run: "~/.local/bin/memory-ingest"
+
+# Optional: Capture assistant responses (more verbose)
+#  - name: capture-assistant-responses
+#    description: Also capture assistant message content
+#    matchers:
+#      operations:
+#        - AssistantResponse
+#    actions:
+#      run: "~/.local/bin/memory-ingest"
+
+# Optional: Different daemon endpoint
+# For non-default daemon location, set MEMORY_ENDPOINT env var:
+#   export MEMORY_ENDPOINT="http://localhost:50052"

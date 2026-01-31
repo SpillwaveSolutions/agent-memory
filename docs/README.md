@@ -289,21 +289,47 @@ memory-daemon admin --db-path ~/.memory-store compact --cf events
 
 This script starts the daemon, ingests sample events, and demonstrates querying.
 
-## Project Structure
+## Project Structure (Monorepo)
 
 ```
 agent-memory/
+├── crates/                   # Rust crates (server, client, shared)
+│   ├── memory-daemon/        # Server binary
+│   ├── memory-service/       # gRPC service implementation
+│   ├── memory-client/        # Client library for hook handlers
+│   ├── memory-storage/       # RocksDB storage layer
+│   ├── memory-toc/           # TOC building logic
+│   └── memory-types/         # Shared types (Event, TocNode, Grip)
+├── plugins/                  # Claude Code marketplace plugins
+│   └── memory-query-plugin/  # Memory query plugin
+│       ├── .claude-plugin/   # Plugin manifest
+│       ├── skills/           # Core skill
+│       ├── commands/         # Slash commands (/memory-search, etc.)
+│       └── agents/           # Autonomous agents
 ├── proto/
 │   └── memory.proto          # gRPC service definitions
-├── crates/
-│   ├── memory-types/         # Shared types (Event, TocNode, Grip, Settings)
-│   ├── memory-storage/       # RocksDB storage layer
-│   ├── memory-service/       # gRPC service implementation
-│   └── memory-daemon/        # Daemon binary
 ├── docs/
 │   └── README.md             # This file
+├── scripts/                  # Helper scripts
 └── .planning/                # Development planning documents
 ```
+
+### Crates Overview
+
+| Crate | Type | Description |
+|-------|------|-------------|
+| memory-daemon | Binary | gRPC server with start/stop/status commands |
+| memory-service | Library | gRPC service implementation |
+| memory-client | Library | Client for hook handlers to ingest events |
+| memory-storage | Library | RocksDB storage with column families |
+| memory-toc | Library | TOC building, summarization, rollups |
+| memory-types | Library | Shared domain types |
+
+### Skills/Plugins
+
+| Plugin | Description |
+|--------|-------------|
+| memory-query-plugin | Query past conversations with /memory-search, /memory-recent, /memory-context |
 
 ## Development Phases
 
@@ -315,6 +341,8 @@ agent-memory/
 | 4. Query Layer | Navigation RPCs, event retrieval | Complete |
 | 5. Integration | Hook handlers, CLI, admin commands | Complete |
 | 6. End-to-End Demo | Full workflow validation | Complete |
+| 7. Agentic Plugin | Claude Code plugin with commands, agents | Complete |
+| 8. CCH Integration | Automatic event capture via hooks | Complete |
 
 ### Phase 2: Teleport Indexes (Accelerators)
 
@@ -405,6 +433,102 @@ The following are excluded from v1:
 - Delete/update events (append-only truth)
 - HTTP API (gRPC only)
 - MCP integration (hooks are passive, no token overhead)
+
+## CCH Integration
+
+Agent Memory integrates with code_agent_context_hooks (CCH) to automatically capture conversation events from Claude Code and other AI coding agents.
+
+### Quick Setup
+
+```bash
+# 1. Build the hook handler
+cargo build --release -p memory-ingest
+
+# 2. Install to local bin
+mkdir -p ~/.local/bin
+cp target/release/memory-ingest ~/.local/bin/
+
+# 3. Start the memory daemon
+./target/release/memory-daemon start
+
+# 4. Copy the hooks configuration
+cp examples/hooks.yaml ~/.claude/hooks.yaml
+```
+
+### How It Works
+
+The `memory-ingest` binary is a lightweight CCH hook handler that:
+
+1. **Reads** CCH JSON events from stdin
+2. **Maps** them to memory events using `memory-client`
+3. **Sends** them to the daemon via gRPC
+4. **Returns** `{"continue":true}` to stdout
+
+The binary is designed to be fast (<100ms) and fail-open - if the daemon is down, it still returns success to avoid blocking Claude.
+
+### Event Capture
+
+CCH sends these events to agent-memory:
+
+| CCH Event | Memory Event | Description |
+|-----------|--------------|-------------|
+| SessionStart | session_start | New conversation started |
+| UserPromptSubmit | user_message | User submitted a prompt |
+| PostToolUse | tool_result | Tool execution completed |
+| SessionEnd/Stop | session_end | Conversation ended |
+| SubagentStart | subagent_start | Subagent spawned |
+| SubagentStop | subagent_stop | Subagent completed |
+
+### Configuration
+
+The example `hooks.yaml` includes:
+
+```yaml
+rules:
+  - name: capture-to-memory
+    matchers:
+      operations:
+        - SessionStart
+        - UserPromptSubmit
+        - PostToolUse
+        - SessionEnd
+        - SubagentStart
+        - SubagentStop
+    actions:
+      run: "~/.local/bin/memory-ingest"
+```
+
+### Testing the Integration
+
+```bash
+# Test with a sample event (daemon not required for this test)
+echo '{"hook_event_name":"UserPromptSubmit","session_id":"test-123","message":"Hello world"}' | ./target/release/memory-ingest
+# Expected output: {"continue":true}
+
+# Test with daemon running
+./target/release/memory-daemon start
+echo '{"hook_event_name":"SessionStart","session_id":"test-123"}' | ./target/release/memory-ingest
+
+# Verify events were captured
+./target/release/memory-daemon query events --from 0 --to $(date +%s)000 --limit 10
+```
+
+### Troubleshooting
+
+**Events not being captured:**
+1. Verify daemon is running: `memory-daemon status`
+2. Check binary is installed: `which memory-ingest`
+3. Test manually with echo command above
+
+**Daemon connection errors:**
+- The binary fails open - events are lost but Claude continues
+- Check daemon port: default is 50051
+- Set custom endpoint: `export MEMORY_ENDPOINT="http://localhost:50052"`
+
+**Hook not triggering:**
+- Verify hooks.yaml is in correct location (~/.claude/hooks.yaml for Claude Code)
+- Check hooks.yaml syntax with a YAML validator
+- Ensure CCH is properly installed and configured
 
 ## Related Projects
 
