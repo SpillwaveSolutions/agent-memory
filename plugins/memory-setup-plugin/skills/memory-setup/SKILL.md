@@ -397,6 +397,157 @@ When terminal supports colors:
 
 **Note:** Always check terminal capability before using colors. Fall back to text indicators ([check], [x], etc.) when colors unavailable.
 
+## Quick Diagnostics
+
+Copy-paste commands for rapid troubleshooting. Use these to quickly assess the state of the memory system.
+
+### Full System Check (One-Liner)
+
+```bash
+# Complete diagnostic in one command
+echo "=== Binary ===" && which memory-daemon && memory-daemon --version && \
+echo "=== Status ===" && memory-daemon status && \
+echo "=== Port ===" && lsof -i :50051 && \
+echo "=== Storage ===" && memory-daemon admin --db-path ~/.memory-store stats && \
+echo "=== Hooks ===" && grep memory-ingest ~/.claude/code_agent_context_hooks/hooks.yaml 2>/dev/null || echo "No hook configured"
+```
+
+### Individual Diagnostic Commands
+
+**Binary and Version:**
+```bash
+which memory-daemon && memory-daemon --version
+which memory-ingest && memory-ingest --version
+```
+
+**Daemon Status:**
+```bash
+memory-daemon status
+ps aux | grep memory-daemon | grep -v grep
+```
+
+**Port and Connectivity:**
+```bash
+lsof -i :50051
+memory-daemon query --endpoint http://[::1]:50051 root
+```
+
+**Storage Health:**
+```bash
+memory-daemon admin --db-path ~/.memory-store stats
+du -sh ~/.memory-store
+```
+
+**Configuration:**
+```bash
+cat ~/.config/memory-daemon/config.toml
+```
+
+**CCH Hooks:**
+```bash
+cat ~/.claude/code_agent_context_hooks/hooks.yaml
+grep memory-ingest ~/.claude/code_agent_context_hooks/hooks.yaml
+```
+
+**Environment Variables:**
+```bash
+echo "OPENAI: ${OPENAI_API_KEY:+set}" && echo "ANTHROPIC: ${ANTHROPIC_API_KEY:+set}"
+```
+
+**Logs (macOS):**
+```bash
+tail -50 ~/Library/Logs/memory-daemon/daemon.log
+```
+
+**Logs (Linux):**
+```bash
+tail -50 ~/.local/state/memory-daemon/daemon.log
+```
+
+### Quick Fixes
+
+**Start daemon:**
+```bash
+memory-daemon start && memory-daemon status
+```
+
+**Restart daemon:**
+```bash
+memory-daemon stop && sleep 2 && memory-daemon start
+```
+
+**Fix port conflict:**
+```bash
+kill $(lsof -t -i :50051) && memory-daemon start
+```
+
+**Remove stale PID:**
+```bash
+rm ~/Library/Application\ Support/memory-daemon/daemon.pid 2>/dev/null
+rm ~/.local/state/memory-daemon/daemon.pid 2>/dev/null
+memory-daemon start
+```
+
+**Create default config:**
+```bash
+mkdir -p ~/.config/memory-daemon && cat > ~/.config/memory-daemon/config.toml << 'EOF'
+[storage]
+path = "~/.memory-store"
+
+[server]
+host = "[::1]"
+port = 50051
+
+[summarizer]
+provider = "openai"
+model = "gpt-4o-mini"
+EOF
+```
+
+**Fix permissions:**
+```bash
+chmod 700 ~/.memory-store ~/.config/memory-daemon
+```
+
+**Run compaction:**
+```bash
+memory-daemon admin --db-path ~/.memory-store compact
+```
+
+**Enable debug logging:**
+```bash
+MEMORY_LOG_LEVEL=debug memory-daemon start
+```
+
+### Diagnostic Decision Tree
+
+```
+Something wrong?
+│
+├── "command not found"
+│   └── Check PATH: echo $PATH | grep cargo
+│       └── Add: export PATH="$HOME/.cargo/bin:$PATH"
+│
+├── "connection refused"
+│   └── Check status: memory-daemon status
+│       ├── Not running → memory-daemon start
+│       └── Running → Check port: lsof -i :50051
+│
+├── "no events"
+│   └── Check hook: grep memory-ingest ~/.claude/.../hooks.yaml
+│       ├── Missing → Run /memory-setup
+│       └── Present → Check daemon: memory-daemon status
+│
+├── "summarization failing"
+│   └── Check API key: echo ${OPENAI_API_KEY:+set}
+│       ├── Not set → export OPENAI_API_KEY=...
+│       └── Set → Check logs for API errors
+│
+└── Other issues
+    └── Run: /memory-status --verbose
+        └── Still stuck → Say "troubleshoot memory"
+```
+
 ## Reference Files
 
 For detailed information, see:
