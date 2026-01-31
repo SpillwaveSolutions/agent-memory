@@ -116,6 +116,114 @@ Before confirming setup complete:
 | "permission denied" | Check data directory permissions |
 | "address in use" | Another process on port 50051 |
 
+## State Detection
+
+Before beginning setup, detect current system state to skip completed steps and offer appropriate options.
+
+### 1. Prerequisites Check
+
+```bash
+# Claude Code detection (presence of .claude directory)
+ls ~/.claude 2>/dev/null && echo "CLAUDE_CODE_DETECTED" || echo "CLAUDE_CODE_NOT_FOUND"
+
+# Rust/Cargo availability
+cargo --version 2>/dev/null && echo "CARGO_AVAILABLE" || echo "CARGO_NOT_AVAILABLE"
+
+# Platform detection
+uname -s  # Returns: Darwin, Linux, or MINGW*/MSYS* for Windows
+uname -m  # Returns: arm64, x86_64, etc.
+```
+
+**State Categories:**
+- `READY`: All prerequisites met, can proceed with cargo install
+- `NEEDS_RUST`: cargo not found, offer rustup installation
+- `MANUAL_ONLY`: No cargo, must use pre-built binaries
+
+### 2. Existing Installation Check
+
+```bash
+# Binary locations
+which memory-daemon 2>/dev/null || echo "NOT_INSTALLED"
+which memory-ingest 2>/dev/null || echo "NOT_INSTALLED"
+
+# Version check (if installed)
+memory-daemon --version 2>/dev/null || echo "VERSION_UNKNOWN"
+memory-ingest --version 2>/dev/null || echo "VERSION_UNKNOWN"
+
+# Check common installation paths
+ls ~/.cargo/bin/memory-daemon 2>/dev/null
+ls ~/.local/bin/memory-daemon 2>/dev/null
+ls /usr/local/bin/memory-daemon 2>/dev/null
+```
+
+**State Categories:**
+- `NOT_INSTALLED`: No binaries found
+- `INSTALLED`: Binaries found, capture version
+- `OUTDATED`: Installed version < latest release
+- `PARTIAL`: Only some binaries installed
+
+### 3. Configuration State Check
+
+```bash
+# Config file existence
+ls ~/.config/memory-daemon/config.toml 2>/dev/null && echo "CONFIG_EXISTS" || echo "NO_CONFIG"
+
+# CCH hooks check (global)
+grep -l "memory-ingest" ~/.claude/code_agent_context_hooks/hooks.yaml 2>/dev/null && echo "HOOK_GLOBAL" || echo "NO_GLOBAL_HOOK"
+
+# CCH hooks check (project - current directory)
+grep -l "memory-ingest" .claude/code_agent_context_hooks/hooks.yaml 2>/dev/null && echo "HOOK_PROJECT" || echo "NO_PROJECT_HOOK"
+
+# Environment variables
+[ -n "$OPENAI_API_KEY" ] && echo "OPENAI_KEY_SET" || echo "OPENAI_KEY_MISSING"
+[ -n "$ANTHROPIC_API_KEY" ] && echo "ANTHROPIC_KEY_SET" || echo "ANTHROPIC_KEY_MISSING"
+```
+
+**State Categories:**
+- `UNCONFIGURED`: No config.toml
+- `CONFIGURED`: config.toml exists
+- `HOOKED_GLOBAL`: CCH hook configured globally
+- `HOOKED_PROJECT`: CCH hook configured for project
+- `API_READY`: At least one API key available
+
+### 4. Runtime State Check
+
+```bash
+# Daemon process running
+memory-daemon status 2>/dev/null
+# Returns: running/stopped/error
+
+# Port availability (if daemon not running)
+lsof -i :50051 2>/dev/null && echo "PORT_IN_USE" || echo "PORT_AVAILABLE"
+
+# Recent activity check
+memory-daemon query root 2>/dev/null && echo "DAEMON_RESPONSIVE" || echo "DAEMON_UNRESPONSIVE"
+
+# Event count (if daemon running)
+memory-daemon admin status 2>/dev/null | grep -o 'events: [0-9]*'
+```
+
+**State Categories:**
+- `RUNNING`: Daemon active and responsive
+- `STOPPED`: Daemon not running, port available
+- `PORT_BLOCKED`: Port in use by another process
+- `UNRESPONSIVE`: Process exists but not responding
+
+### State Summary Format
+
+After detection, present state summary:
+
+```
+Current State
+─────────────
+Prerequisites:  ✓ Claude Code, ✓ Cargo (1.75.0), macOS arm64
+Installation:   ✓ memory-daemon (1.0.0), ✓ memory-ingest (1.0.0)
+Configuration:  ✓ config.toml, ✗ CCH hook not configured
+Runtime:        ✗ Daemon not running (port available)
+
+Recommended:    Configure CCH hook, then start daemon
+```
+
 ## Reference Files
 
 For detailed information, see:
@@ -124,3 +232,4 @@ For detailed information, see:
 - [Configuration Options](references/configuration-options.md) - All config.toml options
 - [Troubleshooting Guide](references/troubleshooting-guide.md) - Common issues and solutions
 - [Platform Specifics](references/platform-specifics.md) - macOS, Linux, Windows details
+- [Wizard Questions](references/wizard-questions.md) - Complete interactive wizard question flow
