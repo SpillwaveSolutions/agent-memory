@@ -18,6 +18,7 @@ This roadmap delivers a local, append-only conversational memory system with TOC
 - [x] **Phase 6: End-to-End Demo** - Full workflow validation from ingestion to query answer
 - [x] **Phase 7: Agentic Memory Plugin** - Claude Code marketplace plugin with commands, agents, graded skill
 - [x] **Phase 8: CCH Hook Integration** - Automatic event capture via CCH hooks
+- [ ] **Phase 9: Setup & Installer Plugin** - Interactive setup wizard plugin with commands and agents
 
 ## Phase Details
 
@@ -189,6 +190,27 @@ Plans:
 | session-end | session_end | Session duration, token count |
 | pre-compact | (no mapping) | Could trigger TOC rebuild |
 
+### Phase 9: Setup & Installer Plugin
+**Goal**: Provide an interactive setup wizard plugin that guides users through installing, configuring, and managing agent-memory
+**Depends on**: Phase 8
+**Requirements**: SETUP-01, SETUP-02, SETUP-03, SETUP-04, SETUP-05
+**Success Criteria** (what must be TRUE):
+  1. Plugin provides `/memory-setup` command that launches interactive wizard
+  2. Wizard asks questions about: installation method, hook configuration, daemon settings, summarizer choice
+  3. Plugin can install binaries (memory-daemon, memory-ingest) to user's system
+  4. Plugin generates hooks.yaml configuration based on user answers
+  5. Plugin provides `/memory-status` command to check installation health
+  6. Plugin provides `/memory-config` command to modify settings after initial setup
+  7. Autonomous agent handles complex setup troubleshooting
+  8. Skill follows PDA with layered references for advanced configuration
+**Plans**: TBD
+
+Plans:
+- [ ] 09-01: Setup plugin structure (marketplace.json, skill, commands, agent)
+- [ ] 09-02: Interactive wizard flow (questions, configuration generation)
+- [ ] 09-03: Installation automation (binary installation, path setup)
+- [ ] 09-04: Health check and troubleshooting (status, diagnostics, fixes)
+
 ## Progress
 
 **Execution Order:**
@@ -204,6 +226,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 6. End-to-End Demo | 2/2 | ✅ Complete | 2026-01-30 |
 | 7. Agentic Memory Plugin | 1/1 | ✅ Complete | 2026-01-30 |
 | 8. CCH Hook Integration | 1/1 | ✅ Complete | 2026-01-30 |
+| 9. Setup & Installer Plugin | 0/4 | ○ Pending | — |
 
 ---
 *Roadmap created: 2026-01-29*
