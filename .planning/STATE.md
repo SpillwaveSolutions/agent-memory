@@ -9,11 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 ## Current Position
 
-Milestone: v1.0.0 MVP - ✅ SHIPPED (2026-01-30)
-Status: Milestone complete, archived to .planning/milestones/
-Last activity: 2026-01-30 -- Completed milestone v1.0.0
+Milestone: v1.0.0 MVP - SHIPPED (2026-01-30)
+Current: Phase 9 - Setup/Installer Plugin
+Status: In progress
+Last activity: 2026-01-31 -- Completed 09-01-PLAN.md
 
-Progress: [####################] 100% (20/20 plans across 8 phases)
+Progress Phase 9: [#####---------------] 25% (1/4 plans)
 
 ## Performance Metrics
 
@@ -139,6 +140,12 @@ Recent decisions affecting current work:
 - Reuse memory-client types (HookEvent, map_hook_event)
 - Event types: SessionStart, UserPromptSubmit, PostToolUse, Stop, SubagentStart/Stop
 
+**From 09-01:**
+- Plugin structure follows memory-query-plugin pattern
+- Progressive Disclosure Architecture for SKILL.md
+- Three slash commands: /memory-setup, /memory-status, /memory-config
+- setup-troubleshooter agent with safe/permission-required fix tiers
+
 ### Pending Todos
 
 None yet.
@@ -149,9 +156,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-30
-Stopped at: Milestone v1.0.0 archived and shipped
-Resume file: None
+Last session: 2026-01-31
+Stopped at: Completed 09-01-PLAN.md (Setup Plugin Structure)
+Resume file: .planning/phases/09-setup-installer-plugin/09-02-PLAN.md
 
 ## Milestone History
 
@@ -211,3 +218,12 @@ See: .planning/MILESTONES.md for complete history
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
 | 08-01 | 1 | CCH hook handler binary | Complete |
+
+## Phase 9 Plans
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 09-01 | 1 | Setup Plugin Structure | Complete |
+| 09-02 | 1 | Installation Wizard Implementation | Pending |
+| 09-03 | 2 | Status and Config Implementation | Pending |
+| 09-04 | 3 | Testing and Polish | Pending |
