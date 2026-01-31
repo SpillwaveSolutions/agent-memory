@@ -453,14 +453,218 @@ memory-daemon start
 
 ## Uninstalling
 
+Complete uninstallation guide. Follow steps in order.
+
+### Step 1: Stop the Daemon
+
+**Ensure the daemon is stopped before removing files:**
+
 ```bash
+# Stop via CLI
+memory-daemon stop
+
+# Verify stopped
+memory-daemon status
+# Should show: not running
+
+# Force kill if needed
+pkill -f "memory-daemon.*start" || true
+```
+
+### Step 2: Remove Auto-Start
+
+**macOS (launchd):**
+
+```bash
+# Unload and remove plist
+launchctl unload ~/Library/LaunchAgents/com.spillwave.memory-daemon.plist 2>/dev/null
+rm -f ~/Library/LaunchAgents/com.spillwave.memory-daemon.plist
+
+# Verify
+launchctl list | grep memory-daemon  # Should return nothing
+```
+
+**Linux (systemd):**
+
+```bash
+# Stop and disable service
+systemctl --user stop memory-daemon
+systemctl --user disable memory-daemon
+
+# Remove service file
+rm -f ~/.config/systemd/user/memory-daemon.service
+systemctl --user daemon-reload
+
+# Verify
+systemctl --user status memory-daemon  # Should show "could not be found"
+```
+
+**Windows (Task Scheduler):**
+
+```powershell
+# Stop and remove scheduled task
+Stop-ScheduledTask -TaskName "MemoryDaemon" -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName "MemoryDaemon" -Confirm:$false
+
+# Verify
+Get-ScheduledTask -TaskName "MemoryDaemon"  # Should error
+```
+
+### Step 3: Remove Binaries
+
+**Find and remove installed binaries:**
+
+```bash
+# Find binary locations
+which memory-daemon
+which memory-ingest
+
+# Remove from found locations
+rm -f $(which memory-daemon 2>/dev/null)
+rm -f $(which memory-ingest 2>/dev/null)
+
+# Also check common locations
+rm -f ~/.cargo/bin/memory-daemon
+rm -f ~/.cargo/bin/memory-ingest
+rm -f ~/.local/bin/memory-daemon
+rm -f ~/.local/bin/memory-ingest
+rm -f /usr/local/bin/memory-daemon
+rm -f /usr/local/bin/memory-ingest
+
+# Verify
+which memory-daemon  # Should return nothing
+```
+
+**Windows:**
+
+```powershell
 # Remove binaries
-rm $(which memory-daemon)
-rm $(which memory-ingest)
+Remove-Item "$env:USERPROFILE\.cargo\bin\memory-daemon.exe" -ErrorAction SilentlyContinue
+Remove-Item "$env:USERPROFILE\.cargo\bin\memory-ingest.exe" -ErrorAction SilentlyContinue
+Remove-Item "$env:LOCALAPPDATA\Programs\memory-daemon\*" -Recurse -ErrorAction SilentlyContinue
+```
 
-# Optional: Remove data (WARNING: destroys all conversation history)
-rm -rf ~/.memory-store
+### Step 4: Remove Configuration (Optional)
 
-# Optional: Remove configuration
+**Only remove if you don't plan to reinstall:**
+
+```bash
+# Remove config directory
 rm -rf ~/.config/memory-daemon
+
+# Remove CCH hooks
+rm -f ~/.claude/code_agent_context_hooks/hooks.yaml
+
+# Remove project-level hooks (in each project)
+rm -f .claude/hooks.yaml
+```
+
+**Windows:**
+
+```powershell
+Remove-Item "$env:APPDATA\memory-daemon" -Recurse -ErrorAction SilentlyContinue
+```
+
+### Step 5: Remove Data (Optional - DESTRUCTIVE)
+
+**WARNING: This permanently destroys all conversation history!**
+
+```bash
+# List what will be deleted
+ls -la ~/.memory-store
+
+# Confirm you want to delete
+echo "This will permanently delete all conversation history"
+read -p "Type 'DELETE' to confirm: " confirm
+if [ "$confirm" = "DELETE" ]; then
+    rm -rf ~/.memory-store
+    echo "Data removed"
+fi
+```
+
+**Windows:**
+
+```powershell
+# Show what will be deleted
+Get-ChildItem "$env:LOCALAPPDATA\memory-daemon\data" -Recurse
+
+# Remove (BE CAREFUL!)
+$confirm = Read-Host "Type 'DELETE' to permanently remove all data"
+if ($confirm -eq "DELETE") {
+    Remove-Item "$env:LOCALAPPDATA\memory-daemon" -Recurse -Force
+    Write-Host "Data removed"
+}
+```
+
+### Step 6: Clean Up Logs (Optional)
+
+```bash
+# macOS
+rm -rf ~/Library/Logs/memory-daemon
+
+# Linux
+rm -rf ~/.local/state/memory-daemon
+```
+
+**Windows:**
+
+```powershell
+Remove-Item "$env:LOCALAPPDATA\memory-daemon\logs" -Recurse -ErrorAction SilentlyContinue
+```
+
+### Complete Uninstall Script
+
+**For convenience, use the install-helper script:**
+
+```bash
+# Source the helper
+source /path/to/install-helper.sh
+
+# Full uninstall (keeps data and config)
+uninstall
+
+# Full uninstall including config
+uninstall --remove-config
+
+# Full uninstall including data (DESTRUCTIVE)
+uninstall --remove-data --remove-config
+```
+
+### Verification Checklist
+
+After uninstalling, verify these all return errors or "not found":
+
+```bash
+# Binary check
+which memory-daemon
+which memory-ingest
+memory-daemon --version
+
+# Process check
+pgrep -f memory-daemon
+
+# Auto-start check (macOS)
+launchctl list | grep memory
+
+# Auto-start check (Linux)
+systemctl --user list-units | grep memory
+```
+
+### Reinstalling After Uninstall
+
+If you kept your data (`~/.memory-store`), reinstalling will reconnect to existing conversation history:
+
+```bash
+# Reinstall binary
+cargo install --git https://github.com/SpillwaveSolutions/agent-memory memory-daemon --force
+
+# Recreate config
+mkdir -p ~/.config/memory-daemon
+memory-daemon config init  # Or run setup wizard
+
+# Start daemon
+memory-daemon start
+
+# Verify data recovered
+memory-daemon query root  # Should show existing TOC
 ```
