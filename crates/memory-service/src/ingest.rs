@@ -1,9 +1,11 @@
-//! IngestEvent RPC implementation.
+//! IngestEvent and Query RPC implementations.
 //!
 //! Handles event ingestion by:
 //! 1. Converting proto Event to domain Event
 //! 2. Storing in RocksDB with atomic outbox entry (ING-05)
 //! 3. Returning idempotent result (ING-03)
+//!
+//! Handles query RPCs for TOC navigation and event retrieval.
 
 use std::sync::Arc;
 
@@ -21,7 +23,14 @@ use crate::pb::{
     EventType as ProtoEventType,
     IngestEventRequest,
     IngestEventResponse,
+    // Query RPCs
+    GetTocRootRequest, GetTocRootResponse,
+    GetNodeRequest, GetNodeResponse,
+    BrowseTocRequest, BrowseTocResponse,
+    GetEventsRequest, GetEventsResponse,
+    ExpandGripRequest, ExpandGripResponse,
 };
+use crate::query;
 
 /// Implementation of the MemoryService gRPC service.
 pub struct MemoryServiceImpl {
@@ -155,6 +164,56 @@ impl MemoryService for MemoryServiceImpl {
             event_id,
             created,
         }))
+    }
+
+    /// Get root TOC nodes (year level).
+    /// Per QRY-01: Returns top-level time period nodes.
+    async fn get_toc_root(
+        &self,
+        request: Request<GetTocRootRequest>,
+    ) -> Result<Response<GetTocRootResponse>, Status> {
+        let response = query::get_toc_root(&self.storage, request.into_inner())?;
+        Ok(Response::new(response))
+    }
+
+    /// Get a specific TOC node by ID.
+    /// Per QRY-02: Returns node with children and summary.
+    async fn get_node(
+        &self,
+        request: Request<GetNodeRequest>,
+    ) -> Result<Response<GetNodeResponse>, Status> {
+        let response = query::get_node(&self.storage, request.into_inner())?;
+        Ok(Response::new(response))
+    }
+
+    /// Browse children of a TOC node with pagination.
+    /// Per QRY-03: Supports paginated navigation of children.
+    async fn browse_toc(
+        &self,
+        request: Request<BrowseTocRequest>,
+    ) -> Result<Response<BrowseTocResponse>, Status> {
+        let response = query::browse_toc(&self.storage, request.into_inner())?;
+        Ok(Response::new(response))
+    }
+
+    /// Get raw events in a time range.
+    /// Per QRY-04: Retrieves events by time range.
+    async fn get_events(
+        &self,
+        request: Request<GetEventsRequest>,
+    ) -> Result<Response<GetEventsResponse>, Status> {
+        let response = query::get_events(&self.storage, request.into_inner())?;
+        Ok(Response::new(response))
+    }
+
+    /// Expand a grip with surrounding context.
+    /// Per QRY-05: Retrieves context around grip excerpt.
+    async fn expand_grip(
+        &self,
+        request: Request<ExpandGripRequest>,
+    ) -> Result<Response<ExpandGripResponse>, Status> {
+        let response = query::expand_grip(self.storage.clone(), request.into_inner())?;
+        Ok(Response::new(response))
     }
 }
 

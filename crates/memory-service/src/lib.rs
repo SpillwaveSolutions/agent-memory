@@ -2,10 +2,13 @@
 //!
 //! Provides:
 //! - IngestEvent RPC for event ingestion (ING-01)
+//! - TOC navigation RPCs (QRY-01, QRY-02, QRY-03)
+//! - Event retrieval RPCs (QRY-04, QRY-05)
 //! - Health check endpoint (GRPC-03)
 //! - Reflection endpoint for debugging (GRPC-04)
 
 pub mod ingest;
+pub mod query;
 pub mod server;
 
 pub mod pb {

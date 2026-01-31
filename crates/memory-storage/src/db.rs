@@ -287,7 +287,7 @@ impl Storage {
             let node_id = key_str.trim_start_matches("latest:");
             if value.len() >= 4 {
                 let version = u32::from_be_bytes([value[0], value[1], value[2], value[3]]);
-                let versioned_key = format!("{}:v{:06}", node_id, version);
+                let versioned_key = format!("toc:{}:v{:06}", node_id, version);
 
                 if let Some(bytes) = self.db.get_cf(&nodes_cf, versioned_key.as_bytes())? {
                     let node = memory_types::TocNode::from_bytes(&bytes)
@@ -330,6 +330,51 @@ impl Storage {
             }
             None => Ok(Vec::new()),
         }
+    }
+
+    /// Get all year-level TOC nodes.
+    ///
+    /// Scans toc_latest for nodes with "toc:year:" prefix.
+    pub fn get_all_year_nodes(&self) -> Result<Vec<memory_types::TocNode>, StorageError> {
+        let latest_cf = self.db.cf_handle(CF_TOC_LATEST)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_LATEST.to_string()))?;
+        let nodes_cf = self.db.cf_handle(CF_TOC_NODES)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_NODES.to_string()))?;
+
+        let prefix = "latest:toc:year:";
+        let mut nodes = Vec::new();
+
+        let iter = self.db.iterator_cf(
+            &latest_cf,
+            IteratorMode::From(prefix.as_bytes(), Direction::Forward),
+        );
+
+        for item in iter {
+            let (key, value) = item?;
+            let key_str = String::from_utf8_lossy(&key);
+
+            // Stop if we've passed the prefix range
+            if !key_str.starts_with(prefix) {
+                break;
+            }
+
+            if value.len() >= 4 {
+                let node_id = key_str.trim_start_matches("latest:");
+                let version = u32::from_be_bytes([value[0], value[1], value[2], value[3]]);
+                let versioned_key = format!("toc:{}:v{:06}", node_id, version);
+
+                if let Some(bytes) = self.db.get_cf(&nodes_cf, versioned_key.as_bytes())? {
+                    let node = memory_types::TocNode::from_bytes(&bytes)
+                        .map_err(|e| StorageError::Serialization(e.to_string()))?;
+                    nodes.push(node);
+                }
+            }
+        }
+
+        // Sort by start time descending (most recent first)
+        nodes.sort_by(|a, b| b.start_time.cmp(&a.start_time));
+
+        Ok(nodes)
     }
 
     // ==================== Grip Methods ====================

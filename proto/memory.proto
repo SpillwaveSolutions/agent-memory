@@ -6,6 +6,8 @@ package memory;
 //
 // This service provides:
 // - Event ingestion for conversation capture
+// - TOC navigation for memory traversal
+// - Event retrieval for verification
 // - Health check for monitoring
 // - Reflection for debugging
 service MemoryService {
@@ -14,6 +16,26 @@ service MemoryService {
     // Events are persisted to RocksDB with time-prefixed keys.
     // Idempotent: returns created=false if event_id already exists.
     rpc IngestEvent(IngestEventRequest) returns (IngestEventResponse);
+
+    // Get root TOC nodes (year level).
+    // Per QRY-01: Returns top-level time period nodes.
+    rpc GetTocRoot(GetTocRootRequest) returns (GetTocRootResponse);
+
+    // Get a specific TOC node by ID.
+    // Per QRY-02: Returns node with children and summary.
+    rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
+
+    // Browse children of a TOC node with pagination.
+    // Per QRY-03: Supports paginated navigation of children.
+    rpc BrowseToc(BrowseTocRequest) returns (BrowseTocResponse);
+
+    // Get raw events in a time range.
+    // Per QRY-04: Retrieves events by time range.
+    rpc GetEvents(GetEventsRequest) returns (GetEventsResponse);
+
+    // Expand a grip with surrounding context.
+    // Per QRY-05: Retrieves context around grip excerpt.
+    rpc ExpandGrip(ExpandGripRequest) returns (ExpandGripResponse);
 }
 
 // Role of the message author
@@ -78,4 +100,150 @@ message IngestEventResponse {
 
     // True if event was newly created, false if already existed (idempotent)
     bool created = 2;
+}
+
+// Level in the TOC hierarchy
+enum TocLevel {
+    TOC_LEVEL_UNSPECIFIED = 0;
+    TOC_LEVEL_YEAR = 1;
+    TOC_LEVEL_MONTH = 2;
+    TOC_LEVEL_WEEK = 3;
+    TOC_LEVEL_DAY = 4;
+    TOC_LEVEL_SEGMENT = 5;
+}
+
+// A bullet point in a TOC summary
+message TocBullet {
+    // The bullet text
+    string text = 1;
+    // Grip IDs that support this bullet (provenance)
+    repeated string grip_ids = 2;
+}
+
+// A node in the TOC hierarchy
+message TocNode {
+    // Unique node identifier (e.g., "toc:year:2024")
+    string node_id = 1;
+    // Hierarchy level
+    TocLevel level = 2;
+    // Summary title
+    string title = 3;
+    // Summary bullet points
+    repeated TocBullet bullets = 4;
+    // Keywords for search
+    repeated string keywords = 5;
+    // Child node IDs for navigation
+    repeated string child_node_ids = 6;
+    // Time range start
+    int64 start_time_ms = 7;
+    // Time range end
+    int64 end_time_ms = 8;
+}
+
+// A grip (excerpt with provenance pointers)
+message Grip {
+    // Unique grip identifier
+    string grip_id = 1;
+    // Excerpt text
+    string excerpt = 2;
+    // Event ID where excerpt starts
+    string event_id_start = 3;
+    // Event ID where excerpt ends
+    string event_id_end = 4;
+    // Timestamp of the excerpt
+    int64 timestamp_ms = 5;
+    // Source identifier (e.g., TOC node ID)
+    string source = 6;
+    // Optional TOC node this grip is linked to
+    optional string toc_node_id = 7;
+}
+
+// Request to get root TOC nodes (years)
+message GetTocRootRequest {
+    // Optional: filter by specific year
+    optional int32 year = 1;
+}
+
+// Response with root TOC nodes
+message GetTocRootResponse {
+    // Year-level nodes
+    repeated TocNode nodes = 1;
+}
+
+// Request to get a specific TOC node
+message GetNodeRequest {
+    // Node ID to fetch
+    string node_id = 1;
+}
+
+// Response with the requested node
+message GetNodeResponse {
+    // The node (empty if not found)
+    optional TocNode node = 1;
+    // True if node was found
+    bool found = 2;
+}
+
+// Request to browse children with pagination
+message BrowseTocRequest {
+    // Parent node ID
+    string parent_node_id = 1;
+    // Number of children per page (default 10, max 100)
+    int32 page_size = 2;
+    // Continuation token from previous response
+    string continuation_token = 3;
+}
+
+// Response with paginated children
+message BrowseTocResponse {
+    // Child nodes for this page
+    repeated TocNode children = 1;
+    // Token for next page (empty if no more)
+    string next_continuation_token = 2;
+    // True if more children exist
+    bool has_more = 3;
+    // Total count of children
+    int32 total_count = 4;
+}
+
+// Request to get events in a time range
+message GetEventsRequest {
+    // Start of time range (inclusive)
+    int64 start_time_ms = 1;
+    // End of time range (inclusive)
+    int64 end_time_ms = 2;
+    // Maximum number of events to return (default 100, max 1000)
+    int32 limit = 3;
+}
+
+// Response with events
+message GetEventsResponse {
+    // Events in the requested range
+    repeated Event events = 1;
+    // True if more events exist beyond limit
+    bool has_more = 2;
+}
+
+// Request to expand a grip with context
+message ExpandGripRequest {
+    // Grip ID to expand
+    string grip_id = 1;
+    // Number of events before excerpt (default 3)
+    int32 events_before = 2;
+    // Number of events after excerpt (default 3)
+    int32 events_after = 3;
+}
+
+// Response with expanded grip context
+message ExpandGripResponse {
+    // The grip details
+    optional Grip grip = 1;
+    // Events before the excerpt
+    repeated Event events_before = 2;
+    // Events in the excerpt range
+    repeated Event excerpt_events = 3;
+    // Events after the excerpt
+    repeated Event events_after = 4;
+    // True if grip was found
+    bool found = 5;
 }
