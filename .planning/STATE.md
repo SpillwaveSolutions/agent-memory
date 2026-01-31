@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 ## Current Position
 
-Phase: 6 of 6 (End-to-End Demo) - COMPLETE
-Plan: 2 of 2 in current phase (completed: 06-01, 06-02)
-Status: ALL PHASES COMPLETE - v1 Milestone Achieved
-Last activity: 2026-01-30 -- Completed 06-02-PLAN.md (Documentation)
+Phase: 8 of 8 (CCH Hook Integration) - COMPLETE
+Plan: 1 of 1 in current phase (completed: 08-01)
+Status: Phase 8 complete - CCH integration ready
+Last activity: 2026-01-31 -- Completed 08-01-PLAN.md (CCH Hook Handler Binary)
 
-Progress: [####################] 100% (18/18 plans)
+Progress: [####################] 100% (19/19 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
-- Average duration: ~11min
-- Total execution time: ~165min
+- Total plans completed: 19
+- Average duration: ~10min
+- Total execution time: ~173min
 
 **By Phase:**
 
@@ -33,9 +33,10 @@ Progress: [####################] 100% (18/18 plans)
 | 4. Query Layer | 2/2 | ~20min | ~10min |
 | 5. Integration | 3/3 | ~30min | ~10min |
 | 6. End-to-End Demo | 2/2 | ~20min | ~10min |
+| 8. CCH Integration | 1/1 | ~4min | ~4min |
 
 **Recent Trend:**
-- Last 5 plans: 03-03 (~10min), 04-01 (~10min), 04-02 (~10min), 05-01 (~10min), 05-02 (~10min)
+- Last 5 plans: 05-02 (~10min), 05-03 (~10min), 06-01 (~10min), 06-02 (~10min), 08-01 (~4min)
 - Trend: Consistent velocity with well-defined plans
 
 *Updated after each plan completion*
@@ -133,6 +134,12 @@ Recent decisions affecting current work:
 - Compact triggers RocksDB compaction on all or specific CFs
 - RebuildToc placeholder - full impl requires memory-toc integration
 
+**From 08-01:**
+- memory-ingest binary reads CCH JSON from stdin
+- Fail-open behavior: always return {"continue":true}
+- Reuse memory-client types (HookEvent, map_hook_event)
+- Event types: SessionStart, UserPromptSubmit, PostToolUse, Stop, SubagentStart/Stop
+
 ### Pending Todos
 
 None yet.
@@ -143,8 +150,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-30
-Stopped at: Completed 05-02-PLAN.md (Query CLI)
+Last session: 2026-01-31
+Stopped at: Completed 08-01-PLAN.md (CCH Hook Handler Binary)
 Resume file: None
 
 ## Phase 1 Plans
@@ -194,3 +201,9 @@ Resume file: None
 |------|------|-------------|--------|
 | 06-01 | 1 | Integration test harness and demo script | Complete |
 | 06-02 | 2 | Documentation and usage examples | Complete |
+
+## Phase 8 Plans
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 08-01 | 1 | CCH hook handler binary | Complete |
