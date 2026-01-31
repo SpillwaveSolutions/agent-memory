@@ -235,56 +235,59 @@ cargo build --release
 ### Start the Daemon
 
 ```bash
-# Start in foreground
-./target/release/memory-daemon start --foreground
+# Start with defaults (port 50051, db at ~/.memory-store)
+./target/release/memory-daemon start
 
-# Or with custom config
-./target/release/memory-daemon --config /path/to/config.toml start
+# Start with custom settings
+./target/release/memory-daemon start --port 50052 --db-path /path/to/db
+```
+
+### Stop/Status
+
+```bash
+# Stop the daemon
+./target/release/memory-daemon stop
+
+# Check if running
+./target/release/memory-daemon status
 ```
 
 ### Configuration
 
-Default config location: `~/.config/agent-memory/config.toml`
+Settings can be provided via (highest priority first):
+1. Command-line flags
+2. Environment variables (MEMORY_* prefix)
+3. Config file (~/.config/memory-daemon/config.toml)
+4. Defaults
 
-```toml
-# Database path
-db_path = "~/.local/share/agent-memory/db"
-
-# gRPC server settings
-grpc_port = 50051
-grpc_host = "0.0.0.0"
-
-# Multi-agent mode (separate or unified)
-multi_agent_mode = "separate"
-
-# Summarizer settings
-[summarizer]
-provider = "openai"
-model = "gpt-4o-mini"
-```
-
-Environment variables override config file:
-- `MEMORY_DB_PATH`
-- `MEMORY_GRPC_PORT`
-- `MEMORY_SUMMARIZER_PROVIDER`
+Environment variables:
+- `MEMORY_PORT` - gRPC port (default: 50051)
+- `MEMORY_DB_PATH` - RocksDB path (default: ~/.memory-store)
+- `MEMORY_LOG_LEVEL` - Log verbosity (default: info)
 
 ### CLI Commands
 
 ```bash
-# Start daemon
-memory-daemon start [--foreground]
+# Query commands (connect to running daemon)
+memory-daemon query --endpoint http://[::1]:50051 root
+memory-daemon query --endpoint http://[::1]:50051 node --node-id "toc:year:2026"
+memory-daemon query --endpoint http://[::1]:50051 browse --parent-id "toc:year:2026" --limit 10
+memory-daemon query --endpoint http://[::1]:50051 events --from 1706745600000 --to 1706832000000 --limit 100
+memory-daemon query --endpoint http://[::1]:50051 expand --grip-id "grip:123:abc" --before 3 --after 3
 
-# Stop daemon
-memory-daemon stop
-
-# Check status
-memory-daemon status
-
-# Query TOC (after Phase 5)
-memory-query toc-root
-memory-query node <node-id>
-memory-query events --from "2024-01-01" --to "2024-01-31"
+# Admin commands (direct storage access)
+memory-daemon admin --db-path ~/.memory-store stats
+memory-daemon admin --db-path ~/.memory-store compact
+memory-daemon admin --db-path ~/.memory-store compact --cf events
 ```
+
+### Run the Demo
+
+```bash
+./scripts/demo.sh
+```
+
+This script starts the daemon, ingests sample events, and demonstrates querying.
 
 ## Project Structure
 
@@ -306,12 +309,12 @@ agent-memory/
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1. Foundation | Storage, types, gRPC scaffolding, daemon | In Progress |
-| 2. TOC Building + Teleport Indexes | Segmentation, summarization, hierarchy, BM25 & vector search | Planned |
-| 3. Grips & Provenance | Excerpt storage, linking, expansion (graph DB under discussion) | Planned |
-| 4. Query Layer | Navigation RPCs, event retrieval | Planned |
-| 5. Integration | Hook handlers, CLI, admin commands | Planned |
-| 6. End-to-End Demo | Full workflow validation | Planned |
+| 1. Foundation | Storage, types, gRPC scaffolding, daemon | Complete |
+| 2. TOC Building | Segmentation, summarization, hierarchy | Complete |
+| 3. Grips & Provenance | Excerpt storage, linking, expansion | Complete |
+| 4. Query Layer | Navigation RPCs, event retrieval | Complete |
+| 5. Integration | Hook handlers, CLI, admin commands | Complete |
+| 6. End-to-End Demo | Full workflow validation | Complete |
 
 ### Phase 2: Teleport Indexes (Accelerators)
 
