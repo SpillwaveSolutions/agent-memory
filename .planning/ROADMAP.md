@@ -19,7 +19,7 @@ This roadmap delivers a local, append-only conversational memory system with TOC
 - [x] **Phase 7: Agentic Memory Plugin** - Claude Code marketplace plugin with commands, agents, graded skill
 - [x] **Phase 8: CCH Hook Integration** - Automatic event capture via CCH hooks
 - [x] **Phase 9: Setup & Installer Plugin** - Interactive setup wizard plugin with commands and agents
-- [ ] **Phase 10: Background Scheduler** - In-process Tokio cron scheduler for TOC rollups and periodic jobs
+- [x] **Phase 10: Background Scheduler** - In-process Tokio cron scheduler for TOC rollups and periodic jobs
 - [ ] **Phase 11: BM25 Teleport (Tantivy)** - Full-text search index for keyword-based teleportation to relevant TOC nodes
 - [ ] **Phase 12: Vector Teleport (HNSW)** - Semantic similarity search via local HNSW vector index
 - [ ] **Phase 13: Outbox Index Ingestion** - Event-driven index updates from outbox for rebuildable search indexes
@@ -222,7 +222,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Cron expressions parsed and scheduled via tokio-cron-scheduler
   2. Timezone-aware scheduling with DST handling (chrono-tz)
-  3. Overlap policy configurable: skip, queue, or concurrent
+  3. Overlap policy configurable: skip or concurrent (queue deferred - adds complexity)
   4. Jitter support to spread load across instances
   5. Graceful shutdown stops scheduling, finishes current job, or cancels safely
   6. TOC rollup jobs (day/week/month) run on schedule
@@ -230,10 +230,10 @@ Plans:
 **Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 10-01-PLAN.md — Scheduler infrastructure (memory-scheduler crate, tokio-cron-scheduler, timezone handling)
-- [ ] 10-02-PLAN.md — Job registry and lifecycle (JobRegistry, overlap policy, jitter utilities)
-- [ ] 10-03-PLAN.md — TOC rollup jobs (wire existing rollups to scheduler, daemon integration)
-- [ ] 10-04-PLAN.md — Job observability (GetSchedulerStatus RPC, CLI scheduler commands)
+- [x] 10-01-PLAN.md — Scheduler infrastructure (memory-scheduler crate, tokio-cron-scheduler, timezone handling)
+- [x] 10-02-PLAN.md — Job registry and lifecycle (JobRegistry, overlap policy, jitter utilities)
+- [x] 10-03-PLAN.md — TOC rollup jobs (wire existing rollups to scheduler, daemon integration)
+- [x] 10-04-PLAN.md — Job observability (GetSchedulerStatus RPC, CLI scheduler commands)
 
 ### Phase 11: BM25 Teleport (Tantivy)
 **Goal**: Enable fast keyword-based search that "teleports" agents directly to relevant TOC nodes or grips without traversing the hierarchy
@@ -305,7 +305,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 7. Agentic Memory Plugin | 1/1 | Complete | 2026-01-30 |
 | 8. CCH Hook Integration | 1/1 | Complete | 2026-01-30 |
 | 9. Setup & Installer Plugin | 4/4 | Complete | 2026-01-31 |
-| 10. Background Scheduler | 0/4 | Planned | - |
+| 10. Background Scheduler | 4/4 | ✅ Complete | 2026-01-31 |
 | 11. BM25 Teleport (Tantivy) | 0/4 | Planned | - |
 | 12. Vector Teleport (HNSW) | 0/4 | Planned | - |
 | 13. Outbox Index Ingestion | 0/4 | Planned | - |

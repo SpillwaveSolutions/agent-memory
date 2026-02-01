@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v1.0.0 SHIPPED - v2.0 planned (Phase 10 Scheduler + Phases 11-13 Teleport)
+**Current focus:** v2.0 in progress - Phase 10 COMPLETE - Phases 11-13 Teleport next
 
 ## Current Position
 
