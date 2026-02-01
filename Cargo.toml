@@ -8,6 +8,7 @@ members = [
     "crates/memory-toc",
     "crates/memory-client",
     "crates/memory-ingest",
+    "crates/memory-scheduler",
 ]
 
 [workspace.package]
@@ -22,6 +23,7 @@ memory-types = { path = "crates/memory-types" }
 memory-storage = { path = "crates/memory-storage" }
 memory-service = { path = "crates/memory-service" }
 memory-client = { path = "crates/memory-client" }
+memory-scheduler = { path = "crates/memory-scheduler" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }
