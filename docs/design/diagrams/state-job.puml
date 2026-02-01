@@ -1,0 +1,161 @@
+@startuml state-job
+title Background Job State Machine
+
+skinparam state {
+    BackgroundColor<<running>> LightGreen
+    BackgroundColor<<paused>> LightYellow
+    BackgroundColor<<failed>> LightCoral
+    BackgroundColor<<success>> LightBlue
+}
+
+[*] --> Registered : Job registered\nwith scheduler
+
+state "Job Lifecycle" as lifecycle {
+
+    state Registered {
+        Registered : job_name set
+        Registered : cron_expr configured
+        Registered : next_run_ms calculated
+    }
+
+    state Scheduled {
+        Scheduled : Waiting for next_run_ms
+        Scheduled : is_running = false
+        Scheduled : is_paused = false
+    }
+
+    state Running <<running>> {
+        Running : is_running = true
+        Running : Executing job logic
+        Running : May take multiple iterations
+    }
+
+    state Paused <<paused>> {
+        Paused : is_paused = true
+        Paused : Skips scheduled runs
+        Paused : Admin intervention
+    }
+
+    state "Post-Execution" as post {
+
+        state Success <<success>> {
+            Success : last_result = SUCCESS
+            Success : run_count++
+            Success : last_duration_ms set
+        }
+
+        state Failed <<failed>> {
+            Failed : last_result = FAILED
+            Failed : error_count++
+            Failed : last_error set
+        }
+
+        state Skipped {
+            Skipped : last_result = SKIPPED
+            Skipped : No work to do
+            Skipped : (e.g., empty outbox)
+        }
+    }
+
+    Registered --> Scheduled : Scheduler starts
+
+    Scheduled --> Running : Cron triggers\n(current_time >= next_run_ms)
+    Scheduled --> Paused : PauseJob RPC
+
+    Running --> Success : Execution completes\nsuccessfully
+    Running --> Failed : Execution throws\nerror
+    Running --> Skipped : No work to process\n(idempotent)
+
+    Success --> Scheduled : Calculate next_run_ms\nfrom cron_expr
+    Failed --> Scheduled : Calculate next_run_ms\n(retry on schedule)
+    Skipped --> Scheduled : Calculate next_run_ms
+
+    Paused --> Scheduled : ResumeJob RPC
+
+    note right of Running
+      **Checkpoint Management**
+      Job saves checkpoint periodically
+      during long-running operations.
+
+      On crash recovery:
+      - Load checkpoint
+      - Resume from last position
+      - Idempotent reprocessing
+    end note
+}
+
+' Crash recovery path
+state "Crash Recovery" as crash {
+    crash : On daemon restart
+    crash : Load checkpoints
+    crash : Resume in-progress jobs
+}
+
+Running --> crash : Daemon crash
+crash --> Scheduled : Checkpoint loaded\nJob rescheduled
+
+' Job-specific states for SegmentJob
+state "SegmentJob Details" as segment {
+
+    state "Poll Outbox" as poll {
+        poll : Read pending entries
+        poll : from last checkpoint
+    }
+
+    state "Group Events" as group {
+        group : Apply time threshold
+        group : Apply token threshold
+        group : Calculate overlaps
+    }
+
+    state "Summarize" as summarize {
+        summarize : Call LLM API
+        summarize : Extract bullets
+        summarize : Create grips
+    }
+
+    state "Write TOC" as write_toc {
+        write_toc : Create segment node
+        write_toc : Update parent refs
+        write_toc : Save checkpoint
+    }
+
+    poll --> group : Entries found
+    poll --> Skipped : No entries
+    group --> summarize : Segment formed
+    summarize --> write_toc : Summary ready
+    write_toc --> poll : Continue processing
+    write_toc --> Success : Outbox drained
+}
+
+Running --> segment : [SegmentJob]
+
+' Rollup job states
+state "RollupJob Details" as rollup {
+
+    state "Check Children" as check {
+        check : Query child nodes
+        check : Determine if rollup needed
+    }
+
+    state "Aggregate" as aggregate {
+        aggregate : Combine child summaries
+        aggregate : Merge keywords
+        aggregate : Call summarizer
+    }
+
+    state "Write Parent" as write_parent {
+        write_parent : Create/update parent node
+        write_parent : Version increment
+        write_parent : Save checkpoint
+    }
+
+    check --> Skipped : No changes
+    check --> aggregate : Children updated
+    aggregate --> write_parent : Aggregation complete
+    write_parent --> Success : Rollup complete
+}
+
+Running --> rollup : [DayRollup/WeekRollup/MonthRollup]
+
+@enduml
