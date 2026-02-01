@@ -11,17 +11,17 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 Milestone: v2.0 Scheduler+Teleport (in progress)
 Current: Phase 10 - Background Scheduler
-Status: In progress
-Last activity: 2026-01-31 -- Completed 10-03-PLAN.md
+Status: Phase complete
+Last activity: 2026-01-31 -- Completed 10-04-PLAN.md
 
-Progress Phase 10: [###############-----] 75% (3/4 plans)
+Progress Phase 10: [####################] 100% (4/4 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25
-- Average duration: ~9min
-- Total execution time: ~225min
+- Total plans completed: 26
+- Average duration: ~10min
+- Total execution time: ~249min
 
 **By Phase:**
 
@@ -35,10 +35,10 @@ Progress Phase 10: [###############-----] 75% (3/4 plans)
 | 6. End-to-End Demo | 2/2 | ~20min | ~10min |
 | 8. CCH Integration | 1/1 | ~4min | ~4min |
 | 9. Setup Plugin | 4/4 | ~19min | ~5min |
-| 10. Background Scheduler | 3/4 | ~37min | ~12min |
+| 10. Background Scheduler | 4/4 | ~61min | ~15min |
 
 **Recent Trend:**
-- Last 5 plans: 09-04 (~6min), 10-01 (~8min), 10-02 (~10min), 10-03 (~19min)
+- Last 5 plans: 10-01 (~8min), 10-02 (~10min), 10-03 (~19min), 10-04 (~24min)
 - Trend: Consistent velocity with well-defined plans
 
 *Updated after each plan completion*
@@ -192,6 +192,13 @@ Recent decisions affecting current work:
 - MemoryServiceImpl::with_scheduler() wires scheduler gRPC handlers
 - MockSummarizer used by default; production should load ApiSummarizer from config
 
+**From 10-04:**
+- JobStatusProto uses Proto suffix to avoid name conflict with domain JobStatus
+- Scheduler RPCs return success/error response rather than gRPC errors for pause/resume
+- CLI uses gRPC client to query daemon rather than direct storage access
+- Timestamps formatted as local time for human readability in CLI
+- SchedulerGrpcService delegates from MemoryServiceImpl when scheduler is configured
+
 ### Pending Todos
 
 None yet.
@@ -203,7 +210,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 10-03-PLAN.md (TOC rollup jobs)
+Stopped at: Completed 10-04-PLAN.md (Job observability)
 Resume file: None
 
 ## Milestone History
@@ -281,7 +288,7 @@ See: .planning/MILESTONES.md for complete history
 | 10-01 | 1 | Scheduler infrastructure (tokio-cron-scheduler, cron parsing, TZ) | Complete |
 | 10-02 | 1 | Job registry and lifecycle (register, pause, overlap policy) | Complete |
 | 10-03 | 2 | TOC rollup jobs (wire existing rollups to scheduler) | Complete |
-| 10-04 | 3 | Job observability (status RPC, CLI, metrics) | Planned |
+| 10-04 | 3 | Job observability (status RPC, CLI, metrics) | Complete |
 
 ## Phase 11 Plans (v2.0 Teleport - BM25)
 
