@@ -36,3 +36,7 @@ logs/
 # Test artifacts
 *.profraw
 coverage/
+
+# Override global gitignore for project-specific config
+!CLAUDE.md
+!AGENTS.md

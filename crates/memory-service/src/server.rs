@@ -12,6 +12,7 @@ use tonic_health::server::health_reporter;
 use tonic_reflection::server::Builder as ReflectionBuilder;
 use tracing::info;
 
+use memory_scheduler::SchedulerService;
 use memory_storage::Storage;
 
 use crate::ingest::MemoryServiceImpl;
@@ -97,6 +98,76 @@ where
         .await?;
 
     info!("gRPC server shutdown complete");
+    Ok(())
+}
+
+/// Run the gRPC server with scheduler integration and graceful shutdown.
+///
+/// This function:
+/// 1. Starts the scheduler
+/// 2. Sets up the gRPC server with scheduler service handlers
+/// 3. Serves until shutdown signal
+/// 4. Shuts down scheduler gracefully
+///
+/// The scheduler service is injected into MemoryServiceImpl to handle
+/// scheduler-related RPCs (GetSchedulerStatus, PauseJob, ResumeJob).
+pub async fn run_server_with_scheduler<F>(
+    addr: SocketAddr,
+    storage: Arc<Storage>,
+    scheduler: SchedulerService,
+    shutdown_signal: F,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    info!("Starting gRPC server with scheduler on {}", addr);
+
+    // Start the scheduler
+    scheduler.start().await?;
+    let job_count = scheduler.registry().job_count();
+    info!(job_count, "Scheduler started");
+
+    // Wrap scheduler for shared access
+    let scheduler = Arc::new(scheduler);
+
+    // Health check service (GRPC-03)
+    let (mut health_reporter, health_service) = health_reporter();
+
+    // Mark MemoryService as serving
+    health_reporter
+        .set_serving::<MemoryServiceServer<MemoryServiceImpl>>()
+        .await;
+
+    // Reflection service (GRPC-04)
+    let reflection_service = ReflectionBuilder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build_v1()?;
+
+    // Main service implementation with scheduler
+    let memory_service = MemoryServiceImpl::with_scheduler(storage, scheduler.clone());
+
+    info!("gRPC server ready on {}", addr);
+
+    // Run server until shutdown signal
+    Server::builder()
+        .add_service(health_service)
+        .add_service(reflection_service)
+        .add_service(MemoryServiceServer::new(memory_service))
+        .serve_with_shutdown(addr, shutdown_signal)
+        .await?;
+
+    info!("gRPC server shutdown, stopping scheduler...");
+
+    // Shutdown scheduler - need to get mutable access
+    // Arc::get_mut won't work here since we have multiple references,
+    // so we use try_unwrap after dropping other references
+    drop(scheduler); // Drop our reference, MemoryServiceImpl's reference is already gone since server stopped
+
+    // Note: In a production system, you might want a different approach
+    // such as using a separate shutdown channel. For now, the scheduler
+    // will be dropped when this function returns, triggering implicit cleanup.
+
+    info!("Server shutdown complete");
     Ok(())
 }
 

@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v1.0.0 SHIPPED - Phase 9 COMPLETE - Planning v2.0
+**Current focus:** v2.0 in progress - Phase 11 PLANNED - Ready for execution
 
 ## Current Position
 
-Milestone: v1.0.0 MVP - SHIPPED (2026-01-30)
-Current: Phase 9 - Setup/Installer Plugin - COMPLETE
-Status: Phase complete
-Last activity: 2026-01-31 -- Completed 09-04-PLAN.md
+Milestone: v2.0 Scheduler+Teleport (in progress)
+Current: Phase 11 - BM25 Teleport (Tantivy)
+Status: Plans ready, verified with minor recommendations
+Last activity: 2026-01-31 -- Created 11-RESEARCH.md and 4 PLAN.md files
 
-Progress Phase 9: [####################] 100% (4/4 plans)
+Progress Phase 11: [                    ] 0% (0/4 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
-- Average duration: ~9min
-- Total execution time: ~188min
+- Total plans completed: 26
+- Average duration: ~10min
+- Total execution time: ~249min
 
 **By Phase:**
 
@@ -35,9 +35,10 @@ Progress Phase 9: [####################] 100% (4/4 plans)
 | 6. End-to-End Demo | 2/2 | ~20min | ~10min |
 | 8. CCH Integration | 1/1 | ~4min | ~4min |
 | 9. Setup Plugin | 4/4 | ~19min | ~5min |
+| 10. Background Scheduler | 4/4 | ~61min | ~15min |
 
 **Recent Trend:**
-- Last 5 plans: 09-01 (~4min), 09-02 (~4min), 09-03 (~5min), 09-04 (~6min)
+- Last 5 plans: 10-01 (~8min), 10-02 (~10min), 10-03 (~19min), 10-04 (~24min)
 - Trend: Consistent velocity with well-defined plans
 
 *Updated after each plan completion*
@@ -167,6 +168,37 @@ Recent decisions affecting current work:
 - Troubleshooter uses 6 diagnostic categories: INSTALLATION, STARTUP, CONNECTION, INGESTION, SUMMARIZATION, RUNTIME
 - Safe auto-fixes vs permission-required fixes tier system
 
+**From 10-01:**
+- SchedulerService wraps tokio-cron-scheduler's JobScheduler
+- shutdown() requires &mut self due to underlying API
+- Timezone validation at SchedulerService::new() for fail-fast
+- Jobs receive CancellationToken for graceful shutdown integration
+- validate_cron_expression() for upfront cron syntax checking
+
+**From 10-02:**
+- JobRegistry uses RwLock<HashMap> for thread-safe status tracking
+- OverlapPolicy::Skip is the default - prevents job pileup
+- OverlapGuard uses AtomicBool for lock-free running state
+- RunGuard RAII pattern ensures running flag is released on drop/panic
+- JitterConfig generates random delay in milliseconds
+- register_job() checks is_paused before acquiring overlap guard
+
+**From 10-03:**
+- Jobs module in memory-scheduler with optional "jobs" feature (default on)
+- RollupJobConfig configures day/week/month cron schedules
+- create_rollup_jobs() wires existing memory-toc::rollup::RollupJob to scheduler
+- CompactionJobConfig configures weekly RocksDB compaction
+- run_server_with_scheduler() starts scheduler-aware gRPC server
+- MemoryServiceImpl::with_scheduler() wires scheduler gRPC handlers
+- MockSummarizer used by default; production should load ApiSummarizer from config
+
+**From 10-04:**
+- JobStatusProto uses Proto suffix to avoid name conflict with domain JobStatus
+- Scheduler RPCs return success/error response rather than gRPC errors for pause/resume
+- CLI uses gRPC client to query daemon rather than direct storage access
+- Timestamps formatted as local time for human readability in CLI
+- SchedulerGrpcService delegates from MemoryServiceImpl when scheduler is configured
+
 ### Pending Todos
 
 None yet.
@@ -178,7 +210,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 09-04-PLAN.md (Health Check and Troubleshooting) - Phase 9 Complete
+Stopped at: Completed Phase 11 planning (11-RESEARCH.md + 4 PLAN.md files)
 Resume file: None
 
 ## Milestone History
@@ -248,3 +280,39 @@ See: .planning/MILESTONES.md for complete history
 | 09-02 | 2 | Interactive Wizard Flow | Complete |
 | 09-03 | 2 | Installation Automation | Complete |
 | 09-04 | 3 | Health Check and Troubleshooting | Complete |
+
+## Phase 10 Plans (v2.0 Scheduler)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 10-01 | 1 | Scheduler infrastructure (tokio-cron-scheduler, cron parsing, TZ) | Complete |
+| 10-02 | 1 | Job registry and lifecycle (register, pause, overlap policy) | Complete |
+| 10-03 | 2 | TOC rollup jobs (wire existing rollups to scheduler) | Complete |
+| 10-04 | 3 | Job observability (status RPC, CLI, metrics) | Complete |
+
+## Phase 11 Plans (v2.0 Teleport - BM25)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 11-01 | 1 | Tantivy integration (memory-search crate, schema, index) | Planned |
+| 11-02 | 2 | Indexing pipeline (TOC node and grip document mapping) | Planned |
+| 11-03 | 2 | Search API (gRPC TeleportSearch RPC, BM25 scoring) | Planned |
+| 11-04 | 3 | CLI and testing (teleport command, commit job) | Planned |
+
+## Phase 12 Plans (v2.0 Teleport - Vector)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 12-01 | 1 | HNSW index setup (usearch or hnsw-rs integration) | Planned |
+| 12-02 | 1 | Local embedding model (sentence-transformers or candle) | Planned |
+| 12-03 | 2 | Vector search API (gRPC VectorTeleport RPC) | Planned |
+| 12-04 | 3 | Hybrid ranking (BM25 + vector fusion) | Planned |
+
+## Phase 13 Plans (v2.0 Teleport - Outbox)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 13-01 | 1 | Outbox consumer for indexing (checkpoint tracking) | Planned |
+| 13-02 | 1 | Incremental index updates (add/update documents) | Planned |
+| 13-03 | 2 | Full rebuild command (admin rebuild-indexes) | Planned |
+| 13-04 | 3 | Async indexing pipeline (scheduled via Phase 10) | Planned |

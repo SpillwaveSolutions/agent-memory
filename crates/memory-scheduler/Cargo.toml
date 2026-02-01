@@ -1,0 +1,47 @@
+[package]
+name = "memory-scheduler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Background job scheduler for agent-memory daemon"
+
+[features]
+default = ["jobs"]
+jobs = ["memory-toc", "memory-storage", "memory-types"]
+
+[dependencies]
+# Cron scheduling
+tokio-cron-scheduler = "0.15"
+chrono-tz = "0.10"
+
+# Tokio utilities
+tokio-util = { version = "0.7", features = ["rt"] }
+tokio = { workspace = true }
+
+# Time handling
+chrono = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# UUID for job IDs
+uuid = "1.11"
+
+# Random number generation for jitter
+rand = "0.8"
+
+# Job dependencies (optional, enabled by default)
+memory-toc = { path = "../memory-toc", optional = true }
+memory-storage = { path = "../memory-storage", optional = true }
+memory-types = { path = "../memory-types", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+serde_json = { workspace = true }

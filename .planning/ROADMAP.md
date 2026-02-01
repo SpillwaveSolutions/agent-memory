@@ -18,7 +18,11 @@ This roadmap delivers a local, append-only conversational memory system with TOC
 - [x] **Phase 6: End-to-End Demo** - Full workflow validation from ingestion to query answer
 - [x] **Phase 7: Agentic Memory Plugin** - Claude Code marketplace plugin with commands, agents, graded skill
 - [x] **Phase 8: CCH Hook Integration** - Automatic event capture via CCH hooks
-- [ ] **Phase 9: Setup & Installer Plugin** - Interactive setup wizard plugin with commands and agents
+- [x] **Phase 9: Setup & Installer Plugin** - Interactive setup wizard plugin with commands and agents
+- [x] **Phase 10: Background Scheduler** - In-process Tokio cron scheduler for TOC rollups and periodic jobs
+- [ ] **Phase 11: BM25 Teleport (Tantivy)** - Full-text search index for keyword-based teleportation to relevant TOC nodes
+- [ ] **Phase 12: Vector Teleport (HNSW)** - Semantic similarity search via local HNSW vector index
+- [ ] **Phase 13: Outbox Index Ingestion** - Event-driven index updates from outbox for rebuildable search indexes
 
 ## Phase Details
 
@@ -127,12 +131,12 @@ Plans:
 **Depends on**: Phase 6
 **Requirements**: SKILL-01, SKILL-02, SKILL-03, PLUGIN-01, PLUGIN-02
 **Success Criteria** (what must be TRUE):
-  1. ✅ Plugin provides `/memory-search`, `/memory-recent`, `/memory-context` slash commands
-  2. ✅ Autonomous agent handles complex multi-step memory queries
-  3. ✅ Skill follows PDA (Progressive Disclosure Architecture) with layered references
-  4. ✅ Skill passes quality grading (99/100, Grade A)
-  5. ✅ Plugin uses marketplace.json manifest format
-  6. ✅ Skill handles daemon connection failures gracefully via validation checklist
+  1. Plugin provides `/memory-search`, `/memory-recent`, `/memory-context` slash commands
+  2. Autonomous agent handles complex multi-step memory queries
+  3. Skill follows PDA (Progressive Disclosure Architecture) with layered references
+  4. Skill passes quality grading (99/100, Grade A)
+  5. Plugin uses marketplace.json manifest format
+  6. Skill handles daemon connection failures gracefully via validation checklist
 **Plans**: 1 plan complete
 
 Plans:
@@ -141,21 +145,21 @@ Plans:
 **Implemented Architecture:**
 ```
                                     Agent Memory
-                                    ┌─────────────────┐
-                                    │  memory-daemon  │
-                                    │  (gRPC :50051)  │
-                                    └─────────────────┘
-                                             ▲
-                                             │ CLI query
-                                    ┌────────┴────────┐
-                                    │ memory-query    │
-                                    │ plugin          │
-                                    │ ┌─────────────┐ │
-                                    │ │ 3 commands  │ │
-                                    │ │ 1 agent     │ │
-                                    │ │ SKILL.md    │ │
-                                    │ └─────────────┘ │
-                                    └─────────────────┘
+                                    +-----------------+
+                                    |  memory-daemon  |
+                                    |  (gRPC :50051)  |
+                                    +-----------------+
+                                             ^
+                                             | CLI query
+                                    +--------+--------+
+                                    | memory-query    |
+                                    | plugin          |
+                                    | +-------------+ |
+                                    | | 3 commands  | |
+                                    | | 1 agent     | |
+                                    | | SKILL.md    | |
+                                    | +-------------+ |
+                                    +-----------------+
 ```
 
 **Plugin Components:**
@@ -172,10 +176,10 @@ Plans:
 **Depends on**: Phase 7
 **Requirements**: CCH-01, CCH-02, CCH-03
 **Success Criteria** (what must be TRUE):
-  1. ✅ CCH hooks.yaml can be configured to capture conversation events
-  2. ✅ Hook handler maps CCH events to memory events
-  3. ✅ Hook handler uses memory-client library to communicate with memory-daemon
-  4. ✅ Events are automatically ingested without manual intervention
+  1. CCH hooks.yaml can be configured to capture conversation events
+  2. Hook handler maps CCH events to memory events
+  3. Hook handler uses memory-client library to communicate with memory-daemon
+  4. Events are automatically ingested without manual intervention
 **Plans**: 1 plan complete
 
 Plans:
@@ -203,13 +207,87 @@ Plans:
   6. Plugin provides `/memory-config` command to modify settings after initial setup
   7. Autonomous agent handles complex setup troubleshooting
   8. Skill follows PDA with layered references for advanced configuration
-**Plans**: TBD
+**Plans**: 4 plans complete
 
 Plans:
 - [x] 09-01: Setup plugin structure (marketplace.json, skill, commands, agent)
 - [x] 09-02: Interactive wizard flow (questions, configuration generation)
 - [x] 09-03: Installation automation (binary installation, path setup)
 - [x] 09-04: Health check and troubleshooting (status, diagnostics, fixes)
+
+### Phase 10: Background Scheduler
+**Goal**: Provide in-process Tokio-based cron scheduler for periodic background jobs (TOC rollups, compaction, index maintenance)
+**Depends on**: Phase 9
+**Requirements**: SCHED-01, SCHED-02, SCHED-03, SCHED-04, SCHED-05
+**Success Criteria** (what must be TRUE):
+  1. Cron expressions parsed and scheduled via tokio-cron-scheduler
+  2. Timezone-aware scheduling with DST handling (chrono-tz)
+  3. Overlap policy configurable: skip or concurrent (queue deferred - adds complexity)
+  4. Jitter support to spread load across instances
+  5. Graceful shutdown stops scheduling, finishes current job, or cancels safely
+  6. TOC rollup jobs (day/week/month) run on schedule
+  7. Job status observable via CLI/gRPC (last run, next run, success/failure)
+**Plans**: 4 plans in 3 waves
+
+Plans:
+- [x] 10-01-PLAN.md — Scheduler infrastructure (memory-scheduler crate, tokio-cron-scheduler, timezone handling)
+- [x] 10-02-PLAN.md — Job registry and lifecycle (JobRegistry, overlap policy, jitter utilities)
+- [x] 10-03-PLAN.md — TOC rollup jobs (wire existing rollups to scheduler, daemon integration)
+- [x] 10-04-PLAN.md — Job observability (GetSchedulerStatus RPC, CLI scheduler commands)
+
+### Phase 11: BM25 Teleport (Tantivy)
+**Goal**: Enable fast keyword-based search that "teleports" agents directly to relevant TOC nodes or grips without traversing the hierarchy
+**Depends on**: Phase 10
+**Requirements**: TEL-01, TEL-02, TEL-03, TEL-04
+**Success Criteria** (what must be TRUE):
+  1. Tantivy embedded index stores searchable text from TOC summaries and grip excerpts
+  2. BM25 search returns ranked TOC node IDs or grip pointers
+  3. Search results include relevance scores for agent decision-making
+  4. Index is incrementally updated as new TOC nodes are created
+  5. CLI provides `teleport search <query>` command for testing
+**Plans**: 4 plans in 3 waves
+
+Plans:
+- [ ] 11-01-PLAN.md — Tantivy integration (memory-search crate, schema, index setup)
+- [ ] 11-02-PLAN.md — Indexing pipeline (TOC node and grip text extraction, document mapping)
+- [ ] 11-03-PLAN.md — Search API (gRPC TeleportSearch RPC, BM25 scoring)
+- [ ] 11-04-PLAN.md — CLI and testing (teleport command, background commit job)
+
+### Phase 12: Vector Teleport (HNSW)
+**Goal**: Enable semantic similarity search for conceptually related content even when keywords don't match
+**Depends on**: Phase 11
+**Requirements**: TEL-05, TEL-06, TEL-07, TEL-08
+**Success Criteria** (what must be TRUE):
+  1. Local HNSW index stores embeddings for TOC summaries and grips
+  2. Embedding generation uses local model (no API dependency)
+  3. Vector search returns semantically similar TOC nodes or grips
+  4. Hybrid search combines BM25 and vector scores
+  5. Index rebuild is fast (<1 minute for 10k nodes)
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: HNSW index setup (usearch or hnsw-rs integration)
+- [ ] 12-02: Local embedding model (sentence-transformers or candle)
+- [ ] 12-03: Vector search API (gRPC VectorTeleport RPC)
+- [ ] 12-04: Hybrid ranking (BM25 + vector fusion)
+
+### Phase 13: Outbox Index Ingestion
+**Goal**: Drive index updates from the existing outbox pattern for rebuildable, crash-safe search indexes
+**Depends on**: Phase 12
+**Requirements**: TEL-09, TEL-10, TEL-11
+**Success Criteria** (what must be TRUE):
+  1. Outbox entries trigger index updates for new TOC nodes and grips
+  2. Index consumer tracks checkpoint for crash recovery
+  3. Full index rebuild from storage is supported via admin command
+  4. Index state is independent of primary storage (can be deleted and rebuilt)
+  5. Indexing is async and doesn't block event ingestion
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: Outbox consumer for indexing (checkpoint tracking)
+- [ ] 13-02: Incremental index updates (add/update documents)
+- [ ] 13-03: Full rebuild command (admin rebuild-indexes)
+- [ ] 13-04: Async indexing pipeline (scheduled via Phase 10)
 
 ## Progress
 
@@ -218,20 +296,27 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 5/5 | ✅ Complete | 2026-01-30 |
-| 2. TOC Building | 3/3 | ✅ Complete | 2026-01-30 |
-| 3. Grips & Provenance | 3/3 | ✅ Complete | 2026-01-30 |
-| 4. Query Layer | 2/2 | ✅ Complete | 2026-01-30 |
-| 5. Integration | 3/3 | ✅ Complete | 2026-01-30 |
-| 6. End-to-End Demo | 2/2 | ✅ Complete | 2026-01-30 |
-| 7. Agentic Memory Plugin | 1/1 | ✅ Complete | 2026-01-30 |
-| 8. CCH Hook Integration | 1/1 | ✅ Complete | 2026-01-30 |
-| 9. Setup & Installer Plugin | 4/4 | ✅ Complete | 2026-01-31 |
+| 1. Foundation | 5/5 | Complete | 2026-01-30 |
+| 2. TOC Building | 3/3 | Complete | 2026-01-30 |
+| 3. Grips & Provenance | 3/3 | Complete | 2026-01-30 |
+| 4. Query Layer | 2/2 | Complete | 2026-01-30 |
+| 5. Integration | 3/3 | Complete | 2026-01-30 |
+| 6. End-to-End Demo | 2/2 | Complete | 2026-01-30 |
+| 7. Agentic Memory Plugin | 1/1 | Complete | 2026-01-30 |
+| 8. CCH Hook Integration | 1/1 | Complete | 2026-01-30 |
+| 9. Setup & Installer Plugin | 4/4 | Complete | 2026-01-31 |
+| 10. Background Scheduler | 4/4 | Complete | 2026-01-31 |
+| 11. BM25 Teleport (Tantivy) | 0/4 | Planned | - |
+| 12. Vector Teleport (HNSW) | 0/4 | Planned | - |
+| 13. Outbox Index Ingestion | 0/4 | Planned | - |
 
 ---
 *Roadmap created: 2026-01-29*
 *v1 Milestone completed: 2026-01-30*
 *Phase 7 completed: 2026-01-30 (Agentic Memory Plugin)*
 *Phase 8 completed: 2026-01-30 (CCH Hook Integration)*
-*Total plans: 20 across 8 phases (18 v1 + 1 plugin + 1 CCH)*
-*All requirements complete: 42 v1 + 5 plugin + 3 CCH = 50 total*
+*Phase 9 completed: 2026-01-31 (Setup & Installer Plugin)*
+*v2.0 phases added: 2026-01-31 (Phase 10 Scheduler + Phases 11-13 Teleport)*
+*Phase 10 plans created: 2026-01-31*
+*Phase 11 plans created: 2026-01-31*
+*Total plans: 38 across 13 phases (22 v1.0 + 16 v2.0)*
