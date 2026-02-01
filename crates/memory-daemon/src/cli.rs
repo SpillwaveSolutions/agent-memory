@@ -67,6 +67,16 @@ pub enum Commands {
         #[command(subcommand)]
         command: AdminCommands,
     },
+
+    /// Scheduler management commands
+    Scheduler {
+        /// gRPC endpoint (default: http://[::1]:50051)
+        #[arg(short, long, default_value = "http://[::1]:50051")]
+        endpoint: String,
+
+        #[command(subcommand)]
+        command: SchedulerCommands,
+    },
 }
 
 /// Query subcommands
@@ -150,6 +160,25 @@ pub enum AdminCommands {
     },
 }
 
+/// Scheduler subcommands
+#[derive(Subcommand, Debug, Clone)]
+pub enum SchedulerCommands {
+    /// Show scheduler and job status
+    Status,
+
+    /// Pause a scheduled job
+    Pause {
+        /// Job name to pause
+        job_name: String,
+    },
+
+    /// Resume a paused job
+    Resume {
+        /// Job name to resume
+        job_name: String,
+    },
+}
+
 impl Cli {
     /// Parse CLI arguments
     pub fn parse_args() -> Self {
@@ -210,5 +239,61 @@ mod tests {
     fn test_cli_with_log_level() {
         let cli = Cli::parse_from(["memory-daemon", "--log-level", "debug", "start"]);
         assert_eq!(cli.log_level, Some("debug".to_string()));
+    }
+
+    #[test]
+    fn test_cli_scheduler_status() {
+        let cli = Cli::parse_from(["memory-daemon", "scheduler", "status"]);
+        match cli.command {
+            Commands::Scheduler { command, .. } => {
+                assert!(matches!(command, SchedulerCommands::Status));
+            }
+            _ => panic!("Expected Scheduler command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_scheduler_pause() {
+        let cli = Cli::parse_from(["memory-daemon", "scheduler", "pause", "hourly-rollup"]);
+        match cli.command {
+            Commands::Scheduler { command, .. } => match command {
+                SchedulerCommands::Pause { job_name } => {
+                    assert_eq!(job_name, "hourly-rollup");
+                }
+                _ => panic!("Expected Pause command"),
+            },
+            _ => panic!("Expected Scheduler command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_scheduler_resume() {
+        let cli = Cli::parse_from(["memory-daemon", "scheduler", "resume", "daily-cleanup"]);
+        match cli.command {
+            Commands::Scheduler { command, .. } => match command {
+                SchedulerCommands::Resume { job_name } => {
+                    assert_eq!(job_name, "daily-cleanup");
+                }
+                _ => panic!("Expected Resume command"),
+            },
+            _ => panic!("Expected Scheduler command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_scheduler_with_endpoint() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "scheduler",
+            "-e",
+            "http://localhost:9999",
+            "status",
+        ]);
+        match cli.command {
+            Commands::Scheduler { endpoint, .. } => {
+                assert_eq!(endpoint, "http://localhost:9999");
+            }
+            _ => panic!("Expected Scheduler command"),
+        }
     }
 }
