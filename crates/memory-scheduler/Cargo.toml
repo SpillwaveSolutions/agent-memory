@@ -30,6 +30,9 @@ serde = { workspace = true }
 # UUID for job IDs
 uuid = "1.11"
 
+# Random number generation for jitter
+rand = "0.8"
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
 serde_json = { workspace = true }

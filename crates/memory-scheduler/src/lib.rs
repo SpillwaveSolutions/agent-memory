@@ -40,10 +40,14 @@
 
 mod config;
 mod error;
+mod jitter;
+mod overlap;
 mod registry;
 mod scheduler;
 
 pub use config::SchedulerConfig;
 pub use error::SchedulerError;
+pub use jitter::{with_jitter, JitterConfig};
+pub use overlap::{OverlapGuard, OverlapPolicy, RunGuard};
 pub use registry::{JobRegistry, JobResult, JobStatus};
 pub use scheduler::{validate_cron_expression, SchedulerService};
