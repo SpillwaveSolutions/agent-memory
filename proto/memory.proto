@@ -31,6 +31,17 @@ service MemoryService {
 
     // Expand a grip to show context events
     rpc ExpandGrip(ExpandGripRequest) returns (ExpandGripResponse);
+
+    // Scheduler RPCs (SCHED-05)
+
+    // Get scheduler and job status
+    rpc GetSchedulerStatus(GetSchedulerStatusRequest) returns (GetSchedulerStatusResponse);
+
+    // Pause a scheduled job
+    rpc PauseJob(PauseJobRequest) returns (PauseJobResponse);
+
+    // Resume a paused job
+    rpc ResumeJob(ResumeJobRequest) returns (ResumeJobResponse);
 }
 
 // Role of the message author
@@ -238,4 +249,73 @@ message ExpandGripResponse {
     repeated Event excerpt_events = 3;
     // Events after the excerpt
     repeated Event events_after = 4;
+}
+
+// ===== Scheduler Messages (SCHED-05) =====
+
+// Result of a job execution
+enum JobResultStatus {
+    JOB_RESULT_STATUS_UNSPECIFIED = 0;
+    JOB_RESULT_STATUS_SUCCESS = 1;
+    JOB_RESULT_STATUS_FAILED = 2;
+    JOB_RESULT_STATUS_SKIPPED = 3;
+}
+
+// Status of a scheduled job
+message JobStatusProto {
+    // Job name
+    string job_name = 1;
+    // Cron expression
+    string cron_expr = 2;
+    // Last execution time (ms since epoch, 0 if never run)
+    int64 last_run_ms = 3;
+    // Last execution duration (ms)
+    int64 last_duration_ms = 4;
+    // Last execution result
+    JobResultStatus last_result = 5;
+    // Last error message (if failed)
+    optional string last_error = 6;
+    // Next scheduled run (ms since epoch)
+    int64 next_run_ms = 7;
+    // Total successful runs
+    uint64 run_count = 8;
+    // Total failed runs
+    uint64 error_count = 9;
+    // Currently executing
+    bool is_running = 10;
+    // Paused by user
+    bool is_paused = 11;
+}
+
+// Request for scheduler status
+message GetSchedulerStatusRequest {}
+
+// Response with scheduler status
+message GetSchedulerStatusResponse {
+    // Whether scheduler is running
+    bool scheduler_running = 1;
+    // All registered jobs
+    repeated JobStatusProto jobs = 2;
+}
+
+// Request to pause a job
+message PauseJobRequest {
+    string job_name = 1;
+}
+
+// Response from pause
+message PauseJobResponse {
+    bool success = 1;
+    optional string error = 2;
+}
+
+// Request to resume a job
+message ResumeJobRequest {
+    string job_name = 1;
+}
+
+// Response from resume
+message ResumeJobResponse {
+    bool success = 1;
+    optional string error = 2;
 }

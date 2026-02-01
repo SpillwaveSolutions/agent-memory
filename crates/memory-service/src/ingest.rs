@@ -23,9 +23,12 @@ use crate::pb::{
     ExpandGripRequest, ExpandGripResponse,
     GetEventsRequest, GetEventsResponse,
     GetNodeRequest, GetNodeResponse,
+    GetSchedulerStatusRequest, GetSchedulerStatusResponse,
     GetTocRootRequest, GetTocRootResponse,
     IngestEventRequest,
     IngestEventResponse,
+    PauseJobRequest, PauseJobResponse,
+    ResumeJobRequest, ResumeJobResponse,
 };
 use crate::query;
 
@@ -201,6 +204,45 @@ impl MemoryService for MemoryServiceImpl {
         request: Request<ExpandGripRequest>,
     ) -> Result<Response<ExpandGripResponse>, Status> {
         query::expand_grip(self.storage.clone(), request).await
+    }
+
+    /// Get scheduler and job status.
+    ///
+    /// Per SCHED-05: Job status observable via gRPC.
+    /// Note: This is a placeholder - full implementation in scheduler_service module.
+    async fn get_scheduler_status(
+        &self,
+        _request: Request<GetSchedulerStatusRequest>,
+    ) -> Result<Response<GetSchedulerStatusResponse>, Status> {
+        // Scheduler not attached to this service instance
+        Ok(Response::new(GetSchedulerStatusResponse {
+            scheduler_running: false,
+            jobs: vec![],
+        }))
+    }
+
+    /// Pause a scheduled job.
+    async fn pause_job(
+        &self,
+        _request: Request<PauseJobRequest>,
+    ) -> Result<Response<PauseJobResponse>, Status> {
+        // Scheduler not attached to this service instance
+        Ok(Response::new(PauseJobResponse {
+            success: false,
+            error: Some("Scheduler not configured".to_string()),
+        }))
+    }
+
+    /// Resume a paused job.
+    async fn resume_job(
+        &self,
+        _request: Request<ResumeJobRequest>,
+    ) -> Result<Response<ResumeJobResponse>, Status> {
+        // Scheduler not attached to this service instance
+        Ok(Response::new(ResumeJobResponse {
+            success: false,
+            error: Some("Scheduler not configured".to_string()),
+        }))
     }
 }
 
