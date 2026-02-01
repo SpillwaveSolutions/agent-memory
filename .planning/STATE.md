@@ -12,16 +12,16 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 Milestone: v2.0 Scheduler+Teleport (in progress)
 Current: Phase 10 - Background Scheduler
 Status: In progress
-Last activity: 2026-01-31 -- Completed 10-02-PLAN.md
+Last activity: 2026-01-31 -- Completed 10-03-PLAN.md
 
-Progress Phase 10: [##########----------] 50% (2/4 plans)
+Progress Phase 10: [###############-----] 75% (3/4 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
+- Total plans completed: 25
 - Average duration: ~9min
-- Total execution time: ~206min
+- Total execution time: ~225min
 
 **By Phase:**
 
@@ -35,10 +35,10 @@ Progress Phase 10: [##########----------] 50% (2/4 plans)
 | 6. End-to-End Demo | 2/2 | ~20min | ~10min |
 | 8. CCH Integration | 1/1 | ~4min | ~4min |
 | 9. Setup Plugin | 4/4 | ~19min | ~5min |
-| 10. Background Scheduler | 2/4 | ~18min | ~9min |
+| 10. Background Scheduler | 3/4 | ~37min | ~12min |
 
 **Recent Trend:**
-- Last 5 plans: 09-03 (~5min), 09-04 (~6min), 10-01 (~8min), 10-02 (~10min)
+- Last 5 plans: 09-04 (~6min), 10-01 (~8min), 10-02 (~10min), 10-03 (~19min)
 - Trend: Consistent velocity with well-defined plans
 
 *Updated after each plan completion*
@@ -183,6 +183,15 @@ Recent decisions affecting current work:
 - JitterConfig generates random delay in milliseconds
 - register_job() checks is_paused before acquiring overlap guard
 
+**From 10-03:**
+- Jobs module in memory-scheduler with optional "jobs" feature (default on)
+- RollupJobConfig configures day/week/month cron schedules
+- create_rollup_jobs() wires existing memory-toc::rollup::RollupJob to scheduler
+- CompactionJobConfig configures weekly RocksDB compaction
+- run_server_with_scheduler() starts scheduler-aware gRPC server
+- MemoryServiceImpl::with_scheduler() wires scheduler gRPC handlers
+- MockSummarizer used by default; production should load ApiSummarizer from config
+
 ### Pending Todos
 
 None yet.
@@ -194,7 +203,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 10-02-PLAN.md (Job registry and lifecycle)
+Stopped at: Completed 10-03-PLAN.md (TOC rollup jobs)
 Resume file: None
 
 ## Milestone History
@@ -271,7 +280,7 @@ See: .planning/MILESTONES.md for complete history
 |------|------|-------------|--------|
 | 10-01 | 1 | Scheduler infrastructure (tokio-cron-scheduler, cron parsing, TZ) | Complete |
 | 10-02 | 1 | Job registry and lifecycle (register, pause, overlap policy) | Complete |
-| 10-03 | 2 | TOC rollup jobs (wire existing rollups to scheduler) | Planned |
+| 10-03 | 2 | TOC rollup jobs (wire existing rollups to scheduler) | Complete |
 | 10-04 | 3 | Job observability (status RPC, CLI, metrics) | Planned |
 
 ## Phase 11 Plans (v2.0 Teleport - BM25)
