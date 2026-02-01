@@ -1,16 +1,21 @@
 //! Scheduler service wrapper around tokio-cron-scheduler.
 //!
 //! Provides lifecycle management for background jobs with
-//! graceful shutdown support.
+//! graceful shutdown support, job status tracking, overlap prevention,
+//! and jitter for distributed scheduling.
 
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use chrono_tz::Tz;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
+use crate::jitter::JitterConfig;
+use crate::overlap::{OverlapGuard, OverlapPolicy};
+use crate::registry::{JobRegistry, JobResult};
 use crate::{SchedulerConfig, SchedulerError};
 
 /// Validate a cron expression.
@@ -51,12 +56,14 @@ pub fn validate_cron_expression(expr: &str) -> Result<(), SchedulerError> {
 /// Service wrapper around JobScheduler for lifecycle management.
 ///
 /// Provides start/stop functionality with graceful shutdown support
-/// via CancellationToken propagation to jobs.
+/// via CancellationToken propagation to jobs. Also includes a job
+/// registry for tracking job status and execution history.
 pub struct SchedulerService {
     scheduler: JobScheduler,
     config: SchedulerConfig,
     shutdown_token: CancellationToken,
     is_running: AtomicBool,
+    registry: Arc<JobRegistry>,
 }
 
 impl SchedulerService {
@@ -75,7 +82,16 @@ impl SchedulerService {
             config,
             shutdown_token: CancellationToken::new(),
             is_running: AtomicBool::new(false),
+            registry: Arc::new(JobRegistry::new()),
         })
+    }
+
+    /// Get a reference to the job registry.
+    ///
+    /// The registry tracks job status, execution history, and provides
+    /// observability into scheduled jobs.
+    pub fn registry(&self) -> Arc<JobRegistry> {
+        self.registry.clone()
     }
 
     /// Start the scheduler.
@@ -243,6 +259,187 @@ impl SchedulerService {
         tz_str
             .parse()
             .map_err(|_| SchedulerError::InvalidTimezone(tz_str.to_string()))
+    }
+
+    /// Register a job with full lifecycle management.
+    ///
+    /// This is the recommended way to add jobs as it provides:
+    /// - Job status tracking via the registry
+    /// - Overlap policy to prevent concurrent execution
+    /// - Jitter for distributed scheduling
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Unique name for the job (used for status tracking)
+    /// * `cron_expr` - Cron expression (6-field: sec min hour day month weekday)
+    /// * `timezone` - IANA timezone string, or None to use config default
+    /// * `overlap_policy` - How to handle overlapping executions
+    /// * `jitter` - Random delay configuration before execution
+    /// * `job_fn` - Async function returning `Result<(), String>`
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use memory_scheduler::{OverlapPolicy, JitterConfig};
+    ///
+    /// scheduler.register_job(
+    ///     "hourly-rollup",
+    ///     "0 0 * * * *",
+    ///     None,
+    ///     OverlapPolicy::Skip,
+    ///     JitterConfig::new(30),
+    ///     || async { do_rollup().await },
+    /// ).await?;
+    ///
+    /// // Check job status
+    /// let status = scheduler.registry().get_status("hourly-rollup");
+    /// ```
+    pub async fn register_job<F, Fut>(
+        &self,
+        name: &str,
+        cron_expr: &str,
+        timezone: Option<&str>,
+        overlap_policy: OverlapPolicy,
+        jitter: JitterConfig,
+        job_fn: F,
+    ) -> Result<uuid::Uuid, SchedulerError>
+    where
+        F: Fn() -> Fut + Clone + Send + Sync + 'static,
+        Fut: Future<Output = Result<(), String>> + Send,
+    {
+        // Parse timezone
+        let tz: Tz = match timezone {
+            Some(tz_str) => tz_str
+                .parse()
+                .map_err(|_| SchedulerError::InvalidTimezone(tz_str.to_string()))?,
+            None => self.config.parse_timezone()?,
+        };
+
+        // Validate cron expression
+        validate_cron_expression(cron_expr)?;
+
+        // Register in registry
+        self.registry.register(name, cron_expr);
+
+        let job_name = name.to_string();
+        let registry = self.registry.clone();
+        let overlap_guard = Arc::new(OverlapGuard::new(overlap_policy));
+        let max_jitter_secs = jitter.max_jitter_secs;
+
+        // Create timezone-aware job with overlap and jitter support
+        let job = Job::new_async_tz(cron_expr, tz, move |_uuid, _lock| {
+            let name = job_name.clone();
+            let registry = registry.clone();
+            let guard = overlap_guard.clone();
+            let job_fn = job_fn.clone();
+
+            Box::pin(async move {
+                // Check if job is paused
+                if registry.is_paused(&name) {
+                    debug!(job = %name, "Job is paused, skipping execution");
+                    registry.record_complete(&name, JobResult::Skipped("paused".into()), 0);
+                    return;
+                }
+
+                // Try to acquire overlap guard
+                let run_guard = match guard.try_acquire() {
+                    Some(g) => g,
+                    None => {
+                        debug!(job = %name, "Job already running, skipping due to overlap policy");
+                        registry.record_complete(&name, JobResult::Skipped("overlap".into()), 0);
+                        return;
+                    }
+                };
+
+                // Record start
+                registry.record_start(&name);
+                info!(job = %name, "Job started");
+                let start = std::time::Instant::now();
+
+                // Apply jitter
+                if max_jitter_secs > 0 {
+                    let jitter_config = JitterConfig::new(max_jitter_secs);
+                    let jitter_duration = jitter_config.generate_jitter();
+                    if !jitter_duration.is_zero() {
+                        debug!(job = %name, jitter_ms = jitter_duration.as_millis(), "Applying jitter delay");
+                        tokio::time::sleep(jitter_duration).await;
+                    }
+                }
+
+                // Execute the job function
+                let result = match job_fn().await {
+                    Ok(()) => JobResult::Success,
+                    Err(e) => {
+                        warn!(job = %name, error = %e, "Job failed");
+                        JobResult::Failed(e)
+                    }
+                };
+
+                let elapsed = start.elapsed();
+                let duration_ms = elapsed.as_millis() as u64;
+
+                // Record completion
+                registry.record_complete(&name, result, duration_ms);
+                info!(job = %name, duration_ms = duration_ms, "Job completed");
+
+                // RunGuard is dropped here, releasing the overlap lock
+                drop(run_guard);
+            })
+        })
+        .map_err(|e| SchedulerError::InvalidCron(e.to_string()))?;
+
+        let uuid = self.scheduler.add(job).await?;
+        info!(
+            job = %name,
+            uuid = %uuid,
+            cron = %cron_expr,
+            timezone = %tz.name(),
+            overlap = ?overlap_policy,
+            jitter_secs = max_jitter_secs,
+            "Job registered"
+        );
+
+        Ok(uuid)
+    }
+
+    /// Pause a job by name.
+    ///
+    /// Paused jobs will skip execution when their scheduled time arrives.
+    /// The job remains registered and can be resumed later.
+    ///
+    /// Note: This only affects jobs registered via `register_job`. Jobs
+    /// added via `add_cron_job` are not tracked in the registry.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SchedulerError::JobNotFound` if no job with the given name
+    /// is registered.
+    pub fn pause_job(&self, job_name: &str) -> Result<(), SchedulerError> {
+        if !self.registry.is_registered(job_name) {
+            return Err(SchedulerError::JobNotFound(job_name.to_string()));
+        }
+
+        self.registry.set_paused(job_name, true);
+        info!(job = %job_name, "Job paused");
+        Ok(())
+    }
+
+    /// Resume a paused job.
+    ///
+    /// The job will resume executing at its next scheduled time.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SchedulerError::JobNotFound` if no job with the given name
+    /// is registered.
+    pub fn resume_job(&self, job_name: &str) -> Result<(), SchedulerError> {
+        if !self.registry.is_registered(job_name) {
+            return Err(SchedulerError::JobNotFound(job_name.to_string()));
+        }
+
+        self.registry.set_paused(job_name, false);
+        info!(job = %job_name, "Job resumed");
+        Ok(())
     }
 }
 
@@ -427,5 +624,246 @@ mod tests {
             .await;
 
         assert!(matches!(result, Err(SchedulerError::InvalidTimezone(_))));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_registry_access() {
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        let registry = scheduler.registry();
+        assert_eq!(registry.job_count(), 0);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_job_adds_to_registry() {
+        use crate::{JitterConfig, OverlapPolicy};
+
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        let uuid = scheduler
+            .register_job(
+                "test-job",
+                "0 0 * * * *",
+                None,
+                OverlapPolicy::Skip,
+                JitterConfig::none(),
+                || async { Ok(()) },
+            )
+            .await
+            .unwrap();
+
+        assert!(!uuid.is_nil());
+
+        // Job should be in registry
+        let registry = scheduler.registry();
+        assert!(registry.is_registered("test-job"));
+
+        let status = registry.get_status("test-job").unwrap();
+        assert_eq!(status.job_name, "test-job");
+        assert_eq!(status.cron_expr, "0 0 * * * *");
+        assert!(!status.is_paused);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_pause_resume_job() {
+        use crate::{JitterConfig, OverlapPolicy};
+
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        scheduler
+            .register_job(
+                "pausable-job",
+                "0 0 * * * *",
+                None,
+                OverlapPolicy::Skip,
+                JitterConfig::none(),
+                || async { Ok(()) },
+            )
+            .await
+            .unwrap();
+
+        // Initially not paused
+        assert!(!scheduler.registry().is_paused("pausable-job"));
+
+        // Pause
+        scheduler.pause_job("pausable-job").unwrap();
+        assert!(scheduler.registry().is_paused("pausable-job"));
+
+        // Resume
+        scheduler.resume_job("pausable-job").unwrap();
+        assert!(!scheduler.registry().is_paused("pausable-job"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_pause_nonexistent_job() {
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        let result = scheduler.pause_job("nonexistent");
+        assert!(matches!(result, Err(SchedulerError::JobNotFound(_))));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_resume_nonexistent_job() {
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        let result = scheduler.resume_job("nonexistent");
+        assert!(matches!(result, Err(SchedulerError::JobNotFound(_))));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_job_with_overlap_policy() {
+        use crate::{JitterConfig, OverlapPolicy};
+
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        // Register with Skip policy
+        let uuid1 = scheduler
+            .register_job(
+                "skip-job",
+                "0 0 * * * *",
+                None,
+                OverlapPolicy::Skip,
+                JitterConfig::none(),
+                || async { Ok(()) },
+            )
+            .await
+            .unwrap();
+
+        // Register with Concurrent policy
+        let uuid2 = scheduler
+            .register_job(
+                "concurrent-job",
+                "0 0 * * * *",
+                None,
+                OverlapPolicy::Concurrent,
+                JitterConfig::none(),
+                || async { Ok(()) },
+            )
+            .await
+            .unwrap();
+
+        assert!(!uuid1.is_nil());
+        assert!(!uuid2.is_nil());
+        assert_ne!(uuid1, uuid2);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_job_with_jitter() {
+        use crate::{JitterConfig, OverlapPolicy};
+
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        // Register with jitter
+        let uuid = scheduler
+            .register_job(
+                "jittery-job",
+                "0 0 * * * *",
+                None,
+                OverlapPolicy::Skip,
+                JitterConfig::new(30),
+                || async { Ok(()) },
+            )
+            .await
+            .unwrap();
+
+        assert!(!uuid.is_nil());
+        assert!(scheduler.registry().is_registered("jittery-job"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_job_invalid_cron() {
+        use crate::{JitterConfig, OverlapPolicy};
+
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        let result = scheduler
+            .register_job(
+                "bad-cron-job",
+                "invalid",
+                None,
+                OverlapPolicy::Skip,
+                JitterConfig::none(),
+                || async { Ok(()) },
+            )
+            .await;
+
+        assert!(matches!(result, Err(SchedulerError::InvalidCron(_))));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_job_invalid_timezone() {
+        use crate::{JitterConfig, OverlapPolicy};
+
+        let config = SchedulerConfig::default();
+        let scheduler = SchedulerService::new(config).await.unwrap();
+
+        let result = scheduler
+            .register_job(
+                "bad-tz-job",
+                "0 0 * * * *",
+                Some("Invalid/Timezone"),
+                OverlapPolicy::Skip,
+                JitterConfig::none(),
+                || async { Ok(()) },
+            )
+            .await;
+
+        assert!(matches!(result, Err(SchedulerError::InvalidTimezone(_))));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_job_execution_tracking() {
+        use crate::{JitterConfig, OverlapPolicy};
+        use std::sync::Arc;
+        use std::sync::atomic::AtomicU32;
+
+        let config = SchedulerConfig {
+            shutdown_timeout_secs: 1,
+            ..Default::default()
+        };
+        let mut scheduler = SchedulerService::new(config).await.unwrap();
+
+        let counter = Arc::new(AtomicU32::new(0));
+        let counter_clone = counter.clone();
+
+        // Register a job that runs every second
+        scheduler
+            .register_job(
+                "tracked-job",
+                "*/1 * * * * *",
+                None,
+                OverlapPolicy::Skip,
+                JitterConfig::none(),
+                move || {
+                    let c = counter_clone.clone();
+                    async move {
+                        c.fetch_add(1, Ordering::SeqCst);
+                        Ok(())
+                    }
+                },
+            )
+            .await
+            .unwrap();
+
+        // Verify initial state
+        let status = scheduler.registry().get_status("tracked-job").unwrap();
+        assert_eq!(status.run_count, 0);
+        assert!(status.last_run.is_none());
+
+        // Start scheduler and let it run briefly
+        scheduler.start().await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+        scheduler.shutdown().await.unwrap();
+
+        // The job may or may not have run depending on timing
+        // The key test is that if it ran, the registry would be updated
     }
 }

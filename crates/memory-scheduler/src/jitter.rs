@@ -25,16 +25,10 @@ use serde::{Deserialize, Serialize};
 /// let delay = config.generate_jitter();
 /// assert!(delay <= std::time::Duration::from_secs(30));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct JitterConfig {
     /// Maximum jitter in seconds (0 = no jitter).
     pub max_jitter_secs: u64,
-}
-
-impl Default for JitterConfig {
-    fn default() -> Self {
-        Self { max_jitter_secs: 0 }
-    }
 }
 
 impl JitterConfig {
