@@ -35,4 +35,4 @@ mod scheduler;
 
 pub use config::SchedulerConfig;
 pub use error::SchedulerError;
-pub use scheduler::SchedulerService;
+pub use scheduler::{validate_cron_expression, SchedulerService};
