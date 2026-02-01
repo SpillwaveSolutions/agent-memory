@@ -45,9 +45,17 @@ mod overlap;
 mod registry;
 mod scheduler;
 
+#[cfg(feature = "jobs")]
+pub mod jobs;
+
 pub use config::SchedulerConfig;
 pub use error::SchedulerError;
 pub use jitter::{with_jitter, JitterConfig};
 pub use overlap::{OverlapGuard, OverlapPolicy, RunGuard};
 pub use registry::{JobRegistry, JobResult, JobStatus};
 pub use scheduler::{validate_cron_expression, SchedulerService};
+
+#[cfg(feature = "jobs")]
+pub use jobs::compaction::{create_compaction_job, CompactionJobConfig};
+#[cfg(feature = "jobs")]
+pub use jobs::rollup::{create_rollup_jobs, RollupJobConfig};

@@ -6,6 +6,10 @@ license.workspace = true
 repository.workspace = true
 description = "Background job scheduler for agent-memory daemon"
 
+[features]
+default = ["jobs"]
+jobs = ["memory-toc", "memory-storage", "memory-types"]
+
 [dependencies]
 # Cron scheduling
 tokio-cron-scheduler = "0.15"
@@ -32,6 +36,11 @@ uuid = "1.11"
 
 # Random number generation for jitter
 rand = "0.8"
+
+# Job dependencies (optional, enabled by default)
+memory-toc = { path = "../memory-toc", optional = true }
+memory-storage = { path = "../memory-storage", optional = true }
+memory-types = { path = "../memory-types", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
