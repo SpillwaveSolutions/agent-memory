@@ -32,3 +32,4 @@ uuid = "1.11"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
+serde_json = { workspace = true }
