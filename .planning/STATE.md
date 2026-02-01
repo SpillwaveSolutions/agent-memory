@@ -12,16 +12,16 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 Milestone: v2.0 Scheduler+Teleport (in progress)
 Current: Phase 10 - Background Scheduler
 Status: In progress
-Last activity: 2026-02-01 -- Completed 10-01-PLAN.md
+Last activity: 2026-01-31 -- Completed 10-02-PLAN.md
 
-Progress Phase 10: [#####---------------] 25% (1/4 plans)
+Progress Phase 10: [##########----------] 50% (2/4 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
+- Total plans completed: 24
 - Average duration: ~9min
-- Total execution time: ~196min
+- Total execution time: ~206min
 
 **By Phase:**
 
@@ -35,10 +35,10 @@ Progress Phase 10: [#####---------------] 25% (1/4 plans)
 | 6. End-to-End Demo | 2/2 | ~20min | ~10min |
 | 8. CCH Integration | 1/1 | ~4min | ~4min |
 | 9. Setup Plugin | 4/4 | ~19min | ~5min |
-| 10. Background Scheduler | 1/4 | ~8min | ~8min |
+| 10. Background Scheduler | 2/4 | ~18min | ~9min |
 
 **Recent Trend:**
-- Last 5 plans: 09-02 (~4min), 09-03 (~5min), 09-04 (~6min), 10-01 (~8min)
+- Last 5 plans: 09-03 (~5min), 09-04 (~6min), 10-01 (~8min), 10-02 (~10min)
 - Trend: Consistent velocity with well-defined plans
 
 *Updated after each plan completion*
@@ -175,6 +175,14 @@ Recent decisions affecting current work:
 - Jobs receive CancellationToken for graceful shutdown integration
 - validate_cron_expression() for upfront cron syntax checking
 
+**From 10-02:**
+- JobRegistry uses RwLock<HashMap> for thread-safe status tracking
+- OverlapPolicy::Skip is the default - prevents job pileup
+- OverlapGuard uses AtomicBool for lock-free running state
+- RunGuard RAII pattern ensures running flag is released on drop/panic
+- JitterConfig generates random delay in milliseconds
+- register_job() checks is_paused before acquiring overlap guard
+
 ### Pending Todos
 
 None yet.
@@ -185,8 +193,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01
-Stopped at: Completed 10-01-PLAN.md (Scheduler infrastructure)
+Last session: 2026-01-31
+Stopped at: Completed 10-02-PLAN.md (Job registry and lifecycle)
 Resume file: None
 
 ## Milestone History
@@ -262,7 +270,7 @@ See: .planning/MILESTONES.md for complete history
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
 | 10-01 | 1 | Scheduler infrastructure (tokio-cron-scheduler, cron parsing, TZ) | Complete |
-| 10-02 | 1 | Job registry and lifecycle (register, pause, overlap policy) | Planned |
+| 10-02 | 1 | Job registry and lifecycle (register, pause, overlap policy) | Complete |
 | 10-03 | 2 | TOC rollup jobs (wire existing rollups to scheduler) | Planned |
 | 10-04 | 3 | Job observability (status RPC, CLI, metrics) | Planned |
 
