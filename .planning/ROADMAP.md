@@ -245,13 +245,13 @@ Plans:
   3. Search results include relevance scores for agent decision-making
   4. Index is incrementally updated as new TOC nodes are created
   5. CLI provides `teleport search <query>` command for testing
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 11-01: Tantivy integration (embedded index, schema design)
-- [ ] 11-02: Indexing pipeline (TOC node and grip text extraction)
-- [ ] 11-03: Search API (gRPC TeleportSearch RPC, scoring)
-- [ ] 11-04: CLI and testing (teleport command, benchmark)
+- [ ] 11-01-PLAN.md — Tantivy integration (memory-search crate, schema, index setup)
+- [ ] 11-02-PLAN.md — Indexing pipeline (TOC node and grip text extraction, document mapping)
+- [ ] 11-03-PLAN.md — Search API (gRPC TeleportSearch RPC, BM25 scoring)
+- [ ] 11-04-PLAN.md — CLI and testing (teleport command, background commit job)
 
 ### Phase 12: Vector Teleport (HNSW)
 **Goal**: Enable semantic similarity search for conceptually related content even when keywords don't match
@@ -305,7 +305,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 7. Agentic Memory Plugin | 1/1 | Complete | 2026-01-30 |
 | 8. CCH Hook Integration | 1/1 | Complete | 2026-01-30 |
 | 9. Setup & Installer Plugin | 4/4 | Complete | 2026-01-31 |
-| 10. Background Scheduler | 4/4 | ✅ Complete | 2026-01-31 |
+| 10. Background Scheduler | 4/4 | Complete | 2026-01-31 |
 | 11. BM25 Teleport (Tantivy) | 0/4 | Planned | - |
 | 12. Vector Teleport (HNSW) | 0/4 | Planned | - |
 | 13. Outbox Index Ingestion | 0/4 | Planned | - |
@@ -318,4 +318,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 *Phase 9 completed: 2026-01-31 (Setup & Installer Plugin)*
 *v2.0 phases added: 2026-01-31 (Phase 10 Scheduler + Phases 11-13 Teleport)*
 *Phase 10 plans created: 2026-01-31*
+*Phase 11 plans created: 2026-01-31*
 *Total plans: 38 across 13 phases (22 v1.0 + 16 v2.0)*

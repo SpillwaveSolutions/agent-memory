@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.0 in progress - Phase 10 COMPLETE - Phases 11-13 Teleport next
+**Current focus:** v2.0 in progress - Phase 11 PLANNED - Ready for execution
 
 ## Current Position
 
 Milestone: v2.0 Scheduler+Teleport (in progress)
-Current: Phase 10 - Background Scheduler
-Status: Phase complete
-Last activity: 2026-01-31 -- Completed 10-04-PLAN.md
+Current: Phase 11 - BM25 Teleport (Tantivy)
+Status: Plans ready, verified with minor recommendations
+Last activity: 2026-01-31 -- Created 11-RESEARCH.md and 4 PLAN.md files
 
-Progress Phase 10: [####################] 100% (4/4 plans)
+Progress Phase 11: [                    ] 0% (0/4 plans)
 
 ## Performance Metrics
 
@@ -210,7 +210,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 10-04-PLAN.md (Job observability)
+Stopped at: Completed Phase 11 planning (11-RESEARCH.md + 4 PLAN.md files)
 Resume file: None
 
 ## Milestone History
@@ -294,10 +294,10 @@ See: .planning/MILESTONES.md for complete history
 
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
-| 11-01 | 1 | Tantivy integration (embedded index, schema design) | Planned |
-| 11-02 | 1 | Indexing pipeline (TOC node and grip text extraction) | Planned |
-| 11-03 | 2 | Search API (gRPC TeleportSearch RPC, scoring) | Planned |
-| 11-04 | 3 | CLI and testing (teleport command, benchmark) | Planned |
+| 11-01 | 1 | Tantivy integration (memory-search crate, schema, index) | Planned |
+| 11-02 | 2 | Indexing pipeline (TOC node and grip document mapping) | Planned |
+| 11-03 | 2 | Search API (gRPC TeleportSearch RPC, BM25 scoring) | Planned |
+| 11-04 | 3 | CLI and testing (teleport command, commit job) | Planned |
 
 ## Phase 12 Plans (v2.0 Teleport - Vector)
 
