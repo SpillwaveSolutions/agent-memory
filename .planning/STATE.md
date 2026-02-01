@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v1.0.0 SHIPPED - Phase 9 COMPLETE - Planning v2.0
+**Current focus:** v1.0.0 SHIPPED - v2.0 planned (Phase 10 Scheduler + Phases 11-13 Teleport)
 
 ## Current Position
 
-Milestone: v1.0.0 MVP - SHIPPED (2026-01-30)
-Current: Phase 9 - Setup/Installer Plugin - COMPLETE
-Status: Phase complete
-Last activity: 2026-01-31 -- Completed 09-04-PLAN.md
+Milestone: v2.0 Scheduler+Teleport (in progress)
+Current: Phase 10 - Background Scheduler
+Status: In progress
+Last activity: 2026-02-01 -- Completed 10-01-PLAN.md
 
-Progress Phase 9: [####################] 100% (4/4 plans)
+Progress Phase 10: [#####---------------] 25% (1/4 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
+- Total plans completed: 23
 - Average duration: ~9min
-- Total execution time: ~188min
+- Total execution time: ~196min
 
 **By Phase:**
 
@@ -35,9 +35,10 @@ Progress Phase 9: [####################] 100% (4/4 plans)
 | 6. End-to-End Demo | 2/2 | ~20min | ~10min |
 | 8. CCH Integration | 1/1 | ~4min | ~4min |
 | 9. Setup Plugin | 4/4 | ~19min | ~5min |
+| 10. Background Scheduler | 1/4 | ~8min | ~8min |
 
 **Recent Trend:**
-- Last 5 plans: 09-01 (~4min), 09-02 (~4min), 09-03 (~5min), 09-04 (~6min)
+- Last 5 plans: 09-02 (~4min), 09-03 (~5min), 09-04 (~6min), 10-01 (~8min)
 - Trend: Consistent velocity with well-defined plans
 
 *Updated after each plan completion*
@@ -167,6 +168,13 @@ Recent decisions affecting current work:
 - Troubleshooter uses 6 diagnostic categories: INSTALLATION, STARTUP, CONNECTION, INGESTION, SUMMARIZATION, RUNTIME
 - Safe auto-fixes vs permission-required fixes tier system
 
+**From 10-01:**
+- SchedulerService wraps tokio-cron-scheduler's JobScheduler
+- shutdown() requires &mut self due to underlying API
+- Timezone validation at SchedulerService::new() for fail-fast
+- Jobs receive CancellationToken for graceful shutdown integration
+- validate_cron_expression() for upfront cron syntax checking
+
 ### Pending Todos
 
 None yet.
@@ -177,8 +185,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-31
-Stopped at: Completed 09-04-PLAN.md (Health Check and Troubleshooting) - Phase 9 Complete
+Last session: 2026-02-01
+Stopped at: Completed 10-01-PLAN.md (Scheduler infrastructure)
 Resume file: None
 
 ## Milestone History
@@ -248,3 +256,39 @@ See: .planning/MILESTONES.md for complete history
 | 09-02 | 2 | Interactive Wizard Flow | Complete |
 | 09-03 | 2 | Installation Automation | Complete |
 | 09-04 | 3 | Health Check and Troubleshooting | Complete |
+
+## Phase 10 Plans (v2.0 Scheduler)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 10-01 | 1 | Scheduler infrastructure (tokio-cron-scheduler, cron parsing, TZ) | Complete |
+| 10-02 | 1 | Job registry and lifecycle (register, pause, overlap policy) | Planned |
+| 10-03 | 2 | TOC rollup jobs (wire existing rollups to scheduler) | Planned |
+| 10-04 | 3 | Job observability (status RPC, CLI, metrics) | Planned |
+
+## Phase 11 Plans (v2.0 Teleport - BM25)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 11-01 | 1 | Tantivy integration (embedded index, schema design) | Planned |
+| 11-02 | 1 | Indexing pipeline (TOC node and grip text extraction) | Planned |
+| 11-03 | 2 | Search API (gRPC TeleportSearch RPC, scoring) | Planned |
+| 11-04 | 3 | CLI and testing (teleport command, benchmark) | Planned |
+
+## Phase 12 Plans (v2.0 Teleport - Vector)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 12-01 | 1 | HNSW index setup (usearch or hnsw-rs integration) | Planned |
+| 12-02 | 1 | Local embedding model (sentence-transformers or candle) | Planned |
+| 12-03 | 2 | Vector search API (gRPC VectorTeleport RPC) | Planned |
+| 12-04 | 3 | Hybrid ranking (BM25 + vector fusion) | Planned |
+
+## Phase 13 Plans (v2.0 Teleport - Outbox)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 13-01 | 1 | Outbox consumer for indexing (checkpoint tracking) | Planned |
+| 13-02 | 1 | Incremental index updates (add/update documents) | Planned |
+| 13-03 | 2 | Full rebuild command (admin rebuild-indexes) | Planned |
+| 13-04 | 3 | Async indexing pipeline (scheduled via Phase 10) | Planned |
