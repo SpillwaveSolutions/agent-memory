@@ -1,0 +1,67 @@
+@startuml components
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Agent Memory - Component Diagram
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(workspace, "agent-memory Workspace") {
+
+    Component(memory_types, "memory-types", "Rust Crate", "Domain models:\n- Event, TocNode, Grip\n- Settings, Config\n- Error types")
+
+    Component(memory_storage, "memory-storage", "Rust Crate", "RocksDB persistence:\n- Column family management\n- Event storage\n- TOC node storage\n- Checkpoint storage")
+
+    Component(memory_toc, "memory-toc", "Rust Crate", "TOC operations:\n- Segmenter (time/token)\n- Summarizer trait\n- TocBuilder\n- Grip extraction")
+
+    Component(memory_scheduler, "memory-scheduler", "Rust Crate", "Background jobs:\n- Cron scheduling\n- Segment creation\n- Day/Week/Month rollups\n- Checkpoint management")
+
+    Component(memory_service, "memory-service", "Rust Crate", "gRPC service:\n- MemoryService impl\n- Proto code generation\n- Health check\n- Reflection")
+
+    Component(memory_client, "memory-client", "Rust Crate", "Client library:\n- gRPC client wrapper\n- Event mapping\n- Connection pooling")
+
+    Component(memory_daemon, "memory-daemon", "Rust Binary", "Main daemon:\n- CLI parsing (clap)\n- Config loading\n- Server startup\n- Signal handling")
+
+    Component(memory_ingest, "memory-ingest", "Rust Binary", "Hook handler:\n- Stdin JSON parsing\n- Event translation\n- Fail-open design")
+}
+
+' External dependencies
+Component_Ext(rocksdb, "RocksDB", "C++ Library", "Embedded key-value store")
+Component_Ext(tonic, "Tonic", "Rust Crate", "gRPC framework")
+Component_Ext(tokio, "Tokio", "Rust Crate", "Async runtime")
+Component_Ext(tiktoken, "tiktoken-rs", "Rust Crate", "Token counting")
+Component_Ext(reqwest, "Reqwest", "Rust Crate", "HTTP client for LLM API")
+Component_Ext(clap, "Clap", "Rust Crate", "CLI argument parsing")
+Component_Ext(cron_scheduler, "tokio-cron-scheduler", "Rust Crate", "Cron job scheduling")
+
+' Internal dependencies
+Rel(memory_storage, memory_types, "uses", "Domain models")
+Rel(memory_toc, memory_types, "uses", "Domain models")
+Rel(memory_toc, memory_storage, "uses", "Persistence")
+Rel(memory_scheduler, memory_types, "uses", "Domain models")
+Rel(memory_scheduler, memory_storage, "uses", "Checkpoints")
+Rel(memory_scheduler, memory_toc, "uses", "TOC operations")
+Rel(memory_service, memory_types, "uses", "Domain models")
+Rel(memory_service, memory_storage, "uses", "Persistence")
+Rel(memory_service, memory_scheduler, "uses", "Job status")
+Rel(memory_client, memory_types, "uses", "Domain models")
+Rel(memory_client, memory_service, "uses", "Proto types")
+Rel(memory_daemon, memory_types, "uses", "Settings")
+Rel(memory_daemon, memory_storage, "uses", "Initialization")
+Rel(memory_daemon, memory_toc, "uses", "Summarization")
+Rel(memory_daemon, memory_service, "uses", "gRPC server")
+Rel(memory_daemon, memory_client, "uses", "Proto types")
+Rel(memory_daemon, memory_scheduler, "uses", "Background jobs")
+Rel(memory_ingest, memory_client, "uses", "RPC calls")
+Rel(memory_ingest, memory_types, "uses", "Event mapping")
+
+' External dependency relationships
+Rel(memory_storage, rocksdb, "uses", "Native bindings")
+Rel(memory_service, tonic, "uses", "gRPC server")
+Rel(memory_client, tonic, "uses", "gRPC client")
+Rel(memory_toc, tiktoken, "uses", "Token counting")
+Rel(memory_toc, reqwest, "uses", "LLM API calls")
+Rel(memory_daemon, clap, "uses", "CLI parsing")
+Rel(memory_daemon, tokio, "uses", "Async runtime")
+Rel(memory_scheduler, cron_scheduler, "uses", "Job scheduling")
+
+@enduml

@@ -1,0 +1,184 @@
+@startuml class-domain
+title Agent Memory - Domain Model
+
+skinparam classAttributeIconSize 0
+skinparam classFontStyle bold
+skinparam linetype ortho
+
+package "Core Events" {
+
+    enum EventType {
+        SESSION_START
+        USER_MESSAGE
+        ASSISTANT_MESSAGE
+        TOOL_RESULT
+        ASSISTANT_STOP
+        SUBAGENT_START
+        SUBAGENT_STOP
+        SESSION_END
+    }
+
+    enum EventRole {
+        USER
+        ASSISTANT
+        SYSTEM
+        TOOL
+    }
+
+    class Event {
+        +event_id: ULID
+        +session_id: String
+        +timestamp_ms: i64
+        +event_type: EventType
+        +role: EventRole
+        +text: String
+        +metadata: Map<String, String>
+        --
+        +new(session_id, event_type, role, text): Event
+        +timestamp(): DateTime
+    }
+
+    Event --> EventType
+    Event --> EventRole
+}
+
+package "TOC Hierarchy" {
+
+    enum TocLevel {
+        YEAR
+        MONTH
+        WEEK
+        DAY
+        SEGMENT
+    }
+
+    class TocNode {
+        +node_id: String
+        +level: TocLevel
+        +title: String
+        +summary: Option<String>
+        +bullets: Vec<TocBullet>
+        +keywords: Vec<String>
+        +child_node_ids: Vec<String>
+        +start_time_ms: i64
+        +end_time_ms: i64
+        +version: u32
+        --
+        +new_year(year: i32): TocNode
+        +new_month(year: i32, month: u32): TocNode
+        +new_week(year: i32, week: u32): TocNode
+        +new_day(date: NaiveDate): TocNode
+        +new_segment(start_time, end_time): TocNode
+        +with_bullets(bullets): TocNode
+        +next_version(): TocNode
+    }
+
+    class TocBullet {
+        +text: String
+        +grip_ids: Vec<String>
+    }
+
+    TocNode --> TocLevel
+    TocNode "1" *-- "*" TocBullet : contains
+    TocNode "1" o-- "*" TocNode : child_node_ids
+}
+
+package "Provenance" {
+
+    class Grip {
+        +grip_id: ULID
+        +excerpt: String
+        +event_id_start: ULID
+        +event_id_end: ULID
+        +timestamp_ms: i64
+        +source: String
+        --
+        +new(excerpt, start, end): Grip
+        +timestamp(): DateTime
+    }
+
+    TocBullet "1" o-- "*" Grip : grip_ids
+    Grip "1" --> "1..*" Event : references
+}
+
+package "Background Jobs" {
+
+    enum JobResultStatus {
+        SUCCESS
+        FAILED
+        SKIPPED
+    }
+
+    class JobStatus {
+        +job_name: String
+        +cron_expr: String
+        +last_run_ms: i64
+        +last_duration_ms: i64
+        +last_result: JobResultStatus
+        +last_error: Option<String>
+        +next_run_ms: i64
+        +run_count: u64
+        +error_count: u64
+        +is_running: bool
+        +is_paused: bool
+    }
+
+    class Checkpoint {
+        +job_name: String
+        +last_processed_id: String
+        +last_processed_time_ms: i64
+        +metadata: Map<String, String>
+        --
+        +advance(event_id, timestamp): Checkpoint
+    }
+
+    JobStatus --> JobResultStatus
+}
+
+package "Storage Internals" {
+
+    class OutboxEntry {
+        +sequence: u64
+        +event_id: ULID
+        +timestamp_ms: i64
+        +operation: OutboxOperation
+    }
+
+    enum OutboxOperation {
+        INDEX_EVENT
+        UPDATE_SEGMENT
+        ROLLUP_DAY
+        ROLLUP_WEEK
+        ROLLUP_MONTH
+    }
+
+    OutboxEntry --> OutboxOperation
+    OutboxEntry --> Event : event_id
+}
+
+' Cross-package relationships
+note bottom of Event
+  **Storage Key**
+  evt:{timestamp_ms:013}:{ulid}
+
+  Enables efficient range scans
+  by time period.
+end note
+
+note bottom of TocNode
+  **Storage Keys**
+  Node: toc:{node_id}:v{version}
+  Latest: latest:{node_id}
+
+  Versioned for immutability.
+end note
+
+note bottom of Grip
+  **Storage Key**
+  grip:{timestamp_ms:013}:{ulid}
+
+  Links TOC bullets to
+  raw event evidence.
+end note
+
+@enduml

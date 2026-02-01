@@ -1,0 +1,66 @@
+@startuml deployment
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+title Agent Memory - Deployment Diagram
+
+LAYOUT_WITH_LEGEND()
+
+Deployment_Node(local_machine, "Local Machine", "macOS / Linux / Windows") {
+
+    Deployment_Node(user_processes, "User Space") {
+
+        Deployment_Node(ai_agents, "AI Agent Processes") {
+            Container(claude_code, "Claude Code", "Node.js / CLI", "AI coding assistant with conversation hooks")
+            Container(opencode, "OpenCode", "CLI", "Alternative AI agent (planned)")
+            Container(gemini_cli, "Gemini CLI", "CLI", "Google AI agent (planned)")
+        }
+
+        Deployment_Node(memory_processes, "Memory System Processes") {
+            Container(memory_daemon, "memory-daemon", "Rust Binary", "gRPC server on port 50051\nManages storage, TOC, and scheduling")
+            Container(memory_ingest, "memory-ingest", "Rust Binary", "CCH hook handler\nTranslates hook events to gRPC calls")
+        }
+
+        Deployment_Node(cli_tools, "CLI Tools") {
+            Container(memory_query, "memory-query", "Rust Binary", "Interactive TOC navigation CLI")
+            Container(memory_admin, "memory-admin", "Rust Binary", "Admin commands: rebuild-toc, compact, status")
+        }
+    }
+
+    Deployment_Node(data_layer, "Data Layer", "~/.memory-store/") {
+
+        Deployment_Node(rocksdb_store, "RocksDB Instance", "Per-project store") {
+            ContainerDb(cf_events, "events CF", "Column Family", "Raw conversation events\nKey: evt:{ts}:{ulid}")
+            ContainerDb(cf_toc_nodes, "toc_nodes CF", "Column Family", "Versioned TOC nodes\nKey: toc:{id}:v{ver}")
+            ContainerDb(cf_toc_latest, "toc_latest CF", "Column Family", "Latest version pointers\nKey: latest:{id}")
+            ContainerDb(cf_grips, "grips CF", "Column Family", "Excerpt provenance\nKey: grip:{ts}:{ulid}")
+            ContainerDb(cf_outbox, "outbox CF", "Column Family", "Pending TOC updates\nKey: out:{seq}")
+            ContainerDb(cf_checkpoints, "checkpoints CF", "Column Family", "Job crash recovery\nKey: chk:{job}")
+        }
+    }
+
+    Deployment_Node(config_layer, "Configuration", "~/.config/agent-memory/") {
+        Container(config_file, "config.toml", "TOML", "Port, paths, thresholds,\nsummarizer settings")
+    }
+}
+
+Deployment_Node(external_services, "External Services", "Cloud") {
+    Container(llm_api, "LLM API", "HTTPS", "Claude API or OpenAI API\nfor summarization")
+}
+
+' Relationships
+Rel(claude_code, memory_ingest, "Hook events", "stdin/stdout")
+Rel(memory_ingest, memory_daemon, "IngestEvent RPC", "gRPC/TCP:50051")
+Rel(memory_query, memory_daemon, "Query RPCs", "gRPC/TCP:50051")
+Rel(memory_admin, memory_daemon, "Admin RPCs", "gRPC/TCP:50051")
+
+Rel(memory_daemon, cf_events, "Read/Write", "RocksDB API")
+Rel(memory_daemon, cf_toc_nodes, "Read/Write", "RocksDB API")
+Rel(memory_daemon, cf_toc_latest, "Read/Write", "RocksDB API")
+Rel(memory_daemon, cf_grips, "Read/Write", "RocksDB API")
+Rel(memory_daemon, cf_outbox, "Read/Write", "RocksDB API")
+Rel(memory_daemon, cf_checkpoints, "Read/Write", "RocksDB API")
+
+Rel(memory_daemon, config_file, "Reads on startup", "File I/O")
+Rel(memory_daemon, llm_api, "Summarization requests", "HTTPS")
+
+@enduml

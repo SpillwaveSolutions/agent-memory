@@ -1,0 +1,101 @@
+@startuml sequence-ingest
+title Event Ingestion Sequence
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Claude Code" as claude
+participant "CCH Hook\n(memory-ingest)" as hook
+participant "memory-daemon\n(gRPC Server)" as daemon
+participant "MemoryService" as service
+participant "EventStore" as events
+participant "OutboxStore" as outbox
+database "RocksDB" as db
+
+== Event Capture ==
+
+claude -> hook: 1. Hook event (JSON via stdin)\n{type: "user_message", text: "..."}
+activate hook
+
+hook -> hook: 2. Parse JSON\nValidate required fields
+hook -> hook: 3. Map to domain Event\n- Generate ULID\n- Extract timestamp\n- Map event type
+
+hook -> daemon: 4. IngestEvent RPC (gRPC)\n{event: Event}
+activate daemon
+
+daemon -> service: 5. Validate event\n- Check event_id format\n- Verify timestamp
+activate service
+
+== Idempotency Check ==
+
+service -> events: 6. Check existence\nevent_exists(event_id)
+activate events
+events -> db: 7. GET evt:{ts}:{ulid}
+db --> events: 8. Result (exists/not found)
+events --> service: 9. exists: bool
+deactivate events
+
+alt Event already exists
+    service --> daemon: 10a. Response\n{event_id, created: false}
+else Event is new
+
+    == Atomic Write ==
+
+    service -> db: 10b. Begin WriteBatch
+
+    service -> events: 11. Store event
+    activate events
+    events -> db: 12. PUT evt:{ts}:{ulid} -> Event JSON
+    deactivate events
+
+    service -> outbox: 13. Add to outbox
+    activate outbox
+    outbox -> db: 14. PUT out:{seq} -> OutboxEntry JSON
+    deactivate outbox
+
+    service -> db: 15. Commit WriteBatch\n(atomic)
+    db --> service: 16. Write confirmed
+
+    service --> daemon: 17. Response\n{event_id, created: true}
+end
+
+deactivate service
+
+daemon --> hook: 18. gRPC Response
+deactivate daemon
+
+hook --> claude: 19. Exit 0 (success)\nor fail-open on error
+deactivate hook
+
+note right of hook
+  **Fail-Open Design**
+  On any error (daemon down,
+  network issue, etc.), the hook
+  exits successfully so Claude
+  Code continues uninterrupted.
+end note
+
+== Background Processing (Async) ==
+
+participant "Scheduler" as scheduler
+participant "SegmentJob" as segment_job
+
+scheduler -> segment_job: 20. Trigger (cron)\nevery 5 minutes
+activate segment_job
+
+segment_job -> outbox: 21. Poll outbox
+activate outbox
+outbox -> db: 22. Range scan\nout:{from_seq}..
+db --> outbox: 23. OutboxEntry list
+outbox --> segment_job: 24. Pending events
+deactivate outbox
+
+segment_job -> segment_job: 25. Group into segments\n- Time threshold (30 min)\n- Token threshold (4K)
+
+segment_job -> segment_job: 26. Create segment nodes\nCall summarizer if needed
+
+segment_job -> db: 27. Write new TOC nodes\nUpdate checkpoints
+
+deactivate segment_job
+
+@enduml

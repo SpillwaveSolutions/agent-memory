@@ -1,0 +1,148 @@
+@startuml sequence-query
+title TOC Query Sequence - Progressive Disclosure
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "AI Agent\n(memory-navigator)" as agent
+participant "memory-daemon\n(gRPC Server)" as daemon
+participant "MemoryService" as service
+participant "TocStore" as toc
+participant "GripStore" as grips
+participant "EventStore" as events
+database "RocksDB" as db
+
+== Step 1: Get Root (Year Level) ==
+
+agent -> daemon: 1. GetTocRoot RPC\n{}
+activate daemon
+daemon -> service: 2. Route to handler
+activate service
+
+service -> toc: 3. get_root_nodes()
+activate toc
+toc -> db: 4. Range scan\ntoc:year:* latest versions
+db --> toc: 5. Year nodes
+toc --> service: 6. TocNode[]
+deactivate toc
+
+service --> daemon: 7. GetTocRootResponse\n{nodes: [2026, 2025...]}
+deactivate service
+daemon --> agent: 8. Year nodes with summaries
+deactivate daemon
+
+note right of agent
+  Agent reads summaries:
+  "2026: JWT auth, memory system"
+  "2025: Initial project setup"
+  Decides to explore 2026.
+end note
+
+== Step 2: Drill into Year ==
+
+agent -> daemon: 9. BrowseToc RPC\n{parent_id: "toc:year:2026", limit: 10}
+activate daemon
+daemon -> service: 10. Route to handler
+activate service
+
+service -> toc: 11. get_children(parent_id)
+activate toc
+toc -> db: 12. Range scan\ntoc:month:2026-* latest versions
+db --> toc: 13. Month nodes
+toc --> service: 14. TocNode[]
+deactivate toc
+
+service --> daemon: 15. BrowseTocResponse\n{children: [Jan, Feb...], has_more: false}
+deactivate service
+daemon --> agent: 16. Month nodes with summaries
+deactivate daemon
+
+note right of agent
+  Agent reads summaries:
+  "January 2026: Memory system v1.0"
+  Drills into January.
+end note
+
+== Step 3: Continue Drilling ==
+
+agent -> daemon: 17. BrowseToc RPC\n{parent_id: "toc:month:2026-01", limit: 10}
+activate daemon
+
+... similar flow through Week -> Day -> Segment ...
+
+daemon --> agent: 18. Eventually reaches segments\nwith detailed bullets
+deactivate daemon
+
+note right of agent
+  Segment bullets:
+  - "Implemented grip extraction" [grip:123]
+  - "Fixed checkpoint race condition" [grip:456]
+  Agent needs to verify "grip extraction".
+end note
+
+== Step 4: Expand Grip for Evidence ==
+
+agent -> daemon: 19. ExpandGrip RPC\n{grip_id: "grip:123", events_before: 3, events_after: 3}
+activate daemon
+daemon -> service: 20. Route to handler
+activate service
+
+service -> grips: 21. get_grip(grip_id)
+activate grips
+grips -> db: 22. GET grip:{ts}:{ulid}
+db --> grips: 23. Grip JSON
+grips --> service: 24. Grip with event_id_start/end
+deactivate grips
+
+service -> events: 25. get_context_events(\nevent_id_start, event_id_end,\nbefore: 3, after: 3)
+activate events
+events -> db: 26. Range scan around\nexcerpt events
+db --> events: 27. Event list
+events --> service: 28. Context events
+deactivate events
+
+service --> daemon: 29. ExpandGripResponse\n{grip, events_before, excerpt_events, events_after}
+deactivate service
+daemon --> agent: 30. Full context with\noriginal conversation
+deactivate daemon
+
+note right of agent
+  Agent sees raw events:
+  User: "How do we extract grips?"
+  Assistant: "I'll implement a..."
+  Tool: "Edit grip_extractor.rs"
+
+  Verified - can answer confidently.
+end note
+
+== Alternative: Direct Event Access ==
+
+agent -> daemon: 31. GetEvents RPC\n{from_timestamp_ms: ..., to_timestamp_ms: ..., limit: 100}
+activate daemon
+daemon -> service: 32. Route to handler
+activate service
+
+service -> events: 33. get_events_in_range()
+activate events
+events -> db: 34. Range scan\nevt:{from_ts}..evt:{to_ts}
+db --> events: 35. Event list
+events --> service: 36. Events
+deactivate events
+
+service --> daemon: 37. GetEventsResponse\n{events: [...], has_more: true}
+deactivate service
+daemon --> agent: 38. Raw events\n(last resort - high token cost)
+deactivate daemon
+
+note right of agent
+  **GetEvents is a fallback**
+  Only use when:
+  - TOC doesn't exist yet
+  - Need raw events for analysis
+  - Debugging/verification
+
+  Prefer TOC navigation for
+  token-efficient search.
+end note
+
+@enduml

@@ -1,0 +1,508 @@
+# Wiki Mapping Configuration
+# Maps source documentation files to GitHub Wiki page names
+#
+# Usage:
+#   - source: Path to source file (relative to repository root)
+#   - wiki: Wiki page name (no .md extension, hyphens for spaces)
+#   - aggregate: true if directory contents should be combined into single page
+#
+# Wiki Link Format: [Title](Page-Name) - no .md extension, hyphens for spaces
+#
+# Last updated: 2026-01-31
+
+version: "1.0"
+
+# =============================================================================
+# Core Documentation
+# =============================================================================
+core_docs:
+  - source: docs/README.md
+    wiki: README
+    description: Main project README with overview and quick start
+
+  - source: docs/ARCHITECTURE.md
+    wiki: Architecture
+    description: Component overview, crate structure, data flow
+
+  - source: docs/API.md
+    wiki: API-Reference
+    description: gRPC RPCs, data types, protobuf definitions
+
+  - source: docs/USAGE.md
+    wiki: Usage-Guide
+    description: Starting daemon, CLI commands, troubleshooting
+
+  - source: docs/INTEGRATION.md
+    wiki: Integration-Guide
+    description: Client library usage, hook handlers, gRPC examples
+
+# =============================================================================
+# Project Planning (GSD)
+# =============================================================================
+planning_docs:
+  - source: .planning/PROJECT.md
+    wiki: Project-Overview
+    description: Core value, requirements summary, constraints, key decisions
+
+  - source: .planning/ROADMAP.md
+    wiki: Roadmap
+    description: 13-phase development plan with success criteria
+
+  - source: .planning/STATE.md
+    wiki: Current-State
+    description: Active phase, velocity metrics, accumulated context
+
+  - source: .planning/REQUIREMENTS.md
+    wiki: Requirements
+    description: v1/v2 requirements with traceability to phases
+
+  - source: .planning/MILESTONES.md
+    wiki: Milestones
+    description: Milestone history and completion records
+
+# =============================================================================
+# Phase 1: Foundation
+# =============================================================================
+phase_01:
+  directory: .planning/phases/01-foundation/
+  wiki: Phase-1-Foundation
+  aggregate: true
+  description: Storage layer, domain types, gRPC scaffolding, daemon binary
+  files:
+    - source: .planning/phases/01-foundation/01-RESEARCH.md
+      wiki: Phase-1-Research
+      description: Foundation phase research and decisions
+
+    - source: .planning/phases/01-foundation/01-00-PLAN.md
+      wiki: Phase-1-Plan-00
+      description: Workspace scaffolding plan
+
+    - source: .planning/phases/01-foundation/01-00-SUMMARY.md
+      wiki: Phase-1-Summary-00
+      description: Workspace scaffolding summary
+
+    - source: .planning/phases/01-foundation/01-01-PLAN.md
+      wiki: Phase-1-Plan-01
+      description: Storage layer plan
+
+    - source: .planning/phases/01-foundation/01-01-SUMMARY.md
+      wiki: Phase-1-Summary-01
+      description: Storage layer summary
+
+    - source: .planning/phases/01-foundation/01-02-PLAN.md
+      wiki: Phase-1-Plan-02
+      description: Domain types plan
+
+    - source: .planning/phases/01-foundation/01-02-SUMMARY.md
+      wiki: Phase-1-Summary-02
+      description: Domain types summary
+
+    - source: .planning/phases/01-foundation/01-03-PLAN.md
+      wiki: Phase-1-Plan-03
+      description: gRPC service scaffolding plan
+
+    - source: .planning/phases/01-foundation/01-03-SUMMARY.md
+      wiki: Phase-1-Summary-03
+      description: gRPC service scaffolding summary
+
+    - source: .planning/phases/01-foundation/01-04-PLAN.md
+      wiki: Phase-1-Plan-04
+      description: CLI daemon binary plan
+
+    - source: .planning/phases/01-foundation/01-04-SUMMARY.md
+      wiki: Phase-1-Summary-04
+      description: CLI daemon binary summary
+
+# =============================================================================
+# Phase 2: TOC Building
+# =============================================================================
+phase_02:
+  directory: .planning/phases/02-toc-building/
+  wiki: Phase-2-TOC-Building
+  aggregate: true
+  description: Segmentation, summarization, time hierarchy construction
+  files:
+    - source: .planning/phases/02-toc-building/02-RESEARCH.md
+      wiki: Phase-2-Research
+      description: TOC building research and decisions
+
+    - source: .planning/phases/02-toc-building/02-01-PLAN.md
+      wiki: Phase-2-Plan-01
+      description: Segmentation engine plan
+
+    - source: .planning/phases/02-toc-building/02-01-SUMMARY.md
+      wiki: Phase-2-Summary-01
+      description: Segmentation engine summary
+
+    - source: .planning/phases/02-toc-building/02-02-PLAN.md
+      wiki: Phase-2-Plan-02
+      description: Summarizer trait and implementation plan
+
+    - source: .planning/phases/02-toc-building/02-02-SUMMARY.md
+      wiki: Phase-2-Summary-02
+      description: Summarizer trait and implementation summary
+
+    - source: .planning/phases/02-toc-building/02-03-PLAN.md
+      wiki: Phase-2-Plan-03
+      description: TOC hierarchy builder plan
+
+    - source: .planning/phases/02-toc-building/02-03-SUMMARY.md
+      wiki: Phase-2-Summary-03
+      description: TOC hierarchy builder summary
+
+# =============================================================================
+# Phase 3: Grips & Provenance
+# =============================================================================
+phase_03:
+  directory: .planning/phases/03-grips-provenance/
+  wiki: Phase-3-Grips-Provenance
+  aggregate: true
+  description: Excerpt storage, summary-to-grip linking, expand capability
+  files:
+    - source: .planning/phases/03-grips-provenance/03-RESEARCH.md
+      wiki: Phase-3-Research
+      description: Grips and provenance research
+
+    - source: .planning/phases/03-grips-provenance/03-01-PLAN.md
+      wiki: Phase-3-Plan-01
+      description: Grip storage and data model plan
+
+    - source: .planning/phases/03-grips-provenance/03-01-SUMMARY.md
+      wiki: Phase-3-Summary-01
+      description: Grip storage and data model summary
+
+    - source: .planning/phases/03-grips-provenance/03-02-PLAN.md
+      wiki: Phase-3-Plan-02
+      description: Summarizer grip extraction plan
+
+    - source: .planning/phases/03-grips-provenance/03-02-SUMMARY.md
+      wiki: Phase-3-Summary-02
+      description: Summarizer grip extraction summary
+
+    - source: .planning/phases/03-grips-provenance/03-03-PLAN.md
+      wiki: Phase-3-Plan-03
+      description: Grip expansion plan
+
+    - source: .planning/phases/03-grips-provenance/03-03-SUMMARY.md
+      wiki: Phase-3-Summary-03
+      description: Grip expansion summary
+
+# =============================================================================
+# Phase 5: Integration
+# =============================================================================
+phase_05:
+  directory: .planning/phases/05-integration/
+  wiki: Phase-5-Integration
+  aggregate: true
+  description: Hook handler connection, query CLI, admin commands
+  files:
+    - source: .planning/phases/05-integration/05-RESEARCH.md
+      wiki: Phase-5-Research
+      description: Integration phase research
+
+    - source: .planning/phases/05-integration/05-01-PLAN.md
+      wiki: Phase-5-Plan-01
+      description: Hook handler integration plan
+
+    - source: .planning/phases/05-integration/05-01-SUMMARY.md
+      wiki: Phase-5-Summary-01
+      description: Hook handler integration summary
+
+    - source: .planning/phases/05-integration/05-02-PLAN.md
+      wiki: Phase-5-Plan-02
+      description: Query CLI commands plan
+
+    - source: .planning/phases/05-integration/05-02-SUMMARY.md
+      wiki: Phase-5-Summary-02
+      description: Query CLI commands summary
+
+    - source: .planning/phases/05-integration/05-03-PLAN.md
+      wiki: Phase-5-Plan-03
+      description: Admin commands plan
+
+    - source: .planning/phases/05-integration/05-03-SUMMARY.md
+      wiki: Phase-5-Summary-03
+      description: Admin commands summary
+
+# =============================================================================
+# Phase 6: End-to-End Demo
+# =============================================================================
+phase_06:
+  directory: .planning/phases/06-end-to-end/
+  wiki: Phase-6-End-to-End
+  aggregate: true
+  description: Full workflow validation from ingestion to query
+  files:
+    - source: .planning/phases/06-end-to-end/06-RESEARCH.md
+      wiki: Phase-6-Research
+      description: End-to-end demo research
+
+    - source: .planning/phases/06-end-to-end/06-01-PLAN.md
+      wiki: Phase-6-Plan-01
+      description: Integration test harness and demo script plan
+
+    - source: .planning/phases/06-end-to-end/06-01-SUMMARY.md
+      wiki: Phase-6-Summary-01
+      description: Integration test harness and demo script summary
+
+    - source: .planning/phases/06-end-to-end/06-02-PLAN.md
+      wiki: Phase-6-Plan-02
+      description: Documentation and usage examples plan
+
+    - source: .planning/phases/06-end-to-end/06-02-SUMMARY.md
+      wiki: Phase-6-Summary-02
+      description: Documentation and usage examples summary
+
+# =============================================================================
+# Phase 7: CCH Integration (Initial)
+# =============================================================================
+phase_07:
+  directory: .planning/phases/07-cch-integration/
+  wiki: Phase-7-CCH-Integration
+  aggregate: true
+  description: Initial CCH hook integration planning
+  files:
+    - source: .planning/phases/07-cch-integration/07-RESEARCH.md
+      wiki: Phase-7-Research
+      description: CCH integration research
+
+    - source: .planning/phases/07-cch-integration/07-01-PLAN.md
+      wiki: Phase-7-Plan-01
+      description: Agentic memory query plugin plan
+
+# =============================================================================
+# Phase 8: CCH Hook Integration
+# =============================================================================
+phase_08:
+  directory: .planning/phases/08-cch-hook-integration/
+  wiki: Phase-8-CCH-Hook-Integration
+  aggregate: true
+  description: Automatic event capture via CCH hooks
+  files:
+    - source: .planning/phases/08-cch-hook-integration/08-RESEARCH.md
+      wiki: Phase-8-Research
+      description: CCH hook integration research
+
+    - source: .planning/phases/08-cch-hook-integration/08-01-PLAN.md
+      wiki: Phase-8-Plan-01
+      description: CCH hook handler binary plan
+
+    - source: .planning/phases/08-cch-hook-integration/08-01-SUMMARY.md
+      wiki: Phase-8-Summary-01
+      description: CCH hook handler binary summary
+
+# =============================================================================
+# Phase 9: Setup & Installer Plugin
+# =============================================================================
+phase_09:
+  directory: .planning/phases/09-setup-installer-plugin/
+  wiki: Phase-9-Setup-Plugin
+  aggregate: true
+  description: Interactive setup wizard plugin with commands and agents
+  files:
+    - source: .planning/phases/09-setup-installer-plugin/09-RESEARCH.md
+      wiki: Phase-9-Research
+      description: Setup plugin research
+
+    - source: .planning/phases/09-setup-installer-plugin/09-01-PLAN.md
+      wiki: Phase-9-Plan-01
+      description: Setup plugin structure plan
+
+    - source: .planning/phases/09-setup-installer-plugin/09-01-SUMMARY.md
+      wiki: Phase-9-Summary-01
+      description: Setup plugin structure summary
+
+    - source: .planning/phases/09-setup-installer-plugin/09-02-PLAN.md
+      wiki: Phase-9-Plan-02
+      description: Interactive wizard flow plan
+
+    - source: .planning/phases/09-setup-installer-plugin/09-02-SUMMARY.md
+      wiki: Phase-9-Summary-02
+      description: Interactive wizard flow summary
+
+    - source: .planning/phases/09-setup-installer-plugin/09-03-PLAN.md
+      wiki: Phase-9-Plan-03
+      description: Installation automation plan
+
+    - source: .planning/phases/09-setup-installer-plugin/09-03-SUMMARY.md
+      wiki: Phase-9-Summary-03
+      description: Installation automation summary
+
+    - source: .planning/phases/09-setup-installer-plugin/09-04-PLAN.md
+      wiki: Phase-9-Plan-04
+      description: Health check and troubleshooting plan
+
+    - source: .planning/phases/09-setup-installer-plugin/09-04-SUMMARY.md
+      wiki: Phase-9-Summary-04
+      description: Health check and troubleshooting summary
+
+# =============================================================================
+# Phase 10: Background Scheduler
+# =============================================================================
+phase_10:
+  directory: .planning/phases/10-background-scheduler/
+  wiki: Phase-10-Background-Scheduler
+  aggregate: true
+  description: In-process Tokio cron scheduler for TOC rollups and periodic jobs
+  files:
+    - source: .planning/phases/10-background-scheduler/10-RESEARCH.md
+      wiki: Phase-10-Research
+      description: Background scheduler research
+
+    - source: .planning/phases/10-background-scheduler/10-01-PLAN.md
+      wiki: Phase-10-Plan-01
+      description: Scheduler infrastructure plan
+
+    - source: .planning/phases/10-background-scheduler/10-01-SUMMARY.md
+      wiki: Phase-10-Summary-01
+      description: Scheduler infrastructure summary
+
+    - source: .planning/phases/10-background-scheduler/10-02-PLAN.md
+      wiki: Phase-10-Plan-02
+      description: Job registry and lifecycle plan
+
+    - source: .planning/phases/10-background-scheduler/10-02-SUMMARY.md
+      wiki: Phase-10-Summary-02
+      description: Job registry and lifecycle summary
+
+    - source: .planning/phases/10-background-scheduler/10-03-PLAN.md
+      wiki: Phase-10-Plan-03
+      description: TOC rollup jobs plan
+
+    - source: .planning/phases/10-background-scheduler/10-03-SUMMARY.md
+      wiki: Phase-10-Summary-03
+      description: TOC rollup jobs summary
+
+    - source: .planning/phases/10-background-scheduler/10-04-PLAN.md
+      wiki: Phase-10-Plan-04
+      description: Job observability plan
+
+    - source: .planning/phases/10-background-scheduler/10-04-SUMMARY.md
+      wiki: Phase-10-Summary-04
+      description: Job observability summary
+
+# =============================================================================
+# Phase 11: BM25 Teleport (Tantivy)
+# =============================================================================
+phase_11:
+  directory: .planning/phases/11-bm25-teleport-tantivy/
+  wiki: Phase-11-BM25-Teleport
+  aggregate: true
+  description: Full-text search index for keyword-based teleportation
+  files:
+    - source: .planning/phases/11-bm25-teleport-tantivy/11-RESEARCH.md
+      wiki: Phase-11-Research
+      description: BM25 teleport research
+
+    - source: .planning/phases/11-bm25-teleport-tantivy/11-01-PLAN.md
+      wiki: Phase-11-Plan-01
+      description: Tantivy integration plan
+
+    - source: .planning/phases/11-bm25-teleport-tantivy/11-02-PLAN.md
+      wiki: Phase-11-Plan-02
+      description: Indexing pipeline plan
+
+    - source: .planning/phases/11-bm25-teleport-tantivy/11-03-PLAN.md
+      wiki: Phase-11-Plan-03
+      description: Search API plan
+
+    - source: .planning/phases/11-bm25-teleport-tantivy/11-04-PLAN.md
+      wiki: Phase-11-Plan-04
+      description: CLI and testing plan
+
+# =============================================================================
+# Phase 12: Vector Teleport (HNSW) - Planned
+# =============================================================================
+phase_12:
+  directory: .planning/phases/12-vector-teleport-hnsw/
+  wiki: Phase-12-Vector-Teleport
+  aggregate: true
+  description: Semantic similarity search via local HNSW vector index
+  status: planned
+  files: []
+
+# =============================================================================
+# Phase 13: Outbox Index Ingestion - Planned
+# =============================================================================
+phase_13:
+  directory: .planning/phases/13-outbox-index-ingestion/
+  wiki: Phase-13-Outbox-Index-Ingestion
+  aggregate: true
+  description: Event-driven index updates from outbox for rebuildable indexes
+  status: planned
+  files: []
+
+# =============================================================================
+# Design Documentation (Future)
+# =============================================================================
+design_docs:
+  directory: docs/design/
+  description: Design documentation (architecture diagrams, domain model, etc.)
+  status: placeholder
+  files: []
+
+# =============================================================================
+# Sync Configuration
+# =============================================================================
+sync_config:
+  # Files to exclude from wiki sync
+  exclude_patterns:
+    - "**/*.bak"
+    - "**/*.tmp"
+    - "**/.*"
+
+  # Page naming conventions
+  naming:
+    # Convert underscores to hyphens
+    underscore_to_hyphen: true
+    # Remove .md extension
+    strip_extension: true
+    # Use title case for wiki links
+    title_case_links: false
+
+  # Aggregation settings for phase directories
+  aggregation:
+    # Include table of contents in aggregated pages
+    include_toc: true
+    # Separator between documents
+    document_separator: "\n\n---\n\n"
+    # Order documents by filename (lexicographic)
+    sort_by_filename: true
+
+# =============================================================================
+# Wiki Page Index
+# =============================================================================
+# All wiki pages generated from this mapping:
+#
+# Core:
+#   - README
+#   - Architecture
+#   - API-Reference
+#   - Usage-Guide
+#   - Integration-Guide
+#
+# Planning:
+#   - Project-Overview
+#   - Roadmap
+#   - Current-State
+#   - Requirements
+#   - Milestones
+#
+# Phases (aggregated):
+#   - Phase-1-Foundation
+#   - Phase-2-TOC-Building
+#   - Phase-3-Grips-Provenance
+#   - Phase-5-Integration
+#   - Phase-6-End-to-End
+#   - Phase-7-CCH-Integration
+#   - Phase-8-CCH-Hook-Integration
+#   - Phase-9-Setup-Plugin
+#   - Phase-10-Background-Scheduler
+#   - Phase-11-BM25-Teleport
+#   - Phase-12-Vector-Teleport (placeholder)
+#   - Phase-13-Outbox-Index-Ingestion (placeholder)
+#
+# Individual phase documents (optional granular sync):
+#   - Phase-{N}-Research
+#   - Phase-{N}-Plan-{M}
+#   - Phase-{N}-Summary-{M}
