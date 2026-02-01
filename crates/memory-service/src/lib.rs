@@ -21,4 +21,4 @@ pub mod pb {
 
 pub use ingest::MemoryServiceImpl;
 pub use scheduler_service::SchedulerGrpcService;
-pub use server::{run_server, run_server_with_shutdown};
+pub use server::{run_server, run_server_with_scheduler, run_server_with_shutdown};

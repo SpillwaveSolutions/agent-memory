@@ -1,7 +1,7 @@
 //! Command implementations for the memory daemon.
 //!
 //! Handles:
-//! - start: Load config, open storage, start gRPC server
+//! - start: Load config, open storage, start gRPC server with scheduler
 //! - stop: Signal running daemon to stop (via PID file)
 //! - status: Check if daemon is running
 
@@ -16,12 +16,20 @@ use tokio::signal;
 use tracing::{info, warn};
 
 use memory_client::MemoryClient;
-use memory_service::run_server_with_shutdown;
-use memory_service::pb::TocLevel as ProtoTocLevel;
+use memory_scheduler::{
+    create_compaction_job, create_rollup_jobs, CompactionJobConfig, RollupJobConfig,
+    SchedulerConfig, SchedulerService,
+};
+use memory_service::pb::{
+    GetSchedulerStatusRequest, JobResultStatus, PauseJobRequest, ResumeJobRequest,
+    TocLevel as ProtoTocLevel,
+};
+use memory_service::run_server_with_scheduler;
 use memory_storage::Storage;
+use memory_toc::summarizer::MockSummarizer;
 use memory_types::Settings;
 
-use crate::cli::{AdminCommands, QueryCommands};
+use crate::cli::{AdminCommands, QueryCommands, SchedulerCommands};
 
 /// Get the PID file path
 fn pid_file_path() -> PathBuf {
@@ -93,8 +101,9 @@ fn is_process_running(_pid: u32) -> bool {
 ///
 /// 1. Load configuration (CFG-01: defaults -> file -> env -> CLI)
 /// 2. Open RocksDB storage
-/// 3. Start gRPC server
-/// 4. Handle graceful shutdown on SIGINT/SIGTERM
+/// 3. Create and start scheduler with rollup and compaction jobs
+/// 4. Start gRPC server with scheduler integration
+/// 5. Handle graceful shutdown on SIGINT/SIGTERM
 pub async fn start_daemon(
     config_path: Option<&str>,
     foreground: bool,
@@ -151,6 +160,37 @@ pub async fn start_daemon(
     let storage = Storage::open(&db_path).context("Failed to open storage")?;
     let storage = Arc::new(storage);
 
+    // Create scheduler
+    info!("Initializing scheduler...");
+    let scheduler = SchedulerService::new(SchedulerConfig::default())
+        .await
+        .context("Failed to create scheduler")?;
+
+    // Create summarizer for rollup jobs
+    // TODO: Load from config - use ApiSummarizer if OPENAI_API_KEY or ANTHROPIC_API_KEY set
+    let summarizer: Arc<dyn memory_toc::summarizer::Summarizer> =
+        Arc::new(MockSummarizer::new());
+
+    // Register rollup jobs (day/week/month)
+    create_rollup_jobs(
+        &scheduler,
+        storage.clone(),
+        summarizer,
+        RollupJobConfig::default(),
+    )
+    .await
+    .context("Failed to register rollup jobs")?;
+
+    // Register compaction job
+    create_compaction_job(&scheduler, storage.clone(), CompactionJobConfig::default())
+        .await
+        .context("Failed to register compaction job")?;
+
+    info!(
+        "Scheduler initialized with {} jobs",
+        scheduler.registry().job_count()
+    );
+
     // Write PID file
     write_pid_file()?;
 
@@ -189,8 +229,8 @@ pub async fn start_daemon(
         }
     };
 
-    // Start server
-    let result = run_server_with_shutdown(addr, storage, shutdown_signal).await;
+    // Start server with scheduler
+    let result = run_server_with_scheduler(addr, storage, scheduler, shutdown_signal).await;
 
     // Cleanup
     remove_pid_file();
@@ -549,6 +589,131 @@ fn format_bytes(bytes: u64) -> String {
     } else {
         format!("{} bytes", bytes)
     }
+}
+
+/// Handle scheduler commands.
+///
+/// Per SCHED-05: Job status observable via CLI.
+pub async fn handle_scheduler(endpoint: &str, command: SchedulerCommands) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+
+    let mut client = MemoryServiceClient::connect(endpoint.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    match command {
+        SchedulerCommands::Status => {
+            let response = client
+                .get_scheduler_status(GetSchedulerStatusRequest {})
+                .await
+                .context("Failed to get scheduler status")?
+                .into_inner();
+
+            let status_str = if response.scheduler_running {
+                "RUNNING"
+            } else {
+                "STOPPED"
+            };
+            println!("Scheduler: {}", status_str);
+            println!();
+
+            if response.jobs.is_empty() {
+                println!("No jobs registered.");
+            } else {
+                println!(
+                    "{:<20} {:<12} {:<20} {:<20} {:<10} {:<10}",
+                    "JOB", "STATUS", "LAST RUN", "NEXT RUN", "RUNS", "ERRORS"
+                );
+                println!("{}", "-".repeat(92));
+
+                for job in response.jobs {
+                    let status = if job.is_paused {
+                        "PAUSED"
+                    } else if job.is_running {
+                        "RUNNING"
+                    } else {
+                        "IDLE"
+                    };
+
+                    let last_run = if job.last_run_ms > 0 {
+                        format_timestamp(job.last_run_ms)
+                    } else {
+                        "Never".to_string()
+                    };
+
+                    let next_run = if job.next_run_ms > 0 && !job.is_paused {
+                        format_timestamp(job.next_run_ms)
+                    } else {
+                        "-".to_string()
+                    };
+
+                    println!(
+                        "{:<20} {:<12} {:<20} {:<20} {:<10} {:<10}",
+                        job.job_name, status, last_run, next_run, job.run_count, job.error_count
+                    );
+
+                    // Show last result if there was an error
+                    if job.last_result == JobResultStatus::Failed as i32 {
+                        if let Some(error) = &job.last_error {
+                            println!("  Last error: {}", error);
+                        }
+                    }
+                }
+            }
+        }
+
+        SchedulerCommands::Pause { job_name } => {
+            let response = client
+                .pause_job(PauseJobRequest {
+                    job_name: job_name.clone(),
+                })
+                .await
+                .context("Failed to pause job")?
+                .into_inner();
+
+            if response.success {
+                println!("Job '{}' paused.", job_name);
+            } else {
+                println!(
+                    "Failed to pause '{}': {}",
+                    job_name,
+                    response.error.unwrap_or_default()
+                );
+            }
+        }
+
+        SchedulerCommands::Resume { job_name } => {
+            let response = client
+                .resume_job(ResumeJobRequest {
+                    job_name: job_name.clone(),
+                })
+                .await
+                .context("Failed to resume job")?
+                .into_inner();
+
+            if response.success {
+                println!("Job '{}' resumed.", job_name);
+            } else {
+                println!(
+                    "Failed to resume '{}': {}",
+                    job_name,
+                    response.error.unwrap_or_default()
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Format a timestamp in milliseconds as a local time string.
+fn format_timestamp(ms: i64) -> String {
+    use chrono::{DateTime, Local, Utc};
+
+    DateTime::<Utc>::from_timestamp_millis(ms)
+        .map(|t| t.with_timezone(&Local))
+        .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|| "Invalid".to_string())
 }
 
 #[cfg(test)]

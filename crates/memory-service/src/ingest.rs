@@ -11,6 +11,7 @@ use chrono::{TimeZone, Utc};
 use tonic::{Request, Response, Status};
 use tracing::{debug, error, info};
 
+use memory_scheduler::SchedulerService;
 use memory_storage::Storage;
 use memory_types::{Event, EventRole, EventType, OutboxEntry};
 
@@ -31,16 +32,32 @@ use crate::pb::{
     ResumeJobRequest, ResumeJobResponse,
 };
 use crate::query;
+use crate::scheduler_service::SchedulerGrpcService;
 
 /// Implementation of the MemoryService gRPC service.
 pub struct MemoryServiceImpl {
     storage: Arc<Storage>,
+    scheduler_service: Option<SchedulerGrpcService>,
 }
 
 impl MemoryServiceImpl {
     /// Create a new MemoryServiceImpl with the given storage.
     pub fn new(storage: Arc<Storage>) -> Self {
-        Self { storage }
+        Self {
+            storage,
+            scheduler_service: None,
+        }
+    }
+
+    /// Create a new MemoryServiceImpl with storage and scheduler.
+    ///
+    /// When scheduler is provided, the scheduler-related RPCs
+    /// (GetSchedulerStatus, PauseJob, ResumeJob) will be functional.
+    pub fn with_scheduler(storage: Arc<Storage>, scheduler: Arc<SchedulerService>) -> Self {
+        Self {
+            storage,
+            scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
+        }
     }
 
     /// Convert proto EventRole to domain EventRole
@@ -209,40 +226,45 @@ impl MemoryService for MemoryServiceImpl {
     /// Get scheduler and job status.
     ///
     /// Per SCHED-05: Job status observable via gRPC.
-    /// Note: This is a placeholder - full implementation in scheduler_service module.
     async fn get_scheduler_status(
         &self,
-        _request: Request<GetSchedulerStatusRequest>,
+        request: Request<GetSchedulerStatusRequest>,
     ) -> Result<Response<GetSchedulerStatusResponse>, Status> {
-        // Scheduler not attached to this service instance
-        Ok(Response::new(GetSchedulerStatusResponse {
-            scheduler_running: false,
-            jobs: vec![],
-        }))
+        match &self.scheduler_service {
+            Some(svc) => svc.get_scheduler_status(request).await,
+            None => Ok(Response::new(GetSchedulerStatusResponse {
+                scheduler_running: false,
+                jobs: vec![],
+            })),
+        }
     }
 
     /// Pause a scheduled job.
     async fn pause_job(
         &self,
-        _request: Request<PauseJobRequest>,
+        request: Request<PauseJobRequest>,
     ) -> Result<Response<PauseJobResponse>, Status> {
-        // Scheduler not attached to this service instance
-        Ok(Response::new(PauseJobResponse {
-            success: false,
-            error: Some("Scheduler not configured".to_string()),
-        }))
+        match &self.scheduler_service {
+            Some(svc) => svc.pause_job(request).await,
+            None => Ok(Response::new(PauseJobResponse {
+                success: false,
+                error: Some("Scheduler not configured".to_string()),
+            })),
+        }
     }
 
     /// Resume a paused job.
     async fn resume_job(
         &self,
-        _request: Request<ResumeJobRequest>,
+        request: Request<ResumeJobRequest>,
     ) -> Result<Response<ResumeJobResponse>, Status> {
-        // Scheduler not attached to this service instance
-        Ok(Response::new(ResumeJobResponse {
-            success: false,
-            error: Some("Scheduler not configured".to_string()),
-        }))
+        match &self.scheduler_service {
+            Some(svc) => svc.resume_job(request).await,
+            None => Ok(Response::new(ResumeJobResponse {
+                success: false,
+                error: Some("Scheduler not configured".to_string()),
+            })),
+        }
     }
 }
 
