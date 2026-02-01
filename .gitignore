@@ -37,6 +37,9 @@ logs/
 *.profraw
 coverage/
 
+# Packaged skills
+*.zip
+
 # Override global gitignore for project-specific config
 !CLAUDE.md
 !AGENTS.md
