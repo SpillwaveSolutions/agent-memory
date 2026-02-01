@@ -5,22 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v1.0.0 SHIPPED - Planning v2.0
+**Current focus:** v1.0.0 SHIPPED - Phase 9 COMPLETE - Planning v2.0
 
 ## Current Position
 
-Milestone: v1.0.0 MVP - ✅ SHIPPED (2026-01-30)
-Status: Milestone complete, archived to .planning/milestones/
-Last activity: 2026-01-30 -- Completed milestone v1.0.0
+Milestone: v1.0.0 MVP - SHIPPED (2026-01-30)
+Current: Phase 9 - Setup/Installer Plugin - COMPLETE
+Status: Phase complete
+Last activity: 2026-01-31 -- Completed 09-04-PLAN.md
 
-Progress: [####################] 100% (20/20 plans across 8 phases)
+Progress Phase 9: [####################] 100% (4/4 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
-- Average duration: ~10min
-- Total execution time: ~173min
+- Total plans completed: 22
+- Average duration: ~9min
+- Total execution time: ~188min
 
 **By Phase:**
 
@@ -33,9 +34,10 @@ Progress: [####################] 100% (20/20 plans across 8 phases)
 | 5. Integration | 3/3 | ~30min | ~10min |
 | 6. End-to-End Demo | 2/2 | ~20min | ~10min |
 | 8. CCH Integration | 1/1 | ~4min | ~4min |
+| 9. Setup Plugin | 4/4 | ~19min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 05-02 (~10min), 05-03 (~10min), 06-01 (~10min), 06-02 (~10min), 08-01 (~4min)
+- Last 5 plans: 09-01 (~4min), 09-02 (~4min), 09-03 (~5min), 09-04 (~6min)
 - Trend: Consistent velocity with well-defined plans
 
 *Updated after each plan completion*
@@ -139,6 +141,32 @@ Recent decisions affecting current work:
 - Reuse memory-client types (HookEvent, map_hook_event)
 - Event types: SessionStart, UserPromptSubmit, PostToolUse, Stop, SubagentStart/Stop
 
+**From 09-01:**
+- Plugin structure follows memory-query-plugin pattern
+- Progressive Disclosure Architecture for SKILL.md
+- Three slash commands: /memory-setup, /memory-status, /memory-config
+- setup-troubleshooter agent with safe/permission-required fix tiers
+
+**From 09-02:**
+- 6-step progressive wizard with conditional skip logic
+- State detection before asking questions to skip completed steps
+- Three flag modes: --fresh (reset), --minimal (defaults), --advanced (full options)
+- Consistent output formatting with [check]/[x] status indicators
+- Backup-before-overwrite pattern for --fresh flag
+
+**From 09-03:**
+- Install helper script as sourced functions for flexibility
+- User-level services (launchd/systemd/Task Scheduler) not system services
+- SHA256 checksum verification for binary downloads
+- Platform detection via detect_os/detect_arch/detect_platform functions
+
+**From 09-04:**
+- 7 health checks in sequence: binary, daemon, port, gRPC, database, events, CCH
+- 4 status levels: healthy, degraded, unhealthy, not installed
+- Config validation with restart-required matrix for side effect handling
+- Troubleshooter uses 6 diagnostic categories: INSTALLATION, STARTUP, CONNECTION, INGESTION, SUMMARIZATION, RUNTIME
+- Safe auto-fixes vs permission-required fixes tier system
+
 ### Pending Todos
 
 None yet.
@@ -149,8 +177,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-30
-Stopped at: Milestone v1.0.0 archived and shipped
+Last session: 2026-01-31
+Stopped at: Completed 09-04-PLAN.md (Health Check and Troubleshooting) - Phase 9 Complete
 Resume file: None
 
 ## Milestone History
@@ -211,3 +239,12 @@ See: .planning/MILESTONES.md for complete history
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
 | 08-01 | 1 | CCH hook handler binary | Complete |
+
+## Phase 9 Plans
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 09-01 | 1 | Setup Plugin Structure | Complete |
+| 09-02 | 2 | Interactive Wizard Flow | Complete |
+| 09-03 | 2 | Installation Automation | Complete |
+| 09-04 | 3 | Health Check and Troubleshooting | Complete |
