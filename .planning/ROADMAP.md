@@ -334,13 +334,16 @@ Plans:
   3. Full index rebuild from storage is supported via admin command
   4. Index state is independent of primary storage (can be deleted and rebuilt)
   5. Indexing is async and doesn't block event ingestion
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
+
+**Documentation:**
+- Research: .planning/phases/13-outbox-index-ingestion/13-RESEARCH.md
 
 Plans:
-- [ ] 13-01: Outbox consumer for indexing (checkpoint tracking)
-- [ ] 13-02: Incremental index updates (add/update documents)
-- [ ] 13-03: Full rebuild command (admin rebuild-indexes)
-- [ ] 13-04: Async indexing pipeline (scheduled via Phase 10)
+- [ ] 13-01-PLAN.md — Outbox consumer infrastructure (memory-indexing crate, outbox reading, checkpoint tracking)
+- [ ] 13-02-PLAN.md — Incremental index updates (IndexingPipeline, dispatch logic, mock tests)
+- [ ] 13-03-PLAN.md — Full rebuild command (admin rebuild-indexes, dry-run support)
+- [ ] 13-04-PLAN.md — Scheduler integration (background job, GetIndexingStatus RPC)
 
 ### Phase 14: Topic Graph Memory
 **Goal**: Enable conceptual discovery through semantic topics extracted from TOC summaries with time-decayed importance scoring
