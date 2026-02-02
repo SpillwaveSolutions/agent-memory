@@ -35,13 +35,9 @@ impl TestHarness {
 
         let service_storage = storage.clone();
         let server_handle = tokio::spawn(async move {
-            run_server_with_shutdown(
-                addr,
-                service_storage,
-                async {
-                    shutdown_rx.await.ok();
-                },
-            )
+            run_server_with_shutdown(addr, service_storage, async {
+                shutdown_rx.await.ok();
+            })
             .await
         });
 
@@ -91,11 +87,7 @@ async fn test_event_ingestion_lifecycle() {
     let session_id = "test-session-123";
     let events = vec![
         HookEvent::new(session_id, HookEventType::SessionStart, "Session started"),
-        HookEvent::new(
-            session_id,
-            HookEventType::UserPromptSubmit,
-            "What is Rust?",
-        ),
+        HookEvent::new(session_id, HookEventType::UserPromptSubmit, "What is Rust?"),
         HookEvent::new(
             session_id,
             HookEventType::AssistantResponse,
@@ -157,10 +149,13 @@ async fn test_event_with_metadata() {
     metadata.insert("tool_name".to_string(), "Read".to_string());
     metadata.insert("file_path".to_string(), "/tmp/test.rs".to_string());
 
-    let hook_event =
-        HookEvent::new("session-789", HookEventType::ToolResult, "File contents here")
-            .with_tool_name("Read")
-            .with_metadata(metadata);
+    let hook_event = HookEvent::new(
+        "session-789",
+        HookEventType::ToolResult,
+        "File contents here",
+    )
+    .with_tool_name("Read")
+    .with_metadata(metadata);
 
     let event = map_hook_event(hook_event);
     let (event_id, created) = client.ingest(event).await.unwrap();
@@ -195,10 +190,7 @@ async fn test_browse_toc_empty() {
     let harness = TestHarness::new(50105).await;
     let mut client = harness.client().await;
 
-    let result = client
-        .browse_toc("toc:year:2026", 10, None)
-        .await
-        .unwrap();
+    let result = client.browse_toc("toc:year:2026", 10, None).await.unwrap();
     assert!(result.children.is_empty());
     assert!(!result.has_more);
 }

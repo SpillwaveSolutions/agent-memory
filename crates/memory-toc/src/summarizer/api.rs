@@ -10,7 +10,7 @@ use tracing::{debug, error, warn};
 
 use memory_types::Event;
 
-use super::{Summary, Summarizer, SummarizerError};
+use super::{Summarizer, SummarizerError, Summary};
 
 /// Configuration for API-based summarizer.
 #[derive(Debug, Clone)]
@@ -249,7 +249,10 @@ Guidelines:
         let response = self
             .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.api_key.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&request)
             .send()

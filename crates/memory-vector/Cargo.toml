@@ -1,0 +1,39 @@
+[package]
+name = "memory-vector"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Vector index for Agent Memory using HNSW algorithm"
+
+[dependencies]
+# Vector search
+usearch = { workspace = true }
+
+# Internal crates
+memory-types = { workspace = true }
+memory-embeddings = { workspace = true }
+
+# Storage
+rocksdb = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+rand = { workspace = true }
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }

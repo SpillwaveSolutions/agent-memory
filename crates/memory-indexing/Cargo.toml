@@ -1,0 +1,23 @@
+[package]
+name = "memory-indexing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+memory-embeddings = { workspace = true }
+memory-search = { workspace = true }
+memory-storage = { workspace = true }
+memory-types = { workspace = true }
+memory-vector = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+rand = "0.9"
+ulid = "1"

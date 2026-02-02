@@ -81,10 +81,7 @@ impl GripExtractor {
     /// Find the best matching events for a bullet point.
     fn find_best_match(&self, events: &[Event], bullet: &str, source: &str) -> Option<Grip> {
         // Extract key terms from bullet
-        let key_terms: Vec<&str> = bullet
-            .split_whitespace()
-            .filter(|w| w.len() > 3)
-            .collect();
+        let key_terms: Vec<&str> = bullet.split_whitespace().filter(|w| w.len() > 3).collect();
 
         if key_terms.is_empty() {
             return None;
@@ -164,11 +161,7 @@ impl Default for GripExtractor {
 }
 
 /// Convenience function to extract grips from events.
-pub fn extract_grips(
-    events: &[Event],
-    bullets: &[String],
-    source: &str,
-) -> Vec<ExtractedGrip> {
+pub fn extract_grips(events: &[Event], bullets: &[String], source: &str) -> Vec<ExtractedGrip> {
     GripExtractor::new().extract_grips(events, bullets, source)
 }
 
@@ -193,13 +186,14 @@ mod tests {
     fn test_extract_grips_basic() {
         let events = vec![
             create_test_event("How do I implement authentication?", 1706540400000),
-            create_test_event("You can use JWT tokens for stateless authentication", 1706540500000),
+            create_test_event(
+                "You can use JWT tokens for stateless authentication",
+                1706540500000,
+            ),
             create_test_event("That sounds good, let me try it", 1706540600000),
         ];
 
-        let bullets = vec![
-            "Discussed JWT authentication implementation".to_string(),
-        ];
+        let bullets = vec!["Discussed JWT authentication implementation".to_string()];
 
         let grips = extract_grips(&events, &bullets, "test");
 

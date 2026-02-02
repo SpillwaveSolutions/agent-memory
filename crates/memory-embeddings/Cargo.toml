@@ -1,0 +1,42 @@
+[package]
+name = "memory-embeddings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Local embedding generation for Agent Memory using Candle"
+
+[dependencies]
+# Candle ML framework
+candle-core = { workspace = true }
+candle-nn = { workspace = true }
+candle-transformers = { workspace = true }
+
+# Tokenization
+tokenizers = { workspace = true }
+
+# Model downloading
+hf-hub = { workspace = true }
+
+# Internal crates
+memory-types = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Directory utilities
+dirs = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }

@@ -59,7 +59,11 @@ pub fn get_parent_node_id(node_id: &str) -> Option<String> {
             if parts.len() >= 3 {
                 if let Ok(date) = chrono::NaiveDate::parse_from_str(parts[2], "%Y-%m-%d") {
                     let iso_week = date.iso_week();
-                    return Some(format!("toc:week:{}:W{:02}", iso_week.year(), iso_week.week()));
+                    return Some(format!(
+                        "toc:week:{}:W{:02}",
+                        iso_week.year(),
+                        iso_week.week()
+                    ));
                 }
             }
             None
@@ -73,7 +77,8 @@ pub fn get_parent_node_id(node_id: &str) -> Option<String> {
                     parts[3].trim_start_matches('W').parse::<u32>(),
                 ) {
                     // Get the Thursday of the week to determine the month
-                    if let Some(date) = chrono::NaiveDate::from_isoywd_opt(year, week, Weekday::Thu) {
+                    if let Some(date) = chrono::NaiveDate::from_isoywd_opt(year, week, Weekday::Thu)
+                    {
                         return Some(format!("toc:month:{}:{:02}", date.year(), date.month()));
                     }
                 }
@@ -131,22 +136,31 @@ pub fn get_time_boundaries(level: TocLevel, time: DateTime<Utc>) -> (DateTime<Ut
     match level {
         TocLevel::Year => {
             let start = Utc.with_ymd_and_hms(time.year(), 1, 1, 0, 0, 0).unwrap();
-            let end = Utc.with_ymd_and_hms(time.year() + 1, 1, 1, 0, 0, 0).unwrap() - Duration::milliseconds(1);
+            let end = Utc
+                .with_ymd_and_hms(time.year() + 1, 1, 1, 0, 0, 0)
+                .unwrap()
+                - Duration::milliseconds(1);
             (start, end)
         }
         TocLevel::Month => {
-            let start = Utc.with_ymd_and_hms(time.year(), time.month(), 1, 0, 0, 0).unwrap();
+            let start = Utc
+                .with_ymd_and_hms(time.year(), time.month(), 1, 0, 0, 0)
+                .unwrap();
             let next_month = if time.month() == 12 {
-                Utc.with_ymd_and_hms(time.year() + 1, 1, 1, 0, 0, 0).unwrap()
+                Utc.with_ymd_and_hms(time.year() + 1, 1, 1, 0, 0, 0)
+                    .unwrap()
             } else {
-                Utc.with_ymd_and_hms(time.year(), time.month() + 1, 1, 0, 0, 0).unwrap()
+                Utc.with_ymd_and_hms(time.year(), time.month() + 1, 1, 0, 0, 0)
+                    .unwrap()
             };
             let end = next_month - Duration::milliseconds(1);
             (start, end)
         }
         TocLevel::Week => {
             let iso_week = time.iso_week();
-            let monday = chrono::NaiveDate::from_isoywd_opt(iso_week.year(), iso_week.week(), Weekday::Mon).unwrap();
+            let monday =
+                chrono::NaiveDate::from_isoywd_opt(iso_week.year(), iso_week.week(), Weekday::Mon)
+                    .unwrap();
             let start = Utc.from_utc_datetime(&monday.and_time(NaiveTime::MIN));
             let end = start + Duration::days(7) - Duration::milliseconds(1);
             (start, end)

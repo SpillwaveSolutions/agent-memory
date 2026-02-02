@@ -1,7 +1,8 @@
 # Agent Memory Cognitive Architecture
 
-**Version:** 1.0
-**Date:** 2026-02-01
+**Version:** 2.0
+**Date:** 2026-02-02
+**Status:** All cognitive layers (0-5) fully implemented
 
 ---
 
@@ -21,10 +22,10 @@ Agent Memory implements a 6-layer cognitive hierarchy, where each layer provides
 |-------|------------|----------------|------|---------|
 | **0** | Raw Events | RocksDB CF_EVENTS | Always present | Immutable truth |
 | **1** | TOC Hierarchy | RocksDB CF_TOC_NODES | Always present | Time-based navigation |
-| **2** | Agentic TOC Search | SearchNode/SearchChildren (Phase 10.5) | Always works | Index-free term matching |
-| **3** | Lexical Teleport | BM25/Tantivy (Phase 11) | Configurable | Keyword grounding |
-| **4** | Semantic Teleport | Vector/HNSW (Phase 12) | Configurable | Embedding similarity |
-| **5** | Conceptual Discovery | Topic Graph (Phase 13+) | Optional | Pattern and concept enrichment |
+| **2** | Agentic TOC Search | SearchNode/SearchChildren ✓ | Always works | Index-free term matching |
+| **3** | Lexical Teleport | BM25/Tantivy ✓ | Configurable | Keyword grounding |
+| **4** | Semantic Teleport | Vector/HNSW ✓ | Configurable | Embedding similarity |
+| **5** | Conceptual Discovery | Topic Graph ✓ | Optional | Pattern and concept enrichment |
 
 **Hybrid Mode** (not a layer): Score fusion of layers 3+4 when both are enabled.
 

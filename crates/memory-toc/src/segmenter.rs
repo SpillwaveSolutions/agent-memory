@@ -18,7 +18,9 @@ pub struct TokenCounter {
 
 impl TokenCounter {
     pub fn new(max_tool_result_chars: usize) -> Self {
-        Self { max_tool_result_chars }
+        Self {
+            max_tool_result_chars,
+        }
     }
 
     /// Count tokens in event text.
@@ -322,7 +324,7 @@ mod tests {
     fn test_segment_builder_token_boundary() {
         let config = SegmentationConfig {
             time_threshold_ms: 1000000, // Very high to not trigger
-            token_threshold: 10, // Very low to trigger
+            token_threshold: 10,        // Very low to trigger
             overlap_time_ms: 500,
             overlap_tokens: 5,
             max_tool_result_chars: 1000,
@@ -359,7 +361,9 @@ mod tests {
         builder.add_event(create_event_at("Late", 1400));
 
         // Trigger boundary
-        let segment1 = builder.add_event(create_event_at("After gap", 5000)).unwrap();
+        let segment1 = builder
+            .add_event(create_event_at("After gap", 5000))
+            .unwrap();
         assert_eq!(segment1.events.len(), 3);
 
         // Add more events and flush

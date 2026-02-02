@@ -1,7 +1,9 @@
-//! Jitter utilities for distributed scheduling.
+//! Jitter and timeout utilities for distributed scheduling.
 //!
 //! Jitter adds a random delay before job execution to prevent thundering herd
 //! problems when many instances are scheduled at the same time.
+//!
+//! Timeout wraps job execution to prevent runaway jobs from blocking the scheduler.
 
 use std::time::Duration;
 
@@ -61,6 +63,60 @@ impl JitterConfig {
     /// Check if jitter is enabled.
     pub fn is_enabled(&self) -> bool {
         self.max_jitter_secs > 0
+    }
+}
+
+/// Configuration for job execution timeout.
+///
+/// Timeout limits how long a job can run before being cancelled. This prevents
+/// runaway jobs from blocking the scheduler indefinitely.
+///
+/// # Example
+///
+/// ```
+/// use memory_scheduler::TimeoutConfig;
+///
+/// // Create timeout config with 5 minute limit
+/// let config = TimeoutConfig::new(300);
+/// assert!(config.is_enabled());
+///
+/// // No timeout
+/// let no_timeout = TimeoutConfig::none();
+/// assert!(!no_timeout.is_enabled());
+/// ```
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TimeoutConfig {
+    /// Maximum job execution time in seconds (0 = no timeout).
+    pub timeout_secs: u64,
+}
+
+impl TimeoutConfig {
+    /// Create a new timeout configuration with the given maximum duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout_secs` - Maximum execution time in seconds. Set to 0 for no timeout.
+    pub fn new(timeout_secs: u64) -> Self {
+        Self { timeout_secs }
+    }
+
+    /// Create a timeout configuration with no limit.
+    pub fn none() -> Self {
+        Self { timeout_secs: 0 }
+    }
+
+    /// Get the timeout as a Duration, or None if no timeout is configured.
+    pub fn as_duration(&self) -> Option<Duration> {
+        if self.timeout_secs == 0 {
+            None
+        } else {
+            Some(Duration::from_secs(self.timeout_secs))
+        }
+    }
+
+    /// Check if timeout is enabled.
+    pub fn is_enabled(&self) -> bool {
+        self.timeout_secs > 0
     }
 }
 
@@ -185,5 +241,43 @@ mod tests {
         // Check we get some variation (not all the same value)
         let unique: std::collections::HashSet<_> = samples.iter().map(|d| d.as_millis()).collect();
         assert!(unique.len() > 1, "Jitter should produce varied values");
+    }
+
+    // TimeoutConfig tests
+
+    #[test]
+    fn test_timeout_zero_is_disabled() {
+        let config = TimeoutConfig::new(0);
+        assert!(!config.is_enabled());
+        assert!(config.as_duration().is_none());
+    }
+
+    #[test]
+    fn test_timeout_enabled() {
+        let config = TimeoutConfig::new(300);
+        assert!(config.is_enabled());
+        assert_eq!(config.as_duration(), Some(Duration::from_secs(300)));
+    }
+
+    #[test]
+    fn test_timeout_default() {
+        let config = TimeoutConfig::default();
+        assert_eq!(config.timeout_secs, 0);
+        assert!(!config.is_enabled());
+    }
+
+    #[test]
+    fn test_timeout_none() {
+        let config = TimeoutConfig::none();
+        assert_eq!(config.timeout_secs, 0);
+        assert!(!config.is_enabled());
+    }
+
+    #[test]
+    fn test_timeout_serialization() {
+        let config = TimeoutConfig::new(60);
+        let json = serde_json::to_string(&config).unwrap();
+        let config_back: TimeoutConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(config, config_back);
     }
 }

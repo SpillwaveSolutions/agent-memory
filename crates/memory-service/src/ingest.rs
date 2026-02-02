@@ -12,32 +12,39 @@ use tonic::{Request, Response, Status};
 use tracing::{debug, error, info};
 
 use memory_scheduler::SchedulerService;
+use memory_search::TeleportSearcher;
 use memory_storage::Storage;
 use memory_types::{Event, EventRole, EventType, OutboxEntry};
 
+use crate::hybrid::HybridSearchHandler;
 use crate::pb::{
-    memory_service_server::MemoryService,
-    BrowseTocRequest, BrowseTocResponse,
-    Event as ProtoEvent,
-    EventRole as ProtoEventRole,
-    EventType as ProtoEventType,
-    ExpandGripRequest, ExpandGripResponse,
-    GetEventsRequest, GetEventsResponse,
-    GetNodeRequest, GetNodeResponse,
-    GetSchedulerStatusRequest, GetSchedulerStatusResponse,
-    GetTocRootRequest, GetTocRootResponse,
-    IngestEventRequest,
-    IngestEventResponse,
-    PauseJobRequest, PauseJobResponse,
-    ResumeJobRequest, ResumeJobResponse,
+    memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse, Event as ProtoEvent,
+    EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
+    ExpandGripResponse, GetEventsRequest, GetEventsResponse, GetNodeRequest, GetNodeResponse,
+    GetRelatedTopicsRequest, GetRelatedTopicsResponse, GetSchedulerStatusRequest,
+    GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest,
+    GetTopTopicsResponse, GetTopicGraphStatusRequest, GetTopicGraphStatusResponse,
+    GetTopicsByQueryRequest, GetTopicsByQueryResponse, GetVectorIndexStatusRequest,
+    HybridSearchRequest, HybridSearchResponse, IngestEventRequest, IngestEventResponse,
+    PauseJobRequest, PauseJobResponse, ResumeJobRequest, ResumeJobResponse, SearchChildrenRequest,
+    SearchChildrenResponse, SearchNodeRequest, SearchNodeResponse, TeleportSearchRequest,
+    TeleportSearchResponse, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use crate::query;
 use crate::scheduler_service::SchedulerGrpcService;
+use crate::search_service;
+use crate::teleport_service;
+use crate::topics::TopicGraphHandler;
+use crate::vector::VectorTeleportHandler;
 
 /// Implementation of the MemoryService gRPC service.
 pub struct MemoryServiceImpl {
     storage: Arc<Storage>,
     scheduler_service: Option<SchedulerGrpcService>,
+    teleport_searcher: Option<Arc<TeleportSearcher>>,
+    vector_service: Option<Arc<VectorTeleportHandler>>,
+    hybrid_service: Option<Arc<HybridSearchHandler>>,
+    topic_service: Option<Arc<TopicGraphHandler>>,
 }
 
 impl MemoryServiceImpl {
@@ -46,6 +53,10 @@ impl MemoryServiceImpl {
         Self {
             storage,
             scheduler_service: None,
+            teleport_searcher: None,
+            vector_service: None,
+            hybrid_service: None,
+            topic_service: None,
         }
     }
 
@@ -57,6 +68,106 @@ impl MemoryServiceImpl {
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
+            teleport_searcher: None,
+            vector_service: None,
+            hybrid_service: None,
+            topic_service: None,
+        }
+    }
+
+    /// Create a new MemoryServiceImpl with storage, scheduler, and teleport searcher.
+    ///
+    /// When teleport searcher is provided, the TeleportSearch RPC will be functional.
+    pub fn with_scheduler_and_search(
+        storage: Arc<Storage>,
+        scheduler: Arc<SchedulerService>,
+        searcher: Arc<TeleportSearcher>,
+    ) -> Self {
+        Self {
+            storage,
+            scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
+            teleport_searcher: Some(searcher),
+            vector_service: None,
+            hybrid_service: None,
+            topic_service: None,
+        }
+    }
+
+    /// Create a new MemoryServiceImpl with storage and teleport searcher (no scheduler).
+    pub fn with_search(storage: Arc<Storage>, searcher: Arc<TeleportSearcher>) -> Self {
+        Self {
+            storage,
+            scheduler_service: None,
+            teleport_searcher: Some(searcher),
+            vector_service: None,
+            hybrid_service: None,
+            topic_service: None,
+        }
+    }
+
+    /// Create a new MemoryServiceImpl with storage and vector search.
+    ///
+    /// When vector service is provided, VectorTeleport and HybridSearch RPCs will be functional.
+    pub fn with_vector(storage: Arc<Storage>, vector_handler: Arc<VectorTeleportHandler>) -> Self {
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        Self {
+            storage,
+            scheduler_service: None,
+            teleport_searcher: None,
+            vector_service: Some(vector_handler),
+            hybrid_service: Some(hybrid_handler),
+            topic_service: None,
+        }
+    }
+
+    /// Create a new MemoryServiceImpl with storage and topic graph.
+    ///
+    /// When topic service is provided, the topic graph RPCs will be functional.
+    pub fn with_topics(storage: Arc<Storage>, topic_handler: Arc<TopicGraphHandler>) -> Self {
+        Self {
+            storage,
+            scheduler_service: None,
+            teleport_searcher: None,
+            vector_service: None,
+            hybrid_service: None,
+            topic_service: Some(topic_handler),
+        }
+    }
+
+    /// Create a new MemoryServiceImpl with all services.
+    pub fn with_all_services(
+        storage: Arc<Storage>,
+        scheduler: Arc<SchedulerService>,
+        searcher: Arc<TeleportSearcher>,
+        vector_handler: Arc<VectorTeleportHandler>,
+    ) -> Self {
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        Self {
+            storage,
+            scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
+            teleport_searcher: Some(searcher),
+            vector_service: Some(vector_handler),
+            hybrid_service: Some(hybrid_handler),
+            topic_service: None,
+        }
+    }
+
+    /// Create a new MemoryServiceImpl with all services including topics.
+    pub fn with_all_services_and_topics(
+        storage: Arc<Storage>,
+        scheduler: Arc<SchedulerService>,
+        searcher: Arc<TeleportSearcher>,
+        vector_handler: Arc<VectorTeleportHandler>,
+        topic_handler: Arc<TopicGraphHandler>,
+    ) -> Self {
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        Self {
+            storage,
+            scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
+            teleport_searcher: Some(searcher),
+            vector_service: Some(vector_handler),
+            hybrid_service: Some(hybrid_handler),
+            topic_service: Some(topic_handler),
         }
     }
 
@@ -87,6 +198,7 @@ impl MemoryServiceImpl {
     }
 
     /// Convert proto Event to domain Event
+    #[allow(clippy::result_large_err)]
     fn convert_event(proto: ProtoEvent) -> Result<Event, Status> {
         let timestamp = Utc
             .timestamp_millis_opt(proto.timestamp_ms)
@@ -94,10 +206,10 @@ impl MemoryServiceImpl {
             .ok_or_else(|| Status::invalid_argument("Invalid timestamp"))?;
 
         let role = Self::convert_role(
-            ProtoEventRole::try_from(proto.role).unwrap_or(ProtoEventRole::Unspecified)
+            ProtoEventRole::try_from(proto.role).unwrap_or(ProtoEventRole::Unspecified),
         );
         let event_type = Self::convert_event_type(
-            ProtoEventType::try_from(proto.event_type).unwrap_or(ProtoEventType::Unspecified)
+            ProtoEventType::try_from(proto.event_type).unwrap_or(ProtoEventType::Unspecified),
         );
 
         let mut event = Event::new(
@@ -130,9 +242,9 @@ impl MemoryService for MemoryServiceImpl {
     ) -> Result<Response<IngestEventResponse>, Status> {
         let req = request.into_inner();
 
-        let proto_event = req.event.ok_or_else(|| {
-            Status::invalid_argument("Event is required")
-        })?;
+        let proto_event = req
+            .event
+            .ok_or_else(|| Status::invalid_argument("Event is required"))?;
 
         // Validate event_id
         if proto_event.event_id.is_empty() {
@@ -165,7 +277,9 @@ impl MemoryService for MemoryServiceImpl {
         })?;
 
         // Store event with atomic outbox write
-        let (_, created) = self.storage.put_event(&event_id, &event_bytes, &outbox_bytes)
+        let (_, created) = self
+            .storage
+            .put_event(&event_id, &event_bytes, &outbox_bytes)
             .map_err(|e| {
                 error!("Failed to store event: {}", e);
                 Status::internal(format!("Storage error: {}", e))
@@ -177,10 +291,7 @@ impl MemoryService for MemoryServiceImpl {
             debug!("Event already exists (idempotent): {}", event_id);
         }
 
-        Ok(Response::new(IngestEventResponse {
-            event_id,
-            created,
-        }))
+        Ok(Response::new(IngestEventResponse { event_id, created }))
     }
 
     /// Get root TOC nodes (year level).
@@ -266,6 +377,144 @@ impl MemoryService for MemoryServiceImpl {
             })),
         }
     }
+
+    /// Search within a single TOC node.
+    ///
+    /// Per SEARCH-01: SearchNode searches node's fields for query terms.
+    async fn search_node(
+        &self,
+        request: Request<SearchNodeRequest>,
+    ) -> Result<Response<SearchNodeResponse>, Status> {
+        search_service::search_node(Arc::clone(&self.storage), request).await
+    }
+
+    /// Search across children of a parent node.
+    ///
+    /// Per SEARCH-02: SearchChildren searches all children of parent.
+    async fn search_children(
+        &self,
+        request: Request<SearchChildrenRequest>,
+    ) -> Result<Response<SearchChildrenResponse>, Status> {
+        search_service::search_children(Arc::clone(&self.storage), request).await
+    }
+
+    /// Teleport search for TOC nodes or grips using BM25 ranking.
+    ///
+    /// Per TEL-01 through TEL-04: BM25 search with relevance scores.
+    async fn teleport_search(
+        &self,
+        request: Request<TeleportSearchRequest>,
+    ) -> Result<Response<TeleportSearchResponse>, Status> {
+        match &self.teleport_searcher {
+            Some(searcher) => {
+                teleport_service::handle_teleport_search(searcher.clone(), request).await
+            }
+            None => Err(Status::unavailable("Search index not configured")),
+        }
+    }
+
+    /// Vector semantic search using HNSW index.
+    ///
+    /// Per VEC-01: Semantic similarity search over TOC nodes and grips.
+    async fn vector_teleport(
+        &self,
+        request: Request<VectorTeleportRequest>,
+    ) -> Result<Response<VectorTeleportResponse>, Status> {
+        match &self.vector_service {
+            Some(svc) => svc.vector_teleport(request).await,
+            None => Err(Status::unavailable("Vector index not enabled")),
+        }
+    }
+
+    /// Hybrid BM25 + vector search using RRF fusion.
+    ///
+    /// Per VEC-02: Combines BM25 and vector scores using RRF.
+    async fn hybrid_search(
+        &self,
+        request: Request<HybridSearchRequest>,
+    ) -> Result<Response<HybridSearchResponse>, Status> {
+        match &self.hybrid_service {
+            Some(svc) => svc.hybrid_search(request).await,
+            None => Err(Status::unavailable("Vector index not enabled")),
+        }
+    }
+
+    /// Get vector index status and statistics.
+    ///
+    /// Per VEC-03: Returns index availability and stats.
+    async fn get_vector_index_status(
+        &self,
+        request: Request<GetVectorIndexStatusRequest>,
+    ) -> Result<Response<VectorIndexStatus>, Status> {
+        match &self.vector_service {
+            Some(svc) => svc.get_vector_index_status(request).await,
+            None => Ok(Response::new(VectorIndexStatus {
+                available: false,
+                vector_count: 0,
+                dimension: 0,
+                last_indexed: String::new(),
+                index_path: String::new(),
+                size_bytes: 0,
+            })),
+        }
+    }
+
+    /// Get topic graph status and statistics.
+    ///
+    /// Per TOPIC-08: Returns topic graph availability and stats.
+    async fn get_topic_graph_status(
+        &self,
+        request: Request<GetTopicGraphStatusRequest>,
+    ) -> Result<Response<GetTopicGraphStatusResponse>, Status> {
+        match &self.topic_service {
+            Some(svc) => svc.get_topic_graph_status(request).await,
+            None => Ok(Response::new(GetTopicGraphStatusResponse {
+                topic_count: 0,
+                relationship_count: 0,
+                last_updated: String::new(),
+                available: false,
+            })),
+        }
+    }
+
+    /// Get topics matching a query.
+    ///
+    /// Per TOPIC-08: Search topics by keywords.
+    async fn get_topics_by_query(
+        &self,
+        request: Request<GetTopicsByQueryRequest>,
+    ) -> Result<Response<GetTopicsByQueryResponse>, Status> {
+        match &self.topic_service {
+            Some(svc) => svc.get_topics_by_query(request).await,
+            None => Err(Status::unavailable("Topic graph not enabled")),
+        }
+    }
+
+    /// Get topics related to a specific topic.
+    ///
+    /// Per TOPIC-08: Navigate topic relationships.
+    async fn get_related_topics(
+        &self,
+        request: Request<GetRelatedTopicsRequest>,
+    ) -> Result<Response<GetRelatedTopicsResponse>, Status> {
+        match &self.topic_service {
+            Some(svc) => svc.get_related_topics(request).await,
+            None => Err(Status::unavailable("Topic graph not enabled")),
+        }
+    }
+
+    /// Get top topics by importance score.
+    ///
+    /// Per TOPIC-08: Get most important topics.
+    async fn get_top_topics(
+        &self,
+        request: Request<GetTopTopicsRequest>,
+    ) -> Result<Response<GetTopTopicsResponse>, Status> {
+        match &self.topic_service {
+            Some(svc) => svc.get_top_topics(request).await,
+            None => Err(Status::unavailable("Topic graph not enabled")),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -320,14 +569,18 @@ mod tests {
         };
 
         // First ingestion
-        let response1 = service.ingest_event(Request::new(IngestEventRequest {
-            event: Some(event.clone()),
-        })).await.unwrap();
+        let response1 = service
+            .ingest_event(Request::new(IngestEventRequest {
+                event: Some(event.clone()),
+            }))
+            .await
+            .unwrap();
 
         // Second ingestion (same event_id)
-        let response2 = service.ingest_event(Request::new(IngestEventRequest {
-            event: Some(event),
-        })).await.unwrap();
+        let response2 = service
+            .ingest_event(Request::new(IngestEventRequest { event: Some(event) }))
+            .await
+            .unwrap();
 
         assert!(response1.into_inner().created);
         assert!(!response2.into_inner().created); // Idempotent

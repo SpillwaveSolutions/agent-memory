@@ -191,7 +191,8 @@ mod tests {
         let server_handle = tokio::spawn(async move {
             run_server_with_shutdown(addr, storage, async {
                 rx.await.ok();
-            }).await
+            })
+            .await
         });
 
         // Give server time to start

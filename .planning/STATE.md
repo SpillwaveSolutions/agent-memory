@@ -5,17 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.0 in progress - Phase 11 & 12 PLANNED - Ready for execution
+**Current focus:** v2.0 in progress - Phases 10.5-14 COMPLETE - Phase 15 ready for execution
 
 ## Current Position
 
 Milestone: v2.0 Scheduler+Teleport (in progress)
-Current: Phase 11 - BM25 Teleport (Tantivy) + Phase 12 - Vector Teleport (HNSW)
-Status: All plans ready for execution
-Last activity: 2026-02-01 -- Created Phase 12 RESEARCH.md and 4 PLAN.md files
+Current: Phase 15 - Configuration Wizard Skills (planning complete)
+Status: Phases 10.5-14 complete, Phase 15 plans ready for execution
+Last activity: 2026-02-02 -- Completed Phases 10.5, 11, 12, 13, and 14
 
-Progress Phase 11: [                    ] 0% (0/4 plans)
-Progress Phase 12: [                    ] 0% (0/4 plans)
+Progress Phase 10.5: [====================] 100% (3/3 plans)
+Progress Phase 11: [====================] 100% (4/4 plans)
+Progress Phase 12: [====================] 100% (5/5 plans)
+Progress Phase 13: [====================] 100% (4/4 plans)
+Progress Phase 14: [====================] 100% (6/6 plans)
+Progress Phase 15: [                    ] 0% (0/5 plans)
 
 ## Performance Metrics
 
@@ -200,6 +204,10 @@ Recent decisions affecting current work:
 - Timestamps formatted as local time for human readability in CLI
 - SchedulerGrpcService delegates from MemoryServiceImpl when scheduler is configured
 
+### Roadmap Evolution
+
+- Phase 15 added: Configuration Wizard Skills (AskUserQuestion-based interactive config wizards for storage, LLM, multi-agent)
+
 ### Pending Todos
 
 None yet.
@@ -210,8 +218,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-31
-Stopped at: Completed Phase 11 planning (11-RESEARCH.md + 4 PLAN.md files)
+Last session: 2026-02-02
+Stopped at: Completed Phases 10.5, 11, 12, 13, and 14 execution
 Resume file: None
 
 ## Milestone History
@@ -291,40 +299,59 @@ See: .planning/MILESTONES.md for complete history
 | 10-03 | 2 | TOC rollup jobs (wire existing rollups to scheduler) | Complete |
 | 10-04 | 3 | Job observability (status RPC, CLI, metrics) | Complete |
 
+## Phase 10.5 Plans (v2.0 Agentic TOC Search)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 10.5-01 | 1 | Core search algorithm (memory-toc/src/search.rs) | Complete |
+| 10.5-02 | 2 | gRPC integration (SearchNode/SearchChildren RPCs) | Complete |
+| 10.5-03 | 3 | CLI search command | Complete |
+
 ## Phase 11 Plans (v2.0 Teleport - BM25)
 
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
-| 11-01 | 1 | Tantivy integration (memory-search crate, schema, index) | Planned |
-| 11-02 | 2 | Indexing pipeline (TOC node and grip document mapping) | Planned |
-| 11-03 | 2 | Search API (gRPC TeleportSearch RPC, BM25 scoring) | Planned |
-| 11-04 | 3 | CLI and testing (teleport command, commit job) | Planned |
+| 11-01 | 1 | Tantivy integration (memory-search crate, schema, index) | Complete |
+| 11-02 | 2 | Indexing pipeline (TOC node and grip document mapping) | Complete |
+| 11-03 | 2 | Search API (gRPC TeleportSearch RPC, BM25 scoring) | Complete |
+| 11-04 | 3 | CLI and testing (teleport command, commit job) | Complete |
 
 ## Phase 12 Plans (v2.0 Teleport - Vector)
 
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
-| 12-01 | 1 | HNSW index setup (usearch or hnsw-rs integration) | Planned |
-| 12-02 | 1 | Local embedding model (sentence-transformers or candle) | Planned |
-| 12-03 | 2 | Vector search API (gRPC VectorTeleport RPC) | Planned |
-| 12-04 | 3 | Hybrid ranking (BM25 + vector fusion) | Planned |
+| 12-01 | 1 | Embedding infrastructure (memory-embeddings crate, Candle all-MiniLM-L6-v2) | Complete |
+| 12-02 | 1 | Vector index (memory-vector crate, usearch HNSW) | Complete |
+| 12-03 | 2 | Vector indexing pipeline | Complete |
+| 12-04 | 3 | gRPC integration (VectorTeleport/HybridSearch RPCs) | Complete |
+| 12-05 | 4 | CLI and documentation (vector teleport commands) | Complete |
 
 ## Phase 13 Plans (v2.0 Teleport - Outbox)
 
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
-| 13-01 | 1 | Outbox consumer for indexing (checkpoint tracking) | Planned |
-| 13-02 | 1 | Incremental index updates (add/update documents) | Planned |
-| 13-03 | 2 | Full rebuild command (admin rebuild-indexes) | Planned |
-| 13-04 | 3 | Async indexing pipeline (scheduled via Phase 10) | Planned |
+| 13-01 | 1 | Outbox consumer for indexing (checkpoint tracking) | Complete |
+| 13-02 | 1 | Incremental index updates (add/update documents) | Complete |
+| 13-03 | 2 | Full rebuild command (admin rebuild-indexes) | Complete |
+| 13-04 | 3 | Async indexing pipeline (scheduled via Phase 10) | Complete |
 
 ## Phase 14 Plans (Topic Graph Memory)
 
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
-| 14-01 | 1 | Topic extraction (CF_TOPICS, embedding clustering) | Planned |
-| 14-02 | 2 | Topic labeling (LLM integration with keyword fallback) | Planned |
-| 14-03 | 3 | Importance scoring (time decay with configurable half-life) | Planned |
-| 14-04 | 4 | Topic relationships (similarity, hierarchy discovery) | Planned |
-| 14-05 | 5 | Navigation RPCs (GetTopicsByQuery, GetTocNodesForTopic) | Planned |
-| 14-06 | 6 | Lifecycle management (pruning, resurrection, CLI) | Planned |
+| 14-01 | 1 | Topic extraction (memory-topics crate, HDBSCAN clustering) | Complete |
+| 14-02 | 2 | Topic labeling (LLM integration with keyword fallback) | Complete |
+| 14-03 | 3 | Importance scoring (time decay with configurable half-life) | Complete |
+| 14-04 | 4 | Topic relationships (similarity, hierarchy discovery) | Complete |
+| 14-05 | 5 | Navigation RPCs (topic gRPC endpoints) | Complete |
+| 14-06 | 6 | Lifecycle management (pruning, resurrection, CLI) | Complete |
+
+## Phase 15 Plans (Configuration Wizard Skills)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 15-01 | 1 | memory-storage skill (storage, retention, cleanup, GDPR) | Ready |
+| 15-02 | 1 | memory-llm skill (provider, model discovery, cost, API test) | Ready |
+| 15-03 | 2 | memory-agents skill (multi-agent, tagging, query scope) | Ready |
+| 15-04 | 2 | Reference documentation (all reference/*.md files) | Ready |
+| 15-05 | 3 | Plugin integration (marketplace.json, memory-setup updates) | Ready |

@@ -50,13 +50,21 @@ Agent Memory is a local, append-only conversational memory system for AI coding 
 | [Phase 9](Phase-9-Setup-Plugin) | Setup & Installer Plugin | Interactive setup wizard plugin with commands |
 | [Phase 10](Phase-10-Background-Scheduler) | Background Scheduler | In-process Tokio cron scheduler for TOC rollups |
 
-#### v2.0 Phases (In Progress)
+#### v2.0 Phases (Complete)
 
 | Phase | Title | Description |
 |-------|-------|-------------|
+| [Phase 10.5](Phase-10.5-Agentic-TOC-Search) | Agentic TOC Search | Index-free term matching via SearchNode/SearchChildren |
 | [Phase 11](Phase-11-BM25-Teleport) | BM25 Teleport (Tantivy) | Full-text search index for keyword-based teleportation |
 | [Phase 12](Phase-12-Vector-Teleport) | Vector Teleport (HNSW) | Semantic similarity search via local HNSW |
 | [Phase 13](Phase-13-Outbox-Index-Ingestion) | Outbox Index Ingestion | Event-driven index updates for rebuildable indexes |
+| [Phase 14](Phase-14-Topic-Graph-Memory) | Topic Graph Memory | HDBSCAN clustering, LLM labeling, importance scoring |
+
+#### v2.1 Phases (Planned)
+
+| Phase | Title | Description |
+|-------|-------|-------------|
+| [Phase 15](Phase-15-Configuration-Wizard) | Configuration Wizard Skills | AskUserQuestion-based interactive config wizards |
 
 ## Architecture Overview
 
@@ -68,14 +76,24 @@ Agent Memory is a local, append-only conversational memory system for AI coding 
 +---------------------------------------------------------------+
 |                        Memory Daemon                           |
 |  +-------------+  +-------------+  +-----------------------+   |
-|  | Ingestion   |  |   Query     |  |   TOC Builder         |   |
-|  | Service     |  |   Service   |  |   (Background)        |   |
+|  | Ingestion   |  |   Query     |  |   Scheduler           |   |
+|  | Service     |  |   Service   |  |   (Background Jobs)   |   |
 |  +-------------+  +-------------+  +-----------------------+   |
 |                          |                                     |
 |  +-----------------------------------------------------+       |
+|  |              Search Layer                           |       |
+|  |  +----------------+  +---------------------------+  |       |
+|  |  | BM25 (Tantivy) |  | Vector HNSW (usearch)     |  |       |
+|  +-----------------------------------------------------+       |
+|  +-----------------------------------------------------+       |
+|  |              Topic Graph Layer                      |       |
+|  |  +----------------+  +---------------------------+  |       |
+|  |  | HDBSCAN        |  | LLM Labels & Importance   |  |       |
+|  +-----------------------------------------------------+       |
+|  +-----------------------------------------------------+       |
 |  |                 Storage Layer (RocksDB)             |       |
 |  |  +--------+ +----------+ +-------+ +------------+   |       |
-|  |  | Events | | TOC Nodes| | Grips | | Checkpoints|   |       |
+|  |  | Events | | TOC Nodes| | Grips | | Topics     |   |       |
 |  +-----------------------------------------------------+       |
 +---------------------------------------------------------------+
 ```
@@ -113,7 +131,10 @@ Agents navigate the TOC hierarchy level by level:
 | Storage | RocksDB |
 | API | gRPC (tonic) |
 | Summarizer | Pluggable (API or local LLM) |
-| Search (v2) | Tantivy (BM25), HNSW (vector) |
+| BM25 Search | Tantivy (full-text indexing) |
+| Vector Search | usearch HNSW + Candle (all-MiniLM-L6-v2) |
+| Topic Clustering | HDBSCAN (density-based) |
+| Scheduler | tokio-cron-scheduler |
 
 ## Quick Links
 
@@ -123,4 +144,4 @@ Agents navigate the TOC hierarchy level by level:
 
 ---
 
-*Last updated: 2026-01-31*
+*Last updated: 2026-02-02*

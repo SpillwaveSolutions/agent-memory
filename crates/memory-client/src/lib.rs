@@ -36,11 +36,15 @@ pub mod error;
 pub mod hook_mapping;
 
 pub use client::{
-    BrowseTocResult, ExpandGripResult, GetEventsResult,
-    MemoryClient, DEFAULT_ENDPOINT,
+    BrowseTocResult, ExpandGripResult, GetEventsResult, MemoryClient, DEFAULT_ENDPOINT,
 };
+
+// Re-export vector search response types for convenience
 pub use error::ClientError;
 pub use hook_mapping::{map_hook_event, HookEvent, HookEventType};
+pub use memory_service::pb::{
+    HybridSearchResponse, VectorIndexStatus, VectorMatch, VectorTeleportResponse,
+};
 
 // Re-export Event type for convenience
 pub use memory_types::Event;

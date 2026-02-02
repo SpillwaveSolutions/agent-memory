@@ -77,6 +77,9 @@ mod tests {
         let config = TocConfig::default();
         let json = serde_json::to_string(&config).unwrap();
         let decoded: TocConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(config.segmentation.token_threshold, decoded.segmentation.token_threshold);
+        assert_eq!(
+            config.segmentation.token_threshold,
+            decoded.segmentation.token_threshold
+        );
     }
 }

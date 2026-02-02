@@ -91,6 +91,14 @@ pub struct Settings {
     /// Log level (trace, debug, info, warn, error)
     #[serde(default = "default_log_level")]
     pub log_level: String,
+
+    /// Path to BM25 search index directory
+    #[serde(default = "default_search_index_path")]
+    pub search_index_path: String,
+
+    /// Path to HNSW vector index directory
+    #[serde(default = "default_vector_index_path")]
+    pub vector_index_path: String,
 }
 
 fn default_db_path() -> String {
@@ -113,6 +121,22 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
+fn default_search_index_path() -> String {
+    ProjectDirs::from("", "", "agent-memory")
+        .map(|p| p.data_local_dir().join("bm25-index"))
+        .unwrap_or_else(|| PathBuf::from("./bm25-index"))
+        .to_string_lossy()
+        .to_string()
+}
+
+fn default_vector_index_path() -> String {
+    ProjectDirs::from("", "", "agent-memory")
+        .map(|p| p.data_local_dir().join("vector-index"))
+        .unwrap_or_else(|| PathBuf::from("./vector-index"))
+        .to_string_lossy()
+        .to_string()
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -123,6 +147,8 @@ impl Default for Settings {
             agent_id: None,
             summarizer: SummarizerSettings::default(),
             log_level: default_log_level(),
+            search_index_path: default_search_index_path(),
+            vector_index_path: default_vector_index_path(),
         }
     }
 }
@@ -157,18 +183,16 @@ impl Settings {
             .map_err(|e| MemoryError::Config(e.to_string()))?
             .set_default("summarizer.model", default_summarizer_model())
             .map_err(|e| MemoryError::Config(e.to_string()))?
+            .set_default("search_index_path", default_search_index_path())
+            .map_err(|e| MemoryError::Config(e.to_string()))?
+            .set_default("vector_index_path", default_vector_index_path())
+            .map_err(|e| MemoryError::Config(e.to_string()))?
             // 2. Default config file (~/.config/agent-memory/config.toml)
-            .add_source(
-                File::with_name(&default_config_path.to_string_lossy())
-                    .required(false)
-            );
+            .add_source(File::with_name(&default_config_path.to_string_lossy()).required(false));
 
         // 3. CLI-specified config file (higher precedence than default)
         if let Some(path) = cli_config_path {
-            builder = builder.add_source(
-                File::with_name(path)
-                    .required(true)
-            );
+            builder = builder.add_source(File::with_name(path).required(true));
         }
 
         // 4. Environment variables (highest precedence before CLI flags)
@@ -176,7 +200,7 @@ impl Settings {
         builder = builder.add_source(
             Environment::with_prefix("MEMORY")
                 .separator("_")
-                .try_parsing(true)
+                .try_parsing(true),
         );
 
         let config = builder
@@ -207,7 +231,14 @@ impl Settings {
 /// Get user's home directory
 fn dirs_home() -> Option<PathBuf> {
     ProjectDirs::from("", "", "agent-memory")
-        .map(|p| p.config_dir().parent().unwrap().parent().unwrap().to_path_buf())
+        .map(|p| {
+            p.config_dir()
+                .parent()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_path_buf()
+        })
         .or_else(|| std::env::var("HOME").ok().map(PathBuf::from))
 }
 

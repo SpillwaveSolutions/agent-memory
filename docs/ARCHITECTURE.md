@@ -3,29 +3,45 @@
 ## Component Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Hook Handler                            │
-│  (captures conversation events from Claude Code hooks)       │
-└────────────────────────┬────────────────────────────────────┘
-                         │ IngestEvent RPC
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     memory-daemon                            │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   gRPC      │  │    TOC      │  │    Summarizer       │  │
-│  │   Server    │  │   Builder   │  │    (LLM API)        │  │
-│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
-│         │                │                     │              │
-│         └────────────────┼─────────────────────┘              │
-│                          ▼                                    │
-│  ┌───────────────────────────────────────────────────────┐   │
-│  │                    memory-storage                      │   │
-│  │                      (RocksDB)                         │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────┐  │   │
-│  │  │ Events  │ │   TOC   │ │  Grips  │ │ Checkpoints │  │   │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────────┘  │   │
-│  └───────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         Hook Handler                             │
+│     (captures conversation events from Claude Code hooks)        │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ IngestEvent RPC
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        memory-daemon                             │
+│  ┌───────────┐ ┌───────────┐ ┌────────────┐ ┌─────────────────┐ │
+│  │   gRPC    │ │    TOC    │ │ Summarizer │ │    Scheduler    │ │
+│  │   Server  │ │  Builder  │ │ (LLM API)  │ │ (Background Jobs)│ │
+│  └─────┬─────┘ └─────┬─────┘ └──────┬─────┘ └────────┬────────┘ │
+│        │             │              │                │           │
+│        └─────────────┴──────────────┴────────────────┘           │
+│                               │                                   │
+│  ┌────────────────────────────┼────────────────────────────────┐ │
+│  │                     Search Layer                             │ │
+│  │  ┌─────────────────────┐  │  ┌────────────────────────────┐ │ │
+│  │  │   BM25 Full-Text    │  │  │    Vector HNSW Index       │ │ │
+│  │  │     (Tantivy)       │  │  │      (usearch)             │ │ │
+│  │  └─────────────────────┘  │  └────────────────────────────┘ │ │
+│  └───────────────────────────┼─────────────────────────────────┘ │
+│                              │                                    │
+│  ┌───────────────────────────┼─────────────────────────────────┐ │
+│  │                    Topic Graph Layer                         │ │
+│  │  ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐ │ │
+│  │  │   HDBSCAN    │ │  LLM Labels   │ │ Topic Relationships │ │ │
+│  │  │  Clustering  │ │  & Importance │ │    & Scoring        │ │ │
+│  │  └──────────────┘ └───────────────┘ └─────────────────────┘ │ │
+│  └───────────────────────────┼─────────────────────────────────┘ │
+│                              ▼                                    │
+│  ┌──────────────────────────────────────────────────────────────┐│
+│  │                      memory-storage                           ││
+│  │                        (RocksDB)                              ││
+│  │  ┌───────┐ ┌─────┐ ┌───────┐ ┌───────────┐ ┌───────────────┐ ││
+│  │  │Events │ │ TOC │ │ Grips │ │Checkpoints│ │ Topics/Vectors│ ││
+│  │  └───────┘ └─────┘ └───────┘ └───────────┘ └───────────────┘ ││
+│  └──────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Crate Structure
@@ -35,27 +51,73 @@
 | `memory-types` | Domain models (Event, TocNode, Grip, Settings) | None (leaf crate) |
 | `memory-storage` | RocksDB persistence layer | memory-types |
 | `memory-toc` | Segmentation, summarization, TOC building | memory-types, memory-storage |
-| `memory-service` | gRPC service implementation | memory-types, memory-storage |
+| `memory-search` | Tantivy BM25 full-text search (indexes TOC nodes and grips) | memory-types |
+| `memory-embeddings` | Candle ML model loading with all-MiniLM-L6-v2 (384-dim embeddings) | memory-types |
+| `memory-vector` | usearch HNSW vector index wrapper | memory-types, memory-embeddings |
+| `memory-indexing` | Outbox consumer pipeline with checkpoint-based crash recovery | memory-types, memory-storage, memory-search, memory-vector |
+| `memory-topics` | HDBSCAN topic clustering, LLM labeling, importance scoring, relationships | memory-types, memory-storage, memory-embeddings |
+| `memory-scheduler` | tokio-cron-scheduler wrapper for background jobs (rollup, compaction, indexing) | memory-types, memory-storage, memory-toc, memory-indexing |
+| `memory-service` | gRPC service implementation | memory-types, memory-storage, memory-toc, memory-search, memory-vector, memory-topics, memory-scheduler |
 | `memory-client` | Client library for hook handlers | memory-types, memory-service |
 | `memory-daemon` | CLI binary | All crates |
 
 ### Dependency Graph
 
 ```
-memory-types
-     ↑
-     ├─────────────────────┬───────────────────┐
-     │                     │                   │
-memory-storage        memory-toc          memory-service
-     ↑                     ↑                   ↑
-     ├─────────────────────┤                   │
-     │                     │                   │
-     │                memory-client────────────┘
-     │                     │
-     └─────────────────────┴───────────────────┐
-                                               │
-                                         memory-daemon
+                              memory-types
+                                   ↑
+       ┌───────────┬───────────────┼───────────────┬───────────────┐
+       │           │               │               │               │
+memory-storage  memory-toc   memory-search   memory-embeddings     │
+       ↑           ↑               ↑               ↑               │
+       │           │               │               │               │
+       │           │               │         memory-vector         │
+       │           │               │               ↑               │
+       │           │               │               │               │
+       │           │         memory-indexing───────┘               │
+       │           │               ↑                               │
+       │           │               │                               │
+       │           │         memory-topics─────────────────────────┘
+       │           │               ↑
+       │           │               │
+       ├───────────┴───────────────┤
+       │                           │
+  memory-scheduler                 │
+       │                           │
+       └───────────────────────────┤
+                                   │
+                             memory-service
+                                   ↑
+                                   │
+                             memory-client
+                                   │
+                                   ▼
+                             memory-daemon
 ```
+
+### Crate Responsibilities
+
+**Core Layer:**
+- `memory-types`: Shared domain models, traits, and error types
+- `memory-storage`: RocksDB column families, atomic writes, range scans
+
+**TOC Layer:**
+- `memory-toc`: Segmentation rules, LLM summarization, hierarchical TOC building
+
+**Search Layer:**
+- `memory-search`: Tantivy index management, BM25 ranking, teleport search
+- `memory-embeddings`: all-MiniLM-L6-v2 model loading via Candle, embedding generation
+- `memory-vector`: usearch HNSW index, approximate nearest neighbor queries
+
+**Pipeline Layer:**
+- `memory-indexing`: Outbox consumer, incremental indexing, checkpoint recovery
+- `memory-topics`: HDBSCAN clustering, topic labeling, importance scoring, topic relationships
+- `memory-scheduler`: Cron-based job scheduling (rollup, compaction, index maintenance)
+
+**API Layer:**
+- `memory-service`: gRPC handlers, request validation, response mapping
+- `memory-client`: Hook handler integration, event mapping
+- `memory-daemon`: CLI, configuration loading, graceful shutdown
 
 ## Data Flow
 
@@ -114,6 +176,59 @@ memory-storage        memory-toc          memory-service
 6. ExpandGrip provides source evidence for verification
 ```
 
+### Search Pipeline
+
+```
+1. TeleportSearch or VectorTeleport called with query
+   │
+2. Query routed to appropriate index:
+   ├── BM25: Tantivy tokenizes and ranks by term frequency
+   └── Vector: Candle generates embedding, usearch finds nearest neighbors
+   │
+3. Results merged and deduplicated (for HybridSearch)
+   │
+4. Top-K results returned with scores and node references
+   │
+5. Client can ExpandGrip for full context
+```
+
+### Topic Graph Construction
+
+```
+1. Outbox indexing job collects new embeddings
+   │
+2. HDBSCAN clusters embeddings into topic groups
+   │
+3. LLM generates labels for each cluster
+   │
+4. Importance scoring based on:
+   ├── Cluster size (more members = higher importance)
+   ├── Recency (recent content boosts importance)
+   └── Centrality (well-connected topics score higher)
+   │
+5. Topic relationships computed:
+   ├── Co-occurrence in TOC nodes
+   └── Embedding similarity between cluster centroids
+   │
+6. Topics and relationships persisted to RocksDB
+```
+
+### Indexing Pipeline
+
+```
+1. Outbox consumer reads pending entries
+   │
+2. For each entry:
+   ├── Extract text from TOC node summaries and grips
+   ├── Index text in Tantivy (BM25)
+   ├── Generate embedding via Candle
+   └── Add embedding to usearch HNSW index
+   │
+3. Update checkpoint for crash recovery
+   │
+4. Periodic compaction and optimization
+```
+
 ## Storage Schema
 
 ### Column Families
@@ -126,6 +241,22 @@ memory-storage        memory-toc          memory-service
 | `grips` | `grip:{ts_ms:013}:{ulid}` | Grip JSON | Excerpt provenance |
 | `outbox` | `out:{sequence:016}` | OutboxEntry JSON | Pending TOC updates |
 | `checkpoints` | `chk:{job_name}` | Checkpoint bytes | Job crash recovery |
+| `bm25_index` | `bm25:meta` | Index metadata | Pointer to Tantivy directory path |
+| `vector_index` | `vec:meta` | Index metadata | Pointer to usearch directory path |
+| `topics` | `topic:{topic_id}` | Topic JSON | Topic clusters with labels and importance |
+| `topic_links` | `tlink:{topic_id}:{node_id}` | Link JSON | Topic-to-TOC node associations |
+| `topic_rels` | `trel:{topic_id_a}:{topic_id_b}` | Relationship JSON | Inter-topic relationships and strength |
+
+### External Index Directories
+
+Some indexes are managed outside RocksDB for specialized libraries:
+
+| Index | Location | Library | Purpose |
+|-------|----------|---------|---------|
+| Tantivy BM25 | `{db_path}/tantivy/` | Tantivy | Full-text search with BM25 ranking |
+| usearch HNSW | `{db_path}/usearch/` | usearch | Approximate nearest neighbor vectors |
+
+RocksDB column families store metadata and pointers to these external directories. The indexing pipeline coordinates writes to ensure consistency between RocksDB and external indexes.
 
 ### Key Design
 
@@ -190,9 +321,48 @@ On Startup:
 | `overlap_minutes` | 5 | Context overlap in segments |
 | `overlap_tokens` | 500 | Token overlap in segments |
 
+## Background Jobs
+
+The scheduler manages periodic maintenance tasks via tokio-cron-scheduler.
+
+### Job Types
+
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| `outbox_processor` | Every 30s | Process pending outbox entries for TOC updates |
+| `index_sync` | Every 5m | Sync new content to BM25 and vector indexes |
+| `topic_refresh` | Every 1h | Re-cluster embeddings and update topic graph |
+| `rollup` | Daily 3am | Roll up day nodes into week summaries |
+| `compaction` | Weekly Sun 4am | Optimize RocksDB and Tantivy indexes |
+
+### Job Lifecycle
+
+```
+1. Scheduler starts on daemon init
+   │
+2. Jobs registered with cron expressions
+   │
+3. Each job execution:
+   ├── Load checkpoint from CF_CHECKPOINTS
+   ├── Process work from checkpoint position
+   ├── Write progress checkpoints periodically
+   └── Write final checkpoint on completion
+   │
+4. On shutdown: graceful stop with checkpoint flush
+```
+
+### Job Control API
+
+- `ListJobs`: Returns all registered jobs with status and next run time
+- `GetJob`: Returns detailed status for a single job
+- `PauseJob`: Stops scheduled execution (in-flight work completes)
+- `ResumeJob`: Resumes scheduled execution from checkpoint
+
 ## gRPC Service
 
 ### Endpoints
+
+#### Core TOC Operations
 
 | RPC | Request | Response | Purpose |
 |-----|---------|----------|---------|
@@ -202,6 +372,41 @@ On Startup:
 | `BrowseToc` | `BrowseTocRequest` | `BrowseTocResponse` | Paginated children |
 | `GetEvents` | `GetEventsRequest` | `GetEventsResponse` | Events in time range |
 | `ExpandGrip` | `ExpandGripRequest` | `ExpandGripResponse` | Context around grip |
+| `SearchNode` | `SearchNodeRequest` | `SearchNodeResponse` | Search within a TOC node |
+| `SearchChildren` | `SearchChildrenRequest` | `SearchChildrenResponse` | Search node's children |
+
+#### BM25 Full-Text Search
+
+| RPC | Request | Response | Purpose |
+|-----|---------|----------|---------|
+| `TeleportSearch` | `TeleportSearchRequest` | `TeleportSearchResponse` | BM25 search across all content |
+| `GetTeleportStatus` | `GetTeleportStatusRequest` | `GetTeleportStatusResponse` | BM25 index health and stats |
+
+#### Vector Search
+
+| RPC | Request | Response | Purpose |
+|-----|---------|----------|---------|
+| `VectorTeleport` | `VectorTeleportRequest` | `VectorTeleportResponse` | Semantic similarity search |
+| `HybridSearch` | `HybridSearchRequest` | `HybridSearchResponse` | Combined BM25 + vector search |
+| `GetVectorIndexStatus` | `GetVectorIndexStatusRequest` | `GetVectorIndexStatusResponse` | Vector index health and stats |
+
+#### Topic Graph
+
+| RPC | Request | Response | Purpose |
+|-----|---------|----------|---------|
+| `GetTopicGraphStatus` | `GetTopicGraphStatusRequest` | `GetTopicGraphStatusResponse` | Topic graph health and stats |
+| `GetTopicsByQuery` | `GetTopicsByQueryRequest` | `GetTopicsByQueryResponse` | Find topics matching query |
+| `GetRelatedTopics` | `GetRelatedTopicsRequest` | `GetRelatedTopicsResponse` | Get related topics by ID |
+| `GetTopTopics` | `GetTopTopicsRequest` | `GetTopTopicsResponse` | Get most important topics |
+
+#### Scheduler Management
+
+| RPC | Request | Response | Purpose |
+|-----|---------|----------|---------|
+| `ListJobs` | `ListJobsRequest` | `ListJobsResponse` | List all scheduled jobs |
+| `GetJob` | `GetJobRequest` | `GetJobResponse` | Get job status and schedule |
+| `PauseJob` | `PauseJobRequest` | `PauseJobResponse` | Pause a scheduled job |
+| `ResumeJob` | `ResumeJobRequest` | `ResumeJobResponse` | Resume a paused job |
 
 ### Health Check
 

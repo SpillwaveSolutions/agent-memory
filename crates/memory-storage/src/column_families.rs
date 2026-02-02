@@ -28,6 +28,15 @@ pub const CF_OUTBOX: &str = "outbox";
 /// Column family name for background job checkpoints
 pub const CF_CHECKPOINTS: &str = "checkpoints";
 
+/// Column family for topic records
+pub const CF_TOPICS: &str = "topics";
+
+/// Column family for topic-node links
+pub const CF_TOPIC_LINKS: &str = "topic_links";
+
+/// Column family for topic relationships
+pub const CF_TOPIC_RELS: &str = "topic_rels";
+
 /// All column family names
 pub const ALL_CF_NAMES: &[&str] = &[
     CF_EVENTS,
@@ -36,6 +45,9 @@ pub const ALL_CF_NAMES: &[&str] = &[
     CF_GRIPS,
     CF_OUTBOX,
     CF_CHECKPOINTS,
+    CF_TOPICS,
+    CF_TOPIC_LINKS,
+    CF_TOPIC_RELS,
 ];
 
 /// Create column family options for events (append-only, compressed)
@@ -65,5 +77,8 @@ pub fn build_cf_descriptors() -> Vec<ColumnFamilyDescriptor> {
         ColumnFamilyDescriptor::new(CF_GRIPS, Options::default()),
         ColumnFamilyDescriptor::new(CF_OUTBOX, outbox_options()),
         ColumnFamilyDescriptor::new(CF_CHECKPOINTS, Options::default()),
+        ColumnFamilyDescriptor::new(CF_TOPICS, Options::default()),
+        ColumnFamilyDescriptor::new(CF_TOPIC_LINKS, Options::default()),
+        ColumnFamilyDescriptor::new(CF_TOPIC_RELS, Options::default()),
     ]
 }

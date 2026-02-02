@@ -32,6 +32,10 @@ pub enum SchedulerError {
     /// Scheduler is not running
     #[error("Scheduler is not running")]
     NotRunning,
+
+    /// Job execution timed out
+    #[error("Job timed out after {0} seconds")]
+    Timeout(u64),
 }
 
 impl From<JobSchedulerError> for SchedulerError {
@@ -60,5 +64,9 @@ mod tests {
 
         let err = SchedulerError::NotRunning;
         assert!(err.to_string().contains("not running"));
+
+        let err = SchedulerError::Timeout(30);
+        assert!(err.to_string().contains("timed out"));
+        assert!(err.to_string().contains("30"));
     }
 }

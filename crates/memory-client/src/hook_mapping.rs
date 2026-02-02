@@ -46,7 +46,11 @@ pub struct HookEvent {
 
 impl HookEvent {
     /// Create a new hook event.
-    pub fn new(session_id: impl Into<String>, event_type: HookEventType, content: impl Into<String>) -> Self {
+    pub fn new(
+        session_id: impl Into<String>,
+        event_type: HookEventType,
+        content: impl Into<String>,
+    ) -> Self {
         Self {
             session_id: session_id.into(),
             event_type,

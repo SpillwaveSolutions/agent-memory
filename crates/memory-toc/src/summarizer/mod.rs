@@ -100,7 +100,10 @@ mod tests {
     fn test_summary_creation() {
         let summary = Summary::new(
             "Discussed authentication".to_string(),
-            vec!["Implemented JWT".to_string(), "Fixed token refresh".to_string()],
+            vec![
+                "Implemented JWT".to_string(),
+                "Fixed token refresh".to_string(),
+            ],
             vec!["auth".to_string(), "jwt".to_string()],
         );
 

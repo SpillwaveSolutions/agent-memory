@@ -15,7 +15,7 @@ use tracing::info;
 
 use memory_storage::Storage;
 
-use crate::{JitterConfig, OverlapPolicy, SchedulerError, SchedulerService};
+use crate::{JitterConfig, OverlapPolicy, SchedulerError, SchedulerService, TimeoutConfig};
 
 /// Configuration for the compaction job.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +28,9 @@ pub struct CompactionJobConfig {
 
     /// Max jitter in seconds (default: 600 = 10 min)
     pub jitter_secs: u64,
+
+    /// Timeout in seconds (default: 3600 = 1 hour)
+    pub timeout_secs: u64,
 }
 
 impl Default for CompactionJobConfig {
@@ -36,6 +39,7 @@ impl Default for CompactionJobConfig {
             cron: "0 0 4 * * 0".to_string(),
             timezone: "UTC".to_string(),
             jitter_secs: 600,
+            timeout_secs: 3600, // 1 hour
         }
     }
 }
@@ -66,6 +70,7 @@ pub async fn create_compaction_job(
             Some(&config.timezone),
             OverlapPolicy::Skip,
             JitterConfig::new(config.jitter_secs),
+            TimeoutConfig::new(config.timeout_secs),
             move || {
                 let storage = storage.clone();
                 async move {
@@ -94,6 +99,7 @@ mod tests {
         assert_eq!(config.cron, "0 0 4 * * 0");
         assert_eq!(config.timezone, "UTC");
         assert_eq!(config.jitter_secs, 600);
+        assert_eq!(config.timeout_secs, 3600);
     }
 
     #[test]

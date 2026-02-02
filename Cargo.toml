@@ -9,6 +9,11 @@ members = [
     "crates/memory-client",
     "crates/memory-ingest",
     "crates/memory-scheduler",
+    "crates/memory-search",
+    "crates/memory-embeddings",
+    "crates/memory-vector",
+    "crates/memory-indexing",
+    "crates/memory-topics",
 ]
 
 [workspace.package]
@@ -23,7 +28,13 @@ memory-types = { path = "crates/memory-types" }
 memory-storage = { path = "crates/memory-storage" }
 memory-service = { path = "crates/memory-service" }
 memory-client = { path = "crates/memory-client" }
+memory-toc = { path = "crates/memory-toc" }
 memory-scheduler = { path = "crates/memory-scheduler" }
+memory-search = { path = "crates/memory-search" }
+memory-embeddings = { path = "crates/memory-embeddings" }
+memory-vector = { path = "crates/memory-vector" }
+memory-indexing = { path = "crates/memory-indexing" }
+memory-topics = { path = "crates/memory-topics" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }
@@ -50,6 +61,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Storage (to be used in later phases)
 rocksdb = "0.22"
+
+# Full-text search
+tantivy = "0.25"
 
 # ID generation
 ulid = "1.1"
@@ -82,3 +96,23 @@ backoff = { version = "0.4", features = ["tokio"] }
 
 # Secret handling
 secrecy = { version = "0.10", features = ["serde"] }
+
+# Candle ML framework
+candle-core = "0.8"
+candle-nn = "0.8"
+candle-transformers = "0.8"
+
+# Tokenization
+tokenizers = "0.20"
+
+# Model downloading
+hf-hub = "0.3"
+
+# Directory utilities
+dirs = "5"
+
+# Vector search
+usearch = "2"
+
+# Clustering
+hdbscan = "0.12"
