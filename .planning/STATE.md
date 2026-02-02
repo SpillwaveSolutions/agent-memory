@@ -5,16 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.0 in progress - Phase 11 PLANNED - Ready for execution
+**Current focus:** v2.0 in progress - Phase 11 & 12 PLANNED - Ready for execution
 
 ## Current Position
 
 Milestone: v2.0 Scheduler+Teleport (in progress)
-Current: Phase 11 - BM25 Teleport (Tantivy)
-Status: Plans ready, verified with minor recommendations
-Last activity: 2026-01-31 -- Created 11-RESEARCH.md and 4 PLAN.md files
+Current: Phase 11 - BM25 Teleport (Tantivy) + Phase 12 - Vector Teleport (HNSW)
+Status: All plans ready for execution
+Last activity: 2026-02-01 -- Created Phase 12 RESEARCH.md and 4 PLAN.md files
 
 Progress Phase 11: [                    ] 0% (0/4 plans)
+Progress Phase 12: [                    ] 0% (0/4 plans)
 
 ## Performance Metrics
 
@@ -316,3 +317,14 @@ See: .planning/MILESTONES.md for complete history
 | 13-02 | 1 | Incremental index updates (add/update documents) | Planned |
 | 13-03 | 2 | Full rebuild command (admin rebuild-indexes) | Planned |
 | 13-04 | 3 | Async indexing pipeline (scheduled via Phase 10) | Planned |
+
+## Phase 14 Plans (Topic Graph Memory)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 14-01 | 1 | Topic extraction (CF_TOPICS, embedding clustering) | Planned |
+| 14-02 | 2 | Topic labeling (LLM integration with keyword fallback) | Planned |
+| 14-03 | 3 | Importance scoring (time decay with configurable half-life) | Planned |
+| 14-04 | 4 | Topic relationships (similarity, hierarchy discovery) | Planned |
+| 14-05 | 5 | Navigation RPCs (GetTopicsByQuery, GetTocNodesForTopic) | Planned |
+| 14-06 | 6 | Lifecycle management (pruning, resurrection, CLI) | Planned |

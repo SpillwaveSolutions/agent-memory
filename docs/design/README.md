@@ -18,6 +18,7 @@ The result: **"What were we discussing last week?" answered in seconds, not minu
 | [Architecture Overview](01-architecture-overview.md) | System context, containers, components, deployment |
 | [Domain Model](03-domain-model.md) | Events, TOC nodes, grips, storage schema |
 | [Storage Architecture](07-storage-architecture.md) | RocksDB, column families, key design |
+| [Data Schema Reference](13-data-schema-reference.md) | Complete schema definitions, key formats, event-to-TOC flow |
 
 ### Behavior & Flow
 | Document | Description |

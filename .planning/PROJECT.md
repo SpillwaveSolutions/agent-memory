@@ -2,7 +2,11 @@
 
 ## What This Is
 
+**Agent Memory is a cognitive architecture for agents** — not just a memory system.
+
 A local, append-only conversational memory system for AI agents (Claude Code, OpenCode, Gemini CLI, GitHub Copilot CLI) that supports agentic search via a permanent hierarchical Table of Contents (TOC), grounded in time-based navigation. The TOC acts as a Progressive Disclosure Architecture: the agent always starts with summaries and navigates downward only when needed. Indexes (vector/BM25) are accelerators, not dependencies.
+
+**See:** [Cognitive Architecture Manifesto](../docs/COGNITIVE_ARCHITECTURE.md) for the complete philosophy.
 
 ## Core Value
 
@@ -30,6 +34,27 @@ Instead of loading thousands of events into context, an agent navigates:
 5. **Grip** → Raw event excerpt with full context → answer verified
 
 This mirrors how humans search email: filter by date, scan subjects, open the relevant thread. The agent never reads everything — it uses summaries to navigate to exactly what it needs.
+
+## Cognitive Architecture
+
+Agent Memory implements a layered cognitive architecture:
+
+| Layer | Capability | Purpose |
+|-------|------------|---------|
+| 0 | Raw Events | Immutable truth (RocksDB) |
+| 1 | TOC Hierarchy | Time-based navigation |
+| 2 | Agentic TOC Search | Index-free term matching (always works) |
+| 3 | Lexical Teleport | BM25 keyword acceleration |
+| 4 | Semantic Teleport | Vector embedding similarity |
+| 5 | Conceptual Discovery | Topic graph enrichment |
+
+**Key Principle:** Indexes are accelerators, not dependencies. If any index fails, the system degrades gracefully.
+
+**Control Plane:** Skills are the executive function — they decide how to use capabilities, not the capabilities themselves.
+
+**References:**
+- [Cognitive Architecture Manifesto](../docs/COGNITIVE_ARCHITECTURE.md)
+- [Agent Retrieval Policy PRD](../docs/prds/agent-retrieval-policy-prd.md)
 
 ## Requirements
 

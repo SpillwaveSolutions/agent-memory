@@ -104,6 +104,7 @@ Phase 7 (CCH Integration) and future enhancements.
 - **TELE-04**: TeleportQuery RPC searches BM25 and/or vector, returns node_ids/grip_ids
 - **TELE-05**: Index rebuild command from outbox or TOC
 - **TELE-06**: IndexStatus RPC reports index health
+- **TELE-07**: GetTeleportStatus RPC returns config & health for agent skill discovery (teleport is optional)
 
 ### Heavy Scan Fallback
 
@@ -189,13 +190,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKILL-02 | Phase 7 | Pending |
 | SKILL-03 | Phase 7 | Pending |
 
+| TELE-01 | Phase 11 | Planned |
+| TELE-04 | Phase 11 | Planned |
+| TELE-05 | Phase 11 | Planned |
+| TELE-06 | Phase 11 | Planned |
+| TELE-07 | Phase 11 | Planned |
+| TELE-02 | Phase 12 | Planned |
+| TELE-03 | Phase 13 | Planned |
+
 **Coverage:**
 - v1 requirements: 42 total (all complete)
 - v2 requirements: 6 new (Phase 7)
+- Teleport requirements: 7 (Phases 11-13)
 - External (HOOK-01): 1 (complete)
-- Total: 48
+- Total: 55
 
 ---
 *Requirements defined: 2026-01-29*
 *v1 milestone completed: 2026-01-30*
 *Phase 7 requirements added: 2026-01-30*
+*Phase 11-13 teleport requirements traced: 2026-02-01*
