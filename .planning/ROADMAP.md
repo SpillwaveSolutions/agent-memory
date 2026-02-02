@@ -2,7 +2,23 @@
 
 ## Overview
 
-This roadmap delivers a local, append-only conversational memory system with TOC-based agentic navigation. The journey proceeds from foundational storage through TOC construction, grips for provenance, query capabilities, hook integration, and culminates in an end-to-end demonstration. Each phase builds on the previous, delivering a coherent capability that can be verified independently.
+This roadmap delivers a **cognitive architecture for agents** — a local, append-only conversational memory system with TOC-based agentic navigation. The journey proceeds from foundational storage through TOC construction, grips for provenance, query capabilities, hook integration, and culminates in a layered cognitive stack. Each phase builds on the previous, delivering a coherent capability that can be verified independently.
+
+### Cognitive Layer Stack
+
+Phases are grouped by the cognitive layer they implement:
+
+| Layer | Phases | Capability | Status |
+|-------|--------|------------|--------|
+| **Foundation** (0-1) | 1-6 | Events + TOC hierarchy | Complete |
+| **Integration** | 7-10 | Plugins, hooks, scheduler | Complete |
+| **Agentic Navigation** (2) | 10.5 | Index-free search (always works) | Planned |
+| **Keyword Acceleration** (3) | 11 | BM25/Tantivy teleport | Planned |
+| **Semantic Acceleration** (4) | 12 | Vector/HNSW teleport | Planned |
+| **Index Lifecycle** | 13 | Outbox-driven index updates | Planned |
+| **Conceptual Enrichment** (5) | 14 | Topic graph discovery | Planned |
+
+**See:** [Cognitive Architecture Manifesto](../docs/COGNITIVE_ARCHITECTURE.md)
 
 ## Phases
 
@@ -20,9 +36,11 @@ This roadmap delivers a local, append-only conversational memory system with TOC
 - [x] **Phase 8: CCH Hook Integration** - Automatic event capture via CCH hooks
 - [x] **Phase 9: Setup & Installer Plugin** - Interactive setup wizard plugin with commands and agents
 - [x] **Phase 10: Background Scheduler** - In-process Tokio cron scheduler for TOC rollups and periodic jobs
+- [ ] **Phase 10.5: Agentic TOC Search** - Index-free search using TOC navigation with progressive disclosure (INSERTED)
 - [ ] **Phase 11: BM25 Teleport (Tantivy)** - Full-text search index for keyword-based teleportation to relevant TOC nodes
 - [ ] **Phase 12: Vector Teleport (HNSW)** - Semantic similarity search via local HNSW vector index
 - [ ] **Phase 13: Outbox Index Ingestion** - Event-driven index updates from outbox for rebuildable search indexes
+- [ ] **Phase 14: Topic Graph Memory** - Semantic topic extraction, time-decayed importance, topic relationships for conceptual discovery
 
 ## Phase Details
 
@@ -235,10 +253,33 @@ Plans:
 - [x] 10-03-PLAN.md — TOC rollup jobs (wire existing rollups to scheduler, daemon integration)
 - [x] 10-04-PLAN.md — Job observability (GetSchedulerStatus RPC, CLI scheduler commands)
 
+### Phase 10.5: Agentic TOC Search (INSERTED)
+**Goal**: Add foundational agentic search using TOC navigation with simple term matching - works without any index dependencies
+**Depends on**: Phase 10
+**Requirements**: SEARCH-01, SEARCH-02, SEARCH-03, SEARCH-04, SEARCH-05
+**Success Criteria** (what must be TRUE):
+  1. SearchNode RPC searches within a single node's fields (title, summary, bullets, keywords)
+  2. SearchChildren RPC searches across all children of a parent node at a specified level
+  3. Simple term-overlap scoring without external dependencies (no Tantivy, no HNSW)
+  4. Agent can navigate TOC using search to find relevant content
+  5. Search results include grip IDs for provenance verification
+  6. Explainable navigation paths show why each level was chosen
+  7. CLI search command available for testing
+**Plans**: 3 plans in 3 waves
+
+Plans:
+- [ ] 10.5-01-PLAN.md — Core search logic (search_node function, term overlap scoring, unit tests)
+- [ ] 10.5-02-PLAN.md — gRPC integration (SearchNode/SearchChildren RPCs, integration tests)
+- [ ] 10.5-03-PLAN.md — CLI and agent (search command, navigator agent updates, documentation)
+
+**Documentation:**
+- Technical Plan: docs/plans/phase-10.5-agentic-toc-search.md
+- PRD: docs/prds/agentic-toc-search-prd.md
+
 ### Phase 11: BM25 Teleport (Tantivy)
 **Goal**: Enable fast keyword-based search that "teleports" agents directly to relevant TOC nodes or grips without traversing the hierarchy
 **Depends on**: Phase 10
-**Requirements**: TEL-01, TEL-02, TEL-03, TEL-04
+**Requirements**: TELE-01, TELE-04, TELE-05, TELE-06, TELE-07
 **Success Criteria** (what must be TRUE):
   1. Tantivy embedded index stores searchable text from TOC summaries and grip excerpts
   2. BM25 search returns ranked TOC node IDs or grip pointers
@@ -246,6 +287,10 @@ Plans:
   4. Index is incrementally updated as new TOC nodes are created
   5. CLI provides `teleport search <query>` command for testing
 **Plans**: 4 plans in 3 waves
+
+**Documentation:**
+- PRD: docs/prds/bm25-teleport-prd.md
+- Research: .planning/phases/11-bm25-teleport-tantivy/11-RESEARCH.md
 
 Plans:
 - [ ] 11-01-PLAN.md — Tantivy integration (memory-search crate, schema, index setup)
@@ -256,25 +301,33 @@ Plans:
 ### Phase 12: Vector Teleport (HNSW)
 **Goal**: Enable semantic similarity search for conceptually related content even when keywords don't match
 **Depends on**: Phase 11
-**Requirements**: TEL-05, TEL-06, TEL-07, TEL-08
+**Requirements**: TELE-02, TELE-04 (vector support), TELE-05, TELE-06, FR-09 (Outbox indexing), FR-10 (Checkpoint recovery)
 **Success Criteria** (what must be TRUE):
   1. Local HNSW index stores embeddings for TOC summaries and grips
   2. Embedding generation uses local model (no API dependency)
   3. Vector search returns semantically similar TOC nodes or grips
   4. Hybrid search combines BM25 and vector scores
   5. Index rebuild is fast (<1 minute for 10k nodes)
-**Plans**: TBD
+  6. Outbox-driven indexing automatically indexes new TOC nodes and grips
+  7. Checkpoint-based recovery ensures crash safety for indexing
+**Plans**: 5 plans in 4 waves
+
+**Documentation:**
+- PRD: docs/prds/hierarchical-vector-indexing-prd.md
+- Technical Plan: docs/plans/phase-12-vector-teleport.md
+- Research: .planning/phases/12-vector-teleport-hnsw/12-RESEARCH.md
 
 Plans:
-- [ ] 12-01: HNSW index setup (usearch or hnsw-rs integration)
-- [ ] 12-02: Local embedding model (sentence-transformers or candle)
-- [ ] 12-03: Vector search API (gRPC VectorTeleport RPC)
-- [ ] 12-04: Hybrid ranking (BM25 + vector fusion)
+- [ ] 12-01-PLAN.md — Embedding infrastructure (memory-embeddings crate, Candle model, caching)
+- [ ] 12-02-PLAN.md — Vector index (memory-vector crate, usearch HNSW, metadata storage)
+- [ ] 12-02b-PLAN.md — Vector indexing pipeline (outbox consumer, checkpoint recovery, admin commands)
+- [ ] 12-03-PLAN.md — gRPC integration (VectorTeleport, HybridSearch, GetVectorIndexStatus RPCs)
+- [ ] 12-04-PLAN.md — CLI and documentation (teleport commands, user guide)
 
 ### Phase 13: Outbox Index Ingestion
 **Goal**: Drive index updates from the existing outbox pattern for rebuildable, crash-safe search indexes
 **Depends on**: Phase 12
-**Requirements**: TEL-09, TEL-10, TEL-11
+**Requirements**: TELE-03
 **Success Criteria** (what must be TRUE):
   1. Outbox entries trigger index updates for new TOC nodes and grips
   2. Index consumer tracks checkpoint for crash recovery
@@ -289,10 +342,37 @@ Plans:
 - [ ] 13-03: Full rebuild command (admin rebuild-indexes)
 - [ ] 13-04: Async indexing pipeline (scheduled via Phase 10)
 
+### Phase 14: Topic Graph Memory
+**Goal**: Enable conceptual discovery through semantic topics extracted from TOC summaries with time-decayed importance scoring
+**Depends on**: Phase 12 (uses embedding infrastructure)
+**Requirements**: TOPIC-01 through TOPIC-08
+**Success Criteria** (what must be TRUE):
+  1. Topics extracted from TOC summaries via embedding clustering with LLM labeling
+  2. Topics stored in CF_TOPICS column family with importance scores
+  3. Time-decayed importance scoring surfaces recent/frequent topics
+  4. Topic relationships (similar topics, parent/child hierarchy) discoverable
+  5. Topic navigation RPCs enable agents to explore conceptual connections
+  6. Topic lifecycle management (pruning dormant topics, resurrection on reactivation)
+  7. Fully optional via configuration (topics.enabled = false disables all processing)
+  8. GetTopicGraphStatus RPC enables feature discovery
+**Plans**: 6 plans in 6 waves
+
+**Documentation:**
+- PRD: docs/prds/topic-graph-memory-prd.md
+- Technical Plan: docs/plans/topic-graph-memory.md
+
+Plans:
+- [ ] 14-01-PLAN.md — Topic extraction (memory-topics crate, CF_TOPICS, HDBSCAN clustering, cosine similarity)
+- [ ] 14-02-PLAN.md — Topic labeling (LLM integration with keyword fallback, stopword filtering)
+- [ ] 14-03-PLAN.md — Importance scoring (exponential time decay with configurable half-life)
+- [ ] 14-04-PLAN.md — Topic relationships (similarity detection, parent/child hierarchy, cycle prevention)
+- [ ] 14-05-PLAN.md — Navigation RPCs (5 gRPC endpoints: status, query, nodes, top, related)
+- [ ] 14-06-PLAN.md — Lifecycle management (pruning, resurrection, scheduler jobs, CLI commands)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 10.5 -> 11 -> 12 -> 13 -> 14
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -306,9 +386,11 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 8. CCH Hook Integration | 1/1 | Complete | 2026-01-30 |
 | 9. Setup & Installer Plugin | 4/4 | Complete | 2026-01-31 |
 | 10. Background Scheduler | 4/4 | Complete | 2026-01-31 |
+| 10.5. Agentic TOC Search | 0/3 | Planned | - |
 | 11. BM25 Teleport (Tantivy) | 0/4 | Planned | - |
-| 12. Vector Teleport (HNSW) | 0/4 | Planned | - |
+| 12. Vector Teleport (HNSW) | 0/5 | Planned | - |
 | 13. Outbox Index Ingestion | 0/4 | Planned | - |
+| 14. Topic Graph Memory | 0/6 | Planned | - |
 
 ---
 *Roadmap created: 2026-01-29*
@@ -319,4 +401,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 *v2.0 phases added: 2026-01-31 (Phase 10 Scheduler + Phases 11-13 Teleport)*
 *Phase 10 plans created: 2026-01-31*
 *Phase 11 plans created: 2026-01-31*
-*Total plans: 38 across 13 phases (22 v1.0 + 16 v2.0)*
+*Phase 10.5 added: 2026-02-01 (Agentic TOC Search - inserted phase)*
+*Phase 14 added: 2026-02-01 (Topic Graph Memory - conceptual enrichment layer)*
+*Total plans: 48 across 15 phases (22 v1.0 + 26 v2.0)*
+*Phase 12 plans created: 2026-02-01 (5 plans including outbox indexing pipeline)*
