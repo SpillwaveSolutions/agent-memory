@@ -74,7 +74,7 @@ jobs:
           choco install protoc llvm -y
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
