@@ -65,7 +65,10 @@ impl Segment {
 
     /// Get all events (overlap + main) for summarization
     pub fn all_events(&self) -> Vec<&Event> {
-        self.overlap_events.iter().chain(self.events.iter()).collect()
+        self.overlap_events
+            .iter()
+            .chain(self.events.iter())
+            .collect()
     }
 
     /// Serialize to JSON bytes
@@ -101,13 +104,7 @@ mod tests {
         let start = events[0].timestamp;
         let end = events[1].timestamp;
 
-        let segment = Segment::new(
-            "seg-123".to_string(),
-            events.clone(),
-            start,
-            end,
-            100,
-        );
+        let segment = Segment::new("seg-123".to_string(), events.clone(), start, end, 100);
 
         assert_eq!(segment.events.len(), 2);
         assert_eq!(segment.token_count, 100);
@@ -120,8 +117,8 @@ mod tests {
         let start = events[0].timestamp;
         let end = events[0].timestamp;
 
-        let segment = Segment::new("seg-123".to_string(), events, start, end, 50)
-            .with_overlap(overlap);
+        let segment =
+            Segment::new("seg-123".to_string(), events, start, end, 50).with_overlap(overlap);
 
         assert_eq!(segment.overlap_events.len(), 1);
         assert_eq!(segment.all_events().len(), 2);

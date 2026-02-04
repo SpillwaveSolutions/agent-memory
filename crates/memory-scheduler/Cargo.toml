@@ -8,7 +8,7 @@ description = "Background job scheduler for agent-memory daemon"
 
 [features]
 default = ["jobs"]
-jobs = ["memory-toc", "memory-storage", "memory-types"]
+jobs = ["memory-toc", "memory-storage", "memory-types", "memory-search", "memory-indexing"]
 
 [dependencies]
 # Cron scheduling
@@ -41,6 +41,8 @@ rand = "0.8"
 memory-toc = { path = "../memory-toc", optional = true }
 memory-storage = { path = "../memory-storage", optional = true }
 memory-types = { path = "../memory-types", optional = true }
+memory-search = { path = "../memory-search", optional = true }
+memory-indexing = { path = "../memory-indexing", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

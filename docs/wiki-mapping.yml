@@ -1,0 +1,63 @@
+# Wiki Mapping File
+# Maps source files to GitHub Wiki page names
+# Organization: SpillwaveSolutions/agent-memory
+
+# Main documentation
+docs:
+  README.md: "README"
+  USAGE.md: "Usage-Guide"
+  ARCHITECTURE.md: "Architecture"
+  API.md: "API-Reference"
+  INTEGRATION.md: "Integration-Guide"
+  COGNITIVE_ARCHITECTURE.md: "Cognitive-Architecture"
+
+# Planning documents
+planning:
+  .planning/PROJECT.md: "Project-Overview"
+  .planning/ROADMAP.md: "Roadmap"
+  .planning/STATE.md: "Current-State"
+  .planning/REQUIREMENTS.md: "Requirements"
+  .planning/MILESTONES.md: "Milestones"
+
+# Phase documentation
+phases:
+  .planning/phases/01/RESEARCH.md: "Phase-1-Foundation"
+  .planning/phases/02/RESEARCH.md: "Phase-2-TOC-Building"
+  .planning/phases/03/RESEARCH.md: "Phase-3-Grips-Provenance"
+  .planning/phases/05/RESEARCH.md: "Phase-5-Integration"
+  .planning/phases/06/RESEARCH.md: "Phase-6-End-to-End"
+  .planning/phases/07/RESEARCH.md: "Phase-7-CCH-Integration"
+  .planning/phases/08/RESEARCH.md: "Phase-8-CCH-Hook-Integration"
+  .planning/phases/09/RESEARCH.md: "Phase-9-Setup-Plugin"
+  .planning/phases/10/RESEARCH.md: "Phase-10-Background-Scheduler"
+  .planning/phases/10.5/RESEARCH.md: "Phase-10.5-Agentic-TOC-Search"
+  .planning/phases/11/RESEARCH.md: "Phase-11-BM25-Teleport"
+  .planning/phases/12/RESEARCH.md: "Phase-12-Vector-Teleport"
+  .planning/phases/13/RESEARCH.md: "Phase-13-Outbox-Index-Ingestion"
+  .planning/phases/14/RESEARCH.md: "Phase-14-Topic-Graph-Memory"
+  .planning/phases/15/RESEARCH.md: "Phase-15-Configuration-Wizard"
+
+# Design documents
+design:
+  docs/design/01-architecture-overview.md: "Design-Architecture-Overview"
+  docs/design/02-data-flow-sequences.md: "Design-Data-Flow"
+  docs/design/03-domain-model.md: "Design-Domain-Model"
+  docs/design/04-state-machines.md: "Design-State-Machines"
+  docs/design/05-api-reference.md: "Design-API-Reference"
+  docs/design/06-toc-navigation-guide.md: "Design-TOC-Navigation"
+  docs/design/07-storage-architecture.md: "Design-Storage-Architecture"
+  docs/design/08-scheduler-design.md: "Design-Scheduler"
+  docs/design/09-getting-started.md: "Design-Getting-Started"
+  docs/design/10-architecture-decisions.md: "Design-Architecture-Decisions"
+
+# PRDs
+prds:
+  docs/prds/agent-retrieval-policy-prd.md: "PRD-Agent-Retrieval-Policy"
+  docs/prds/agentic-toc-search-prd.md: "PRD-Agentic-TOC-Search"
+  docs/prds/bm25-teleport-prd.md: "PRD-BM25-Teleport"
+  docs/prds/hierarchical-vector-indexing-prd.md: "PRD-Vector-Indexing"
+  docs/prds/topic-graph-memory-prd.md: "PRD-Topic-Graph-Memory"
+
+# Wiki Home page (special handling)
+wiki:
+  docs/wiki/Home.md: "Home"

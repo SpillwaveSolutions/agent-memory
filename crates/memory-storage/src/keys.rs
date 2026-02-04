@@ -7,8 +7,8 @@
 //!
 //! This format enables efficient time-range scans via RocksDB prefix iteration.
 
-use ulid::Ulid;
 use crate::error::StorageError;
+use ulid::Ulid;
 
 /// Key for event storage
 /// Format: evt:{timestamp_ms:013}:{ulid}
@@ -37,7 +37,8 @@ impl EventKey {
     /// Create an event key from an event_id string (the ULID portion)
     /// Uses the ULID's embedded timestamp
     pub fn from_event_id(event_id: &str) -> Result<Self, StorageError> {
-        let ulid: Ulid = event_id.parse()
+        let ulid: Ulid = event_id
+            .parse()
             .map_err(|e| StorageError::Key(format!("Invalid event_id ULID: {}", e)))?;
         // ULID contains timestamp - extract it
         let timestamp_ms = ulid.timestamp_ms() as i64;
@@ -55,19 +56,24 @@ impl EventKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, StorageError> {
         let s = std::str::from_utf8(bytes)
             .map_err(|e| StorageError::Key(format!("Invalid UTF-8: {}", e)))?;
-        Self::from_str(s)
+        Self::parse(s)
     }
 
     /// Parse from string format
-    pub fn from_str(s: &str) -> Result<Self, StorageError> {
+    pub fn parse(s: &str) -> Result<Self, StorageError> {
         let parts: Vec<&str> = s.split(':').collect();
         if parts.len() != 3 || parts[0] != "evt" {
-            return Err(StorageError::Key(format!("Invalid event key format: {}", s)));
+            return Err(StorageError::Key(format!(
+                "Invalid event key format: {}",
+                s
+            )));
         }
 
-        let timestamp_ms: i64 = parts[1].parse()
+        let timestamp_ms: i64 = parts[1]
+            .parse()
             .map_err(|e| StorageError::Key(format!("Invalid timestamp: {}", e)))?;
-        let ulid: Ulid = parts[2].parse()
+        let ulid: Ulid = parts[2]
+            .parse()
             .map_err(|e| StorageError::Key(format!("Invalid ULID: {}", e)))?;
 
         Ok(Self { timestamp_ms, ulid })
@@ -115,10 +121,14 @@ impl OutboxKey {
 
         let parts: Vec<&str> = s.split(':').collect();
         if parts.len() != 2 || parts[0] != "outbox" {
-            return Err(StorageError::Key(format!("Invalid outbox key format: {}", s)));
+            return Err(StorageError::Key(format!(
+                "Invalid outbox key format: {}",
+                s
+            )));
         }
 
-        let sequence: u64 = parts[1].parse()
+        let sequence: u64 = parts[1]
+            .parse()
             .map_err(|e| StorageError::Key(format!("Invalid sequence: {}", e)))?;
 
         Ok(Self { sequence })
@@ -135,7 +145,9 @@ pub struct CheckpointKey {
 
 impl CheckpointKey {
     pub fn new(job_name: impl Into<String>) -> Self {
-        Self { job_name: job_name.into() }
+        Self {
+            job_name: job_name.into(),
+        }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {

@@ -10,12 +10,12 @@ use tracing::{debug, error, warn};
 
 use memory_types::Event;
 
-use super::{Summary, Summarizer, SummarizerError};
+use super::{Summarizer, SummarizerError, Summary};
 
 /// Configuration for API-based summarizer.
 #[derive(Debug, Clone)]
 pub struct ApiSummarizerConfig {
-    /// API base URL (e.g., "https://api.openai.com/v1")
+    /// API base URL (e.g., `https://api.openai.com/v1`)
     pub base_url: String,
 
     /// Model to use (e.g., "gpt-4o-mini", "claude-3-haiku-20240307")
@@ -249,7 +249,10 @@ Guidelines:
         let response = self
             .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.api_key.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&request)
             .send()

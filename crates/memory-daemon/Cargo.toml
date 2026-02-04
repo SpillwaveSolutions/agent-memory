@@ -15,6 +15,11 @@ memory-service = { workspace = true }
 memory-client = { workspace = true }
 memory-scheduler = { workspace = true }
 memory-toc = { path = "../memory-toc" }
+memory-indexing = { workspace = true }
+memory-search = { workspace = true }
+memory-vector = { workspace = true }
+memory-embeddings = { workspace = true }
+memory-topics = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 clap = { workspace = true }

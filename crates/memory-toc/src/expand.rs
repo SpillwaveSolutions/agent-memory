@@ -2,8 +2,8 @@
 //!
 //! Per GRIP-04: ExpandGrip returns context events around excerpt.
 
-use std::sync::Arc;
 use chrono::Duration;
+use std::sync::Arc;
 use tracing::debug;
 
 use memory_storage::Storage;
@@ -101,7 +101,9 @@ impl GripExpander {
     /// Expand a grip by ID, retrieving context events.
     pub fn expand(&self, grip_id: &str) -> Result<ExpandedGrip, ExpandError> {
         // Get the grip
-        let grip = self.storage.get_grip(grip_id)?
+        let grip = self
+            .storage
+            .get_grip(grip_id)?
             .ok_or_else(|| ExpandError::GripNotFound(grip_id.to_string()))?;
 
         self.expand_grip(&grip)
@@ -184,19 +186,14 @@ impl GripExpander {
 
 /// Parse timestamp from ULID event ID.
 fn parse_ulid_timestamp(event_id: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-    ulid::Ulid::from_string(event_id)
-        .ok()
-        .and_then(|u| {
-            let ms = u.timestamp_ms();
-            chrono::DateTime::from_timestamp_millis(ms as i64)
-        })
+    ulid::Ulid::from_string(event_id).ok().and_then(|u| {
+        let ms = u.timestamp_ms();
+        chrono::DateTime::from_timestamp_millis(ms as i64)
+    })
 }
 
 /// Convenience function to expand a grip.
-pub fn expand_grip(
-    storage: Arc<Storage>,
-    grip_id: &str,
-) -> Result<ExpandedGrip, ExpandError> {
+pub fn expand_grip(storage: Arc<Storage>, grip_id: &str) -> Result<ExpandedGrip, ExpandError> {
     GripExpander::new(storage).expand(grip_id)
 }
 
@@ -225,7 +222,9 @@ mod tests {
 
         let event_bytes = serde_json::to_vec(&event).unwrap();
         let outbox_bytes = b"outbox";
-        storage.put_event(&event.event_id, &event_bytes, outbox_bytes).unwrap();
+        storage
+            .put_event(&event.event_id, &event_bytes, outbox_bytes)
+            .unwrap();
 
         event
     }
@@ -256,8 +255,8 @@ mod tests {
         let expanded = expander.expand(&grip.grip_id).unwrap();
 
         assert_eq!(expanded.excerpt_events.len(), 2);
-        assert!(expanded.events_before.len() >= 1);
-        assert!(expanded.events_after.len() >= 1);
+        assert!(!expanded.events_before.is_empty());
+        assert!(!expanded.events_after.is_empty());
     }
 
     #[test]
@@ -292,7 +291,7 @@ mod tests {
         let expanded = expander.expand(&grip.grip_id).unwrap();
 
         let all = expanded.all_events();
-        assert!(all.len() >= 1); // At least the excerpt event
+        assert!(!all.is_empty()); // At least the excerpt event
     }
 
     #[test]
@@ -301,7 +300,11 @@ mod tests {
 
         // Create many events
         for i in 0..10 {
-            create_and_store_event(&storage, &format!("Event {}", i), 1706540000000 + i * 100000);
+            create_and_store_event(
+                &storage,
+                &format!("Event {}", i),
+                1706540000000 + i * 100000,
+            );
         }
 
         let event = create_and_store_event(&storage, "Target", 1706540500000);

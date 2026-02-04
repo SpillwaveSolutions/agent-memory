@@ -108,6 +108,60 @@ memory-daemon query --endpoint http://[::1]:50051 expand \
 - `excerpt`: The referenced conversation segment
 - `after`: Events following the excerpt
 
+## Search Commands
+
+### search
+
+Search TOC nodes for matching content.
+
+**Usage:**
+```bash
+memory-daemon query search --query <QUERY> [OPTIONS]
+```
+
+**Options:**
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--query`, `-q` | Search terms (required) | - |
+| `--node` | Search within specific node | - |
+| `--parent` | Search children of parent | - |
+| `--fields` | Fields to search (comma-separated) | all |
+| `--limit` | Maximum results | 10 |
+
+**Fields:**
+- `title` - Node title
+- `summary` - Derived from bullets
+- `bullets` - Individual bullet points (includes grip IDs)
+- `keywords` - Extracted keywords
+
+**Examples:**
+```bash
+# Search at root level
+memory-daemon query search --query "authentication debugging"
+
+# Search within month
+memory-daemon query search --node "toc:month:2026-01" --query "JWT"
+
+# Search week's children (days)
+memory-daemon query search --parent "toc:week:2026-W04" --query "token refresh"
+
+# Search only in bullets and keywords
+memory-daemon query search --query "OAuth" --fields "bullets,keywords" --limit 20
+```
+
+**Output:**
+```
+Search Results for children of toc:week:2026-W04
+Query: "token refresh"
+Found: 2 nodes
+
+Node: toc:day:2026-01-30 (score=0.85)
+  Title: Thursday, January 30
+  Matches:
+    - [bullets] Fixed JWT token refresh rotation
+    - [keywords] authentication
+```
+
 ## Event Types
 
 | Type | Description |

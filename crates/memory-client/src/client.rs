@@ -6,18 +6,13 @@ use tonic::transport::Channel;
 use tracing::{debug, info};
 
 use memory_service::pb::{
-    memory_service_client::MemoryServiceClient,
-    BrowseTocRequest,
-    Event as ProtoEvent,
-    EventRole as ProtoEventRole,
-    EventType as ProtoEventType,
-    ExpandGripRequest,
-    GetEventsRequest,
-    GetNodeRequest,
-    GetTocRootRequest,
-    IngestEventRequest,
-    TocNode as ProtoTocNode,
-    Grip as ProtoGrip,
+    memory_service_client::MemoryServiceClient, BrowseTocRequest, Event as ProtoEvent,
+    EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest, GetEventsRequest,
+    GetNodeRequest, GetRelatedTopicsRequest, GetTocRootRequest, GetTopTopicsRequest,
+    GetTopicGraphStatusRequest, GetTopicsByQueryRequest, GetVectorIndexStatusRequest,
+    Grip as ProtoGrip, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
+    TeleportSearchRequest, TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic,
+    VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use memory_types::{Event, EventRole, EventType};
 
@@ -36,7 +31,7 @@ impl MemoryClient {
     ///
     /// # Arguments
     ///
-    /// * `endpoint` - The gRPC endpoint (e.g., "http://[::1]:50051")
+    /// * `endpoint` - The gRPC endpoint (e.g., `http://localhost:50051`)
     ///
     /// # Errors
     ///
@@ -154,7 +149,10 @@ impl MemoryClient {
         to_timestamp_ms: i64,
         limit: u32,
     ) -> Result<GetEventsResult, ClientError> {
-        debug!("GetEvents request: from={} to={} limit={}", from_timestamp_ms, to_timestamp_ms, limit);
+        debug!(
+            "GetEvents request: from={} to={} limit={}",
+            from_timestamp_ms, to_timestamp_ms, limit
+        );
         let request = tonic::Request::new(GetEventsRequest {
             from_timestamp_ms,
             to_timestamp_ms,
@@ -192,6 +190,203 @@ impl MemoryClient {
             events_after: resp.events_after,
         })
     }
+
+    // ===== Teleport Search Methods =====
+
+    /// Search for TOC nodes or grips using BM25 keyword search.
+    ///
+    /// Per TEL-02: BM25 search returns ranked results.
+    pub async fn teleport_search(
+        &mut self,
+        query: &str,
+        doc_type: i32,
+        limit: i32,
+    ) -> Result<TeleportSearchResponse, ClientError> {
+        debug!("TeleportSearch request: query={}", query);
+        let request = tonic::Request::new(TeleportSearchRequest {
+            query: query.to_string(),
+            doc_type,
+            limit,
+        });
+        let response = self.inner.teleport_search(request).await?;
+        Ok(response.into_inner())
+    }
+
+    // ===== Vector Search Methods =====
+
+    /// Search for TOC nodes or grips using vector semantic search.
+    ///
+    /// Per VEC-01: Vector similarity search using HNSW index.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - Query text to embed and search
+    /// * `top_k` - Number of results to return
+    /// * `min_score` - Minimum similarity score (0.0-1.0)
+    /// * `target` - Target type filter (0=unspecified, 1=toc, 2=grip, 3=all)
+    pub async fn vector_teleport(
+        &mut self,
+        query: &str,
+        top_k: i32,
+        min_score: f32,
+        target: i32,
+    ) -> Result<VectorTeleportResponse, ClientError> {
+        debug!("VectorTeleport request: query={}", query);
+        let request = tonic::Request::new(VectorTeleportRequest {
+            query: query.to_string(),
+            top_k,
+            min_score,
+            time_filter: None,
+            target,
+        });
+        let response = self.inner.vector_teleport(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Hybrid BM25 + vector search using RRF fusion.
+    ///
+    /// Per VEC-02: Combines keyword and semantic matching.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - Search query
+    /// * `top_k` - Number of results to return
+    /// * `mode` - Search mode (0=unspecified, 1=vector-only, 2=bm25-only, 3=hybrid)
+    /// * `bm25_weight` - Weight for BM25 in fusion (0.0-1.0)
+    /// * `vector_weight` - Weight for vector in fusion (0.0-1.0)
+    /// * `target` - Target type filter (0=unspecified, 1=toc, 2=grip, 3=all)
+    pub async fn hybrid_search(
+        &mut self,
+        query: &str,
+        top_k: i32,
+        mode: i32,
+        bm25_weight: f32,
+        vector_weight: f32,
+        target: i32,
+    ) -> Result<HybridSearchResponse, ClientError> {
+        debug!("HybridSearch request: query={}, mode={}", query, mode);
+        let request = tonic::Request::new(HybridSearchRequest {
+            query: query.to_string(),
+            top_k,
+            mode,
+            bm25_weight,
+            vector_weight,
+            time_filter: None,
+            target,
+        });
+        let response = self.inner.hybrid_search(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Get vector index status and statistics.
+    ///
+    /// Per VEC-03: Observable index health and stats.
+    pub async fn get_vector_index_status(&mut self) -> Result<VectorIndexStatus, ClientError> {
+        debug!("GetVectorIndexStatus request");
+        let request = tonic::Request::new(GetVectorIndexStatusRequest {});
+        let response = self.inner.get_vector_index_status(request).await?;
+        Ok(response.into_inner())
+    }
+
+    // ===== Topic Graph Methods (Phase 14) =====
+
+    /// Get topic graph status and statistics.
+    ///
+    /// Per TOPIC-08: Topic graph discovery.
+    pub async fn get_topic_graph_status(&mut self) -> Result<TopicGraphStatus, ClientError> {
+        debug!("GetTopicGraphStatus request");
+        let request = tonic::Request::new(GetTopicGraphStatusRequest {});
+        let response = self.inner.get_topic_graph_status(request).await?;
+        let resp = response.into_inner();
+        Ok(TopicGraphStatus {
+            topic_count: resp.topic_count,
+            relationship_count: resp.relationship_count,
+            last_updated: resp.last_updated,
+            available: resp.available,
+        })
+    }
+
+    /// Get topics matching a query.
+    ///
+    /// Searches topic labels and keywords for matches.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - Search query (keywords to match)
+    /// * `limit` - Maximum results to return
+    pub async fn get_topics_by_query(
+        &mut self,
+        query: &str,
+        limit: u32,
+    ) -> Result<Vec<ProtoTopic>, ClientError> {
+        debug!("GetTopicsByQuery request: query={}", query);
+        let request = tonic::Request::new(GetTopicsByQueryRequest {
+            query: query.to_string(),
+            limit,
+        });
+        let response = self.inner.get_topics_by_query(request).await?;
+        Ok(response.into_inner().topics)
+    }
+
+    /// Get topics related to a specific topic.
+    ///
+    /// # Arguments
+    ///
+    /// * `topic_id` - Topic to find related topics for
+    /// * `rel_type` - Optional relationship type filter ("co-occurrence", "semantic", "hierarchical")
+    /// * `limit` - Maximum results to return
+    pub async fn get_related_topics(
+        &mut self,
+        topic_id: &str,
+        rel_type: Option<&str>,
+        limit: u32,
+    ) -> Result<RelatedTopicsResult, ClientError> {
+        debug!("GetRelatedTopics request: topic_id={}", topic_id);
+        let request = tonic::Request::new(GetRelatedTopicsRequest {
+            topic_id: topic_id.to_string(),
+            relationship_type: rel_type.unwrap_or("").to_string(),
+            limit,
+        });
+        let response = self.inner.get_related_topics(request).await?;
+        let resp = response.into_inner();
+        Ok(RelatedTopicsResult {
+            related_topics: resp.related_topics,
+            relationships: resp.relationships,
+        })
+    }
+
+    /// Get top topics by importance score.
+    ///
+    /// # Arguments
+    ///
+    /// * `limit` - Maximum results to return
+    /// * `days` - Look back window in days for importance calculation
+    pub async fn get_top_topics(
+        &mut self,
+        limit: u32,
+        days: u32,
+    ) -> Result<Vec<ProtoTopic>, ClientError> {
+        debug!("GetTopTopics request: limit={}, days={}", limit, days);
+        let request = tonic::Request::new(GetTopTopicsRequest { limit, days });
+        let response = self.inner.get_top_topics(request).await?;
+        Ok(response.into_inner().topics)
+    }
+}
+
+/// Topic graph status.
+#[derive(Debug)]
+pub struct TopicGraphStatus {
+    pub topic_count: u64,
+    pub relationship_count: u64,
+    pub last_updated: String,
+    pub available: bool,
+}
+
+/// Result of get_related_topics operation.
+#[derive(Debug)]
+pub struct RelatedTopicsResult {
+    pub related_topics: Vec<ProtoTopic>,
+    pub relationships: Vec<memory_service::pb::TopicRelationship>,
 }
 
 /// Result of browse_toc operation.
@@ -287,7 +482,8 @@ mod tests {
             EventType::ToolResult,
             EventRole::Tool,
             "Result".to_string(),
-        ).with_metadata(metadata);
+        )
+        .with_metadata(metadata);
 
         let proto = event_to_proto(event);
 
@@ -300,7 +496,10 @@ mod tests {
         let types = vec![
             (EventType::SessionStart, ProtoEventType::SessionStart),
             (EventType::UserMessage, ProtoEventType::UserMessage),
-            (EventType::AssistantMessage, ProtoEventType::AssistantMessage),
+            (
+                EventType::AssistantMessage,
+                ProtoEventType::AssistantMessage,
+            ),
             (EventType::ToolResult, ProtoEventType::ToolResult),
             (EventType::AssistantStop, ProtoEventType::AssistantStop),
             (EventType::SubagentStart, ProtoEventType::SubagentStart),

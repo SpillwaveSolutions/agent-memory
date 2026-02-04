@@ -55,6 +55,73 @@ Year → Month → Week → Day → Segment
 - `toc:week:2026-W04`
 - `toc:day:2026-01-30`
 
+## Search-Based Navigation
+
+Use search RPCs to efficiently find relevant content without scanning everything.
+
+### Search Workflow
+
+1. **Search at root level** - Find which time periods are relevant:
+   ```bash
+   memory-daemon query search --query "JWT authentication"
+   # Returns: Year/Month nodes with relevance scores
+   ```
+
+2. **Drill into best match** - Search children of matching period:
+   ```bash
+   memory-daemon query search --parent "toc:month:2026-01" --query "JWT authentication"
+   # Returns: Week nodes with matches
+   ```
+
+3. **Continue until Segment level** - Extract evidence:
+   ```bash
+   memory-daemon query search --parent "toc:day:2026-01-30" --query "JWT"
+   # Returns: Segment nodes with bullet matches and grip IDs
+   ```
+
+4. **Expand grip for verification**:
+   ```bash
+   memory-daemon query expand --grip-id "grip:..." --before 3 --after 3
+   ```
+
+### Search Command Reference
+
+```bash
+# Search within a specific node
+memory-daemon query search --node "toc:month:2026-01" --query "debugging"
+
+# Search children of a parent
+memory-daemon query search --parent "toc:week:2026-W04" --query "JWT token"
+
+# Search root level (years)
+memory-daemon query search --query "authentication"
+
+# Filter by fields (title, summary, bullets, keywords)
+memory-daemon query search --query "JWT" --fields "title,bullets" --limit 20
+```
+
+### Agent Navigation Loop
+
+When answering "find discussions about X":
+
+1. Parse query for time hints ("last week", "in January", "yesterday")
+2. Start at appropriate level based on hints, or root if no hints
+3. Use `search_children` to find relevant nodes at each level
+4. Drill into highest-scoring matches
+5. At Segment level, extract bullets with grip IDs
+6. Offer to expand grips for full context
+
+Example path:
+```
+Query: "What JWT discussions happened last week?"
+-> SearchChildren(parent="toc:week:2026-W04", query="JWT")
+  -> Day 2026-01-30 (score: 0.85)
+-> SearchChildren(parent="toc:day:2026-01-30", query="JWT")
+  -> Segment abc123 (score: 0.92)
+-> Return bullets from Segment with grip IDs
+-> Offer: "Found 2 relevant points. Expand grip:xyz for context?"
+```
+
 ## CLI Reference
 
 ```bash

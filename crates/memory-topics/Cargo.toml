@@ -1,0 +1,21 @@
+[package]
+name = "memory-topics"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+memory-types = { workspace = true }
+memory-storage = { workspace = true }
+hdbscan = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+ulid = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }

@@ -29,11 +29,62 @@ cargo build
 cargo test
 
 # Check with clippy
-cargo clippy -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 # Build specific crate
 cargo build -p memory-daemon
+
+# Full QA check (format + clippy + test + doc)
+cargo fmt --all -- --check && \
+cargo clippy --workspace --all-targets --all-features -- -D warnings && \
+cargo test --workspace --all-features && \
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --all-features
 ```
+
+## Local Skills
+
+Project-specific skills in `.claude/skills/`:
+
+| Skill | Purpose |
+|-------|---------|
+| `modern-rust-expert` | Rust 2024 patterns, clippy compliance, functional-but-pragmatic philosophy |
+| `rust-testing` | Test patterns, assertions, parameterized tests |
+| `rust-cargo-assistant` | Cargo commands and dependency management |
+| `releasing-rust` | Cross-platform release workflow, versioning, artifact naming |
+
+## Local Agents
+
+Project-specific agents in `.claude/agents/`:
+
+| Agent | Purpose |
+|-------|---------|
+| `qa-rust-agent` | Enforces code quality after Rust file changes (format, clippy, test, doc) |
+
+## CI/CD Workflows
+
+GitHub Actions workflows in `.github/workflows/`:
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `ci.yml` | Push to main, PRs | Format, clippy, test, build, doc checks |
+| `release.yml` | Tags `v*.*.*`, manual | Multi-platform release builds |
+
+### Release Process
+
+```bash
+# Bump version
+cargo set-version 0.2.0
+
+# Commit and tag
+git add -A && git commit -m "chore: release v0.2.0"
+git tag -a v0.2.0 -m "Release v0.2.0"
+git push origin main --tags
+```
+
+The release workflow automatically builds for:
+- Linux x86_64 / ARM64
+- macOS Intel / Apple Silicon
+- Windows x86_64
 
 ## GSD Workflow
 

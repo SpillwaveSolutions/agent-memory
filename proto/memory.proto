@@ -42,6 +42,44 @@ service MemoryService {
 
     // Resume a paused job
     rpc ResumeJob(ResumeJobRequest) returns (ResumeJobResponse);
+
+    // Search RPCs (Phase 10.5)
+
+    // Search within a single TOC node
+    rpc SearchNode(SearchNodeRequest) returns (SearchNodeResponse);
+
+    // Search across children of a parent node
+    rpc SearchChildren(SearchChildrenRequest) returns (SearchChildrenResponse);
+
+    // Teleport RPCs (TEL-01 through TEL-04)
+
+    // Search for TOC nodes or grips by keyword using BM25 ranking
+    rpc TeleportSearch(TeleportSearchRequest) returns (TeleportSearchResponse);
+
+    // Vector RPCs (Phase 12 - VEC-01 through VEC-03)
+
+    // Vector semantic search using HNSW index
+    rpc VectorTeleport(VectorTeleportRequest) returns (VectorTeleportResponse);
+
+    // Hybrid BM25 + vector search using RRF fusion
+    rpc HybridSearch(HybridSearchRequest) returns (HybridSearchResponse);
+
+    // Get vector index status and statistics
+    rpc GetVectorIndexStatus(GetVectorIndexStatusRequest) returns (VectorIndexStatus);
+
+    // Topic Graph RPCs (Phase 14 - TOPIC-08)
+
+    // Get topic graph status and statistics
+    rpc GetTopicGraphStatus(GetTopicGraphStatusRequest) returns (GetTopicGraphStatusResponse);
+
+    // Get topics matching a query
+    rpc GetTopicsByQuery(GetTopicsByQueryRequest) returns (GetTopicsByQueryResponse);
+
+    // Get topics related to a specific topic
+    rpc GetRelatedTopics(GetRelatedTopicsRequest) returns (GetRelatedTopicsResponse);
+
+    // Get top topics by importance score
+    rpc GetTopTopics(GetTopTopicsRequest) returns (GetTopTopicsResponse);
 }
 
 // Role of the message author
@@ -64,6 +102,15 @@ enum EventType {
     EVENT_TYPE_SUBAGENT_START = 6;
     EVENT_TYPE_SUBAGENT_STOP = 7;
     EVENT_TYPE_SESSION_END = 8;
+}
+
+// Fields to search within a TOC node
+enum SearchField {
+    SEARCH_FIELD_UNSPECIFIED = 0;
+    SEARCH_FIELD_TITLE = 1;
+    SEARCH_FIELD_SUMMARY = 2;
+    SEARCH_FIELD_BULLETS = 3;
+    SEARCH_FIELD_KEYWORDS = 4;
 }
 
 // A conversation event to be stored.
@@ -318,4 +365,321 @@ message ResumeJobRequest {
 message ResumeJobResponse {
     bool success = 1;
     optional string error = 2;
+}
+
+// ===== Search Messages (Phase 10.5) =====
+
+// Search within a single node
+message SearchNodeRequest {
+    // Node ID to search within
+    string node_id = 1;
+    // Search terms (space-separated, case-insensitive)
+    string query = 2;
+    // Fields to search (empty = all fields)
+    repeated SearchField fields = 3;
+    // Max matches to return (default: 10)
+    int32 limit = 4;
+    // Optional token budget for response control
+    int32 token_budget = 5;
+}
+
+message SearchMatch {
+    // Which field matched
+    SearchField field = 1;
+    // Matching text snippet
+    string text = 2;
+    // If bullet, the supporting grip IDs
+    repeated string grip_ids = 3;
+    // Term overlap score (0.0-1.0)
+    float score = 4;
+}
+
+message SearchNodeResponse {
+    // Whether any matches found
+    bool matched = 1;
+    // Individual matches
+    repeated SearchMatch matches = 2;
+    // Node that was searched
+    string node_id = 3;
+    // Level of the searched node
+    TocLevel level = 4;
+}
+
+// Search children of a parent node
+message SearchChildrenRequest {
+    // Parent node ID (empty string for root/year level)
+    string parent_id = 1;
+    // Search terms (space-separated, case-insensitive)
+    string query = 2;
+    // Level to search at (ignored if parent_id provided - uses children's level)
+    TocLevel child_level = 3;
+    // Fields to search (empty = all fields)
+    repeated SearchField fields = 4;
+    // Max nodes to return (default: 10)
+    int32 limit = 5;
+    // Optional token budget for response control
+    int32 token_budget = 6;
+}
+
+message SearchNodeResult {
+    // Node ID of the matching node
+    string node_id = 1;
+    // Node title for display
+    string title = 2;
+    // Level of this node
+    TocLevel level = 3;
+    // Matches within this node
+    repeated SearchMatch matches = 4;
+    // Aggregate relevance score
+    float relevance_score = 5;
+}
+
+message SearchChildrenResponse {
+    // Matching nodes with their matches
+    repeated SearchNodeResult results = 1;
+    // Whether more results available
+    bool has_more = 2;
+}
+
+// ===== Teleport Search Messages (TEL-01 through TEL-04) =====
+
+// Document type filter for teleport search
+enum TeleportDocType {
+    TELEPORT_DOC_TYPE_UNSPECIFIED = 0;  // Search all types
+    TELEPORT_DOC_TYPE_TOC_NODE = 1;     // TOC nodes only
+    TELEPORT_DOC_TYPE_GRIP = 2;         // Grips only
+}
+
+// Request for teleport search
+message TeleportSearchRequest {
+    // Search query (keywords)
+    string query = 1;
+    // Filter by document type (optional)
+    TeleportDocType doc_type = 2;
+    // Maximum results to return (default: 10)
+    int32 limit = 3;
+}
+
+// A single teleport search result
+message TeleportSearchResult {
+    // Document ID (node_id or grip_id)
+    string doc_id = 1;
+    // Document type
+    TeleportDocType doc_type = 2;
+    // BM25 relevance score
+    float score = 3;
+    // Keywords from the document (if available)
+    optional string keywords = 4;
+    // Timestamp in milliseconds
+    optional int64 timestamp_ms = 5;
+}
+
+// Response from teleport search
+message TeleportSearchResponse {
+    // Ranked search results
+    repeated TeleportSearchResult results = 1;
+    // Total documents in index
+    uint64 total_docs = 2;
+}
+
+// ===== Vector Search Messages (Phase 12 - VEC-01 through VEC-03) =====
+
+// Target type filter for vector search
+enum VectorTargetType {
+    VECTOR_TARGET_TYPE_UNSPECIFIED = 0;
+    VECTOR_TARGET_TYPE_TOC_NODE = 1;
+    VECTOR_TARGET_TYPE_GRIP = 2;
+    VECTOR_TARGET_TYPE_ALL = 3;
+}
+
+// Time range filter for searches
+message TimeRange {
+    // Start time in milliseconds (inclusive)
+    int64 start_ms = 1;
+    // End time in milliseconds (exclusive)
+    int64 end_ms = 2;
+}
+
+// Request for vector semantic search
+message VectorTeleportRequest {
+    // Query text to embed and search
+    string query = 1;
+    // Maximum results to return (default: 10)
+    int32 top_k = 2;
+    // Minimum similarity score 0.0-1.0 (default: 0.0)
+    float min_score = 3;
+    // Optional time range filter
+    optional TimeRange time_filter = 4;
+    // Target type filter
+    VectorTargetType target = 5;
+}
+
+// A vector search match
+message VectorMatch {
+    // Document ID (node_id or grip_id)
+    string doc_id = 1;
+    // Document type ("toc_node" or "grip")
+    string doc_type = 2;
+    // Similarity score 0.0-1.0
+    float score = 3;
+    // Preview of matched text
+    string text_preview = 4;
+    // Document timestamp in milliseconds
+    int64 timestamp_ms = 5;
+}
+
+// Response from vector search
+message VectorTeleportResponse {
+    // Ranked matches by similarity
+    repeated VectorMatch matches = 1;
+    // Index status at time of search
+    optional VectorIndexStatus index_status = 2;
+}
+
+// Search mode for hybrid search
+enum HybridMode {
+    HYBRID_MODE_UNSPECIFIED = 0;
+    HYBRID_MODE_VECTOR_ONLY = 1;
+    HYBRID_MODE_BM25_ONLY = 2;
+    HYBRID_MODE_HYBRID = 3;
+}
+
+// Request for hybrid BM25 + vector search
+message HybridSearchRequest {
+    // Search query
+    string query = 1;
+    // Maximum results to return (default: 10)
+    int32 top_k = 2;
+    // Search mode
+    HybridMode mode = 3;
+    // Weight for BM25 in fusion (default: 0.5)
+    float bm25_weight = 4;
+    // Weight for vector in fusion (default: 0.5)
+    float vector_weight = 5;
+    // Optional time range filter
+    optional TimeRange time_filter = 6;
+    // Target type filter
+    VectorTargetType target = 7;
+}
+
+// Response from hybrid search
+message HybridSearchResponse {
+    // Ranked matches by fused score
+    repeated VectorMatch matches = 1;
+    // Actual mode used for this search
+    HybridMode mode_used = 2;
+    // Whether BM25 index was available
+    bool bm25_available = 3;
+    // Whether vector index was available
+    bool vector_available = 4;
+}
+
+// Request for vector index status
+message GetVectorIndexStatusRequest {}
+
+// Vector index status and statistics
+message VectorIndexStatus {
+    // Whether index is available for search
+    bool available = 1;
+    // Number of vectors in the index
+    int64 vector_count = 2;
+    // Embedding dimension
+    int32 dimension = 3;
+    // Last index update timestamp (RFC3339)
+    string last_indexed = 4;
+    // Index file path
+    string index_path = 5;
+    // Index size in bytes
+    int64 size_bytes = 6;
+}
+
+// ===== Topic Graph Messages (Phase 14 - TOPIC-08) =====
+
+// Request for topic graph status
+message GetTopicGraphStatusRequest {}
+
+// Response with topic graph status
+message GetTopicGraphStatusResponse {
+    // Total number of topics
+    uint64 topic_count = 1;
+    // Total number of relationships between topics
+    uint64 relationship_count = 2;
+    // Last update timestamp (RFC3339)
+    string last_updated = 3;
+    // Whether the topic graph is available
+    bool available = 4;
+}
+
+// A semantic topic from the topic graph
+message Topic {
+    // Unique topic identifier
+    string id = 1;
+    // Human-readable label
+    string label = 2;
+    // Time-decayed importance score (0.0 - 1.0+)
+    float importance_score = 3;
+    // Keywords associated with this topic
+    repeated string keywords = 4;
+    // When the topic was first created (RFC3339)
+    string created_at = 5;
+    // Most recent mention timestamp (RFC3339)
+    string last_mention = 6;
+}
+
+// A relationship between two topics
+message TopicRelationship {
+    // Source topic ID
+    string source_id = 1;
+    // Target topic ID
+    string target_id = 2;
+    // Relationship type: "co-occurrence", "semantic", "hierarchical"
+    string relationship_type = 3;
+    // Relationship strength (0.0 - 1.0)
+    float strength = 4;
+}
+
+// Request for topics by query
+message GetTopicsByQueryRequest {
+    // Search query (keywords to match against topic labels/keywords)
+    string query = 1;
+    // Maximum results to return (default: 10)
+    uint32 limit = 2;
+}
+
+// Response with matching topics
+message GetTopicsByQueryResponse {
+    // Topics matching the query
+    repeated Topic topics = 1;
+}
+
+// Request for related topics
+message GetRelatedTopicsRequest {
+    // Topic ID to find related topics for
+    string topic_id = 1;
+    // Optional: filter by relationship type ("co-occurrence", "semantic", "hierarchical")
+    string relationship_type = 2;
+    // Maximum results to return (default: 10)
+    uint32 limit = 3;
+}
+
+// Response with related topics
+message GetRelatedTopicsResponse {
+    // Topics related to the requested topic
+    repeated Topic related_topics = 1;
+    // Relationships between the source topic and related topics
+    repeated TopicRelationship relationships = 2;
+}
+
+// Request for top topics by importance
+message GetTopTopicsRequest {
+    // Maximum results to return (default: 10)
+    uint32 limit = 1;
+    // Look back window in days for importance calculation (default: 30)
+    uint32 days = 2;
+}
+
+// Response with top topics
+message GetTopTopicsResponse {
+    // Topics sorted by importance score (descending)
+    repeated Topic topics = 1;
 }

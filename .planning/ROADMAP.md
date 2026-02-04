@@ -12,11 +12,12 @@ Phases are grouped by the cognitive layer they implement:
 |-------|--------|------------|--------|
 | **Foundation** (0-1) | 1-6 | Events + TOC hierarchy | Complete |
 | **Integration** | 7-10 | Plugins, hooks, scheduler | Complete |
-| **Agentic Navigation** (2) | 10.5 | Index-free search (always works) | Planned |
-| **Keyword Acceleration** (3) | 11 | BM25/Tantivy teleport | Planned |
-| **Semantic Acceleration** (4) | 12 | Vector/HNSW teleport | Planned |
-| **Index Lifecycle** | 13 | Outbox-driven index updates | Planned |
-| **Conceptual Enrichment** (5) | 14 | Topic graph discovery | Planned |
+| **Agentic Navigation** (2) | 10.5 | Index-free search (always works) | Complete |
+| **Keyword Acceleration** (3) | 11 | BM25/Tantivy teleport | Complete |
+| **Semantic Acceleration** (4) | 12 | Vector/HNSW teleport | Complete |
+| **Index Lifecycle** | 13 | Outbox-driven index updates | Complete |
+| **Conceptual Enrichment** (5) | 14 | Topic graph discovery | Complete |
+| **Configuration UX** | 15 | Interactive wizard skills | Planned |
 
 **See:** [Cognitive Architecture Manifesto](../docs/COGNITIVE_ARCHITECTURE.md)
 
@@ -36,11 +37,12 @@ Phases are grouped by the cognitive layer they implement:
 - [x] **Phase 8: CCH Hook Integration** - Automatic event capture via CCH hooks
 - [x] **Phase 9: Setup & Installer Plugin** - Interactive setup wizard plugin with commands and agents
 - [x] **Phase 10: Background Scheduler** - In-process Tokio cron scheduler for TOC rollups and periodic jobs
-- [ ] **Phase 10.5: Agentic TOC Search** - Index-free search using TOC navigation with progressive disclosure (INSERTED)
-- [ ] **Phase 11: BM25 Teleport (Tantivy)** - Full-text search index for keyword-based teleportation to relevant TOC nodes
-- [ ] **Phase 12: Vector Teleport (HNSW)** - Semantic similarity search via local HNSW vector index
-- [ ] **Phase 13: Outbox Index Ingestion** - Event-driven index updates from outbox for rebuildable search indexes
-- [ ] **Phase 14: Topic Graph Memory** - Semantic topic extraction, time-decayed importance, topic relationships for conceptual discovery
+- [x] **Phase 10.5: Agentic TOC Search** - Index-free search using TOC navigation with progressive disclosure (INSERTED)
+- [x] **Phase 11: BM25 Teleport (Tantivy)** - Full-text search index for keyword-based teleportation to relevant TOC nodes
+- [x] **Phase 12: Vector Teleport (HNSW)** - Semantic similarity search via local HNSW vector index
+- [x] **Phase 13: Outbox Index Ingestion** - Event-driven index updates from outbox for rebuildable search indexes
+- [x] **Phase 14: Topic Graph Memory** - Semantic topic extraction, time-decayed importance, topic relationships for conceptual discovery
+- [ ] **Phase 15: Configuration Wizard Skills** - Interactive AskUserQuestion-based configuration wizards for storage, LLM, and multi-agent settings
 
 ## Phase Details
 
@@ -268,9 +270,9 @@ Plans:
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 10.5-01-PLAN.md — Core search logic (search_node function, term overlap scoring, unit tests)
-- [ ] 10.5-02-PLAN.md — gRPC integration (SearchNode/SearchChildren RPCs, integration tests)
-- [ ] 10.5-03-PLAN.md — CLI and agent (search command, navigator agent updates, documentation)
+- [x] 10.5-01-PLAN.md — Core search logic (search_node function, term overlap scoring, unit tests)
+- [x] 10.5-02-PLAN.md — gRPC integration (SearchNode/SearchChildren RPCs, integration tests)
+- [x] 10.5-03-PLAN.md — CLI and agent (search command, navigator agent updates, documentation)
 
 **Documentation:**
 - Technical Plan: docs/plans/phase-10.5-agentic-toc-search.md
@@ -293,10 +295,10 @@ Plans:
 - Research: .planning/phases/11-bm25-teleport-tantivy/11-RESEARCH.md
 
 Plans:
-- [ ] 11-01-PLAN.md — Tantivy integration (memory-search crate, schema, index setup)
-- [ ] 11-02-PLAN.md — Indexing pipeline (TOC node and grip text extraction, document mapping)
-- [ ] 11-03-PLAN.md — Search API (gRPC TeleportSearch RPC, BM25 scoring)
-- [ ] 11-04-PLAN.md — CLI and testing (teleport command, background commit job)
+- [x] 11-01-PLAN.md — Tantivy integration (memory-search crate, schema, index setup)
+- [x] 11-02-PLAN.md — Indexing pipeline (TOC node and grip text extraction, document mapping)
+- [x] 11-03-PLAN.md — Search API (gRPC TeleportSearch RPC, BM25 scoring)
+- [x] 11-04-PLAN.md — CLI and testing (teleport command, background commit job)
 
 ### Phase 12: Vector Teleport (HNSW)
 **Goal**: Enable semantic similarity search for conceptually related content even when keywords don't match
@@ -318,11 +320,11 @@ Plans:
 - Research: .planning/phases/12-vector-teleport-hnsw/12-RESEARCH.md
 
 Plans:
-- [ ] 12-01-PLAN.md — Embedding infrastructure (memory-embeddings crate, Candle model, caching)
-- [ ] 12-02-PLAN.md — Vector index (memory-vector crate, usearch HNSW, metadata storage)
-- [ ] 12-02b-PLAN.md — Vector indexing pipeline (outbox consumer, checkpoint recovery, admin commands)
-- [ ] 12-03-PLAN.md — gRPC integration (VectorTeleport, HybridSearch, GetVectorIndexStatus RPCs)
-- [ ] 12-04-PLAN.md — CLI and documentation (teleport commands, user guide)
+- [x] 12-01-PLAN.md — Embedding infrastructure (memory-embeddings crate, Candle model, caching)
+- [x] 12-02-PLAN.md — Vector index (memory-vector crate, usearch HNSW, metadata storage)
+- [x] 12-02b-PLAN.md — Vector indexing pipeline (outbox consumer, checkpoint recovery, admin commands)
+- [x] 12-03-PLAN.md — gRPC integration (VectorTeleport, HybridSearch, GetVectorIndexStatus RPCs)
+- [x] 12-04-PLAN.md — CLI and documentation (teleport commands, user guide)
 
 ### Phase 13: Outbox Index Ingestion
 **Goal**: Drive index updates from the existing outbox pattern for rebuildable, crash-safe search indexes
@@ -334,13 +336,16 @@ Plans:
   3. Full index rebuild from storage is supported via admin command
   4. Index state is independent of primary storage (can be deleted and rebuilt)
   5. Indexing is async and doesn't block event ingestion
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
+
+**Documentation:**
+- Research: .planning/phases/13-outbox-index-ingestion/13-RESEARCH.md
 
 Plans:
-- [ ] 13-01: Outbox consumer for indexing (checkpoint tracking)
-- [ ] 13-02: Incremental index updates (add/update documents)
-- [ ] 13-03: Full rebuild command (admin rebuild-indexes)
-- [ ] 13-04: Async indexing pipeline (scheduled via Phase 10)
+- [x] 13-01-PLAN.md — Outbox consumer infrastructure (memory-indexing crate, outbox reading, checkpoint tracking)
+- [x] 13-02-PLAN.md — Incremental index updates (IndexingPipeline, dispatch logic, mock tests)
+- [x] 13-03-PLAN.md — Full rebuild command (admin rebuild-indexes, dry-run support)
+- [x] 13-04-PLAN.md — Scheduler integration (background job, GetIndexingStatus RPC)
 
 ### Phase 14: Topic Graph Memory
 **Goal**: Enable conceptual discovery through semantic topics extracted from TOC summaries with time-decayed importance scoring
@@ -362,17 +367,40 @@ Plans:
 - Technical Plan: docs/plans/topic-graph-memory.md
 
 Plans:
-- [ ] 14-01-PLAN.md — Topic extraction (memory-topics crate, CF_TOPICS, HDBSCAN clustering, cosine similarity)
-- [ ] 14-02-PLAN.md — Topic labeling (LLM integration with keyword fallback, stopword filtering)
-- [ ] 14-03-PLAN.md — Importance scoring (exponential time decay with configurable half-life)
-- [ ] 14-04-PLAN.md — Topic relationships (similarity detection, parent/child hierarchy, cycle prevention)
-- [ ] 14-05-PLAN.md — Navigation RPCs (5 gRPC endpoints: status, query, nodes, top, related)
-- [ ] 14-06-PLAN.md — Lifecycle management (pruning, resurrection, scheduler jobs, CLI commands)
+- [x] 14-01-PLAN.md — Topic extraction (memory-topics crate, CF_TOPICS, HDBSCAN clustering, cosine similarity)
+- [x] 14-02-PLAN.md — Topic labeling (LLM integration with keyword fallback, stopword filtering)
+- [x] 14-03-PLAN.md — Importance scoring (exponential time decay with configurable half-life)
+- [x] 14-04-PLAN.md — Topic relationships (similarity detection, parent/child hierarchy, cycle prevention)
+- [x] 14-05-PLAN.md — Navigation RPCs (5 gRPC endpoints: status, query, nodes, top, related)
+- [x] 14-06-PLAN.md — Lifecycle management (pruning, resurrection, scheduler jobs, CLI commands)
+
+### Phase 15: Configuration Wizard Skills
+**Goal**: Create interactive AskUserQuestion-based configuration wizard skills for advanced storage, LLM, and multi-agent configuration
+**Depends on**: Phase 9 (Setup & Installer Plugin)
+**Requirements**: CONFIG-01, CONFIG-02, CONFIG-03, CONFIG-04
+**Success Criteria** (what must be TRUE):
+  1. `/memory-storage` skill provides interactive wizard for storage paths, retention, cleanup, GDPR mode
+  2. `/memory-llm` skill provides interactive wizard for LLM provider, model discovery, cost estimation, API testing
+  3. `/memory-agents` skill provides interactive wizard for multi-agent mode, agent tagging, cross-agent queries
+  4. All 29 config options are addressable through wizard skills (coverage verified)
+  5. State detection skips already-configured options
+  6. Skills follow existing memory-setup patterns (--minimal, --advanced, --fresh flags)
+**Plans**: 5 plans in 3 waves
+
+**Documentation:**
+- Technical Plan: docs/plans/configuration-wizard-skills-plan.md
+
+Plans:
+- [ ] 15-01-PLAN.md — memory-storage skill (storage paths, retention, cleanup, GDPR, performance tuning)
+- [ ] 15-02-PLAN.md — memory-llm skill (provider, model discovery, API testing, cost estimation, budget)
+- [ ] 15-03-PLAN.md — memory-agents skill (multi-agent mode, agent ID, query scope, team settings)
+- [ ] 15-04-PLAN.md — Reference documentation (retention-policies.md, provider-comparison.md, storage-strategies.md)
+- [ ] 15-05-PLAN.md — Plugin integration and memory-setup updates (marketplace.json, gap resolution)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 10.5 -> 11 -> 12 -> 13 -> 14
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 10.5 -> 11 -> 12 -> 13 -> 14 -> 15
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -386,11 +414,12 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. CCH Hook Integration | 1/1 | Complete | 2026-01-30 |
 | 9. Setup & Installer Plugin | 4/4 | Complete | 2026-01-31 |
 | 10. Background Scheduler | 4/4 | Complete | 2026-01-31 |
-| 10.5. Agentic TOC Search | 0/3 | Planned | - |
-| 11. BM25 Teleport (Tantivy) | 0/4 | Planned | - |
-| 12. Vector Teleport (HNSW) | 0/5 | Planned | - |
-| 13. Outbox Index Ingestion | 0/4 | Planned | - |
-| 14. Topic Graph Memory | 0/6 | Planned | - |
+| 10.5. Agentic TOC Search | 3/3 | Complete | 2026-02-02 |
+| 11. BM25 Teleport (Tantivy) | 4/4 | Complete | 2026-02-02 |
+| 12. Vector Teleport (HNSW) | 5/5 | Complete | 2026-02-02 |
+| 13. Outbox Index Ingestion | 4/4 | Complete | 2026-02-02 |
+| 14. Topic Graph Memory | 6/6 | Complete | 2026-02-02 |
+| 15. Configuration Wizard Skills | 0/5 | Planned | - |
 
 ---
 *Roadmap created: 2026-01-29*
@@ -405,3 +434,10 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 *Phase 14 added: 2026-02-01 (Topic Graph Memory - conceptual enrichment layer)*
 *Total plans: 48 across 15 phases (22 v1.0 + 26 v2.0)*
 *Phase 12 plans created: 2026-02-01 (5 plans including outbox indexing pipeline)*
+*Phase 15 added: 2026-02-01 (Configuration Wizard Skills - AskUserQuestion-based config wizards)*
+*Total plans: 53 across 16 phases (22 v1.0 + 31 v2.0)*
+*Phase 10.5 completed: 2026-02-02 (Agentic TOC Search - 3 plans)*
+*Phase 11 completed: 2026-02-02 (BM25 Teleport - 4 plans)*
+*Phase 12 completed: 2026-02-02 (Vector Teleport - 5 plans)*
+*Phase 13 completed: 2026-02-02 (Outbox Index Ingestion - 4 plans)*
+*Phase 14 completed: 2026-02-02 (Topic Graph Memory - 6 plans)*

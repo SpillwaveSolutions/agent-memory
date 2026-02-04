@@ -17,8 +17,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    let endpoint = std::env::var("MEMORY_ENDPOINT")
-        .unwrap_or_else(|_| "http://[::1]:50051".to_string());
+    let endpoint =
+        std::env::var("MEMORY_ENDPOINT").unwrap_or_else(|_| "http://[::1]:50051".to_string());
 
     println!("Connecting to memory daemon at {}...", endpoint);
 
@@ -54,11 +54,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
              Each grip contains an excerpt and pointers to the original events, \
              providing provenance for summary claims.",
         ),
-        (HookEventType::UserPromptSubmit, "Can you show me a tool use?"),
         (
-            HookEventType::ToolUse,
-            "Reading file /tmp/example.txt...",
+            HookEventType::UserPromptSubmit,
+            "Can you show me a tool use?",
         ),
+        (HookEventType::ToolUse, "Reading file /tmp/example.txt..."),
         (
             HookEventType::ToolResult,
             "File contents: Hello from the example file!",
@@ -78,8 +78,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let hook_event = HookEvent::new(session_id.clone(), event_type.clone(), *content);
 
         // Add tool name for tool events
-        let hook_event = if matches!(event_type, HookEventType::ToolUse | HookEventType::ToolResult)
-        {
+        let hook_event = if matches!(
+            event_type,
+            HookEventType::ToolUse | HookEventType::ToolResult
+        ) {
             hook_event.with_tool_name("Read")
         } else {
             hook_event
@@ -109,7 +111,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!();
     println!("You can now query the events using:");
-    println!("  cargo run --bin memory-daemon -- query --endpoint {} root", endpoint);
+    println!(
+        "  cargo run --bin memory-daemon -- query --endpoint {} root",
+        endpoint
+    );
     println!("  cargo run --bin memory-daemon -- query --endpoint {} events --from <timestamp> --to <timestamp>", endpoint);
 
     Ok(())

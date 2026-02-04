@@ -2,15 +2,15 @@
 //!
 //! Builds TOC nodes from segments and ensures parent nodes exist.
 
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
+use std::sync::Arc;
 use tracing::{debug, info};
 
 use memory_storage::Storage;
 use memory_types::{Segment, TocBullet, TocLevel, TocNode};
 
 use crate::node_id::{generate_node_id, generate_title, get_parent_node_id, get_time_boundaries};
-use crate::summarizer::{extract_grips, Summary, Summarizer, SummarizerError};
+use crate::summarizer::{extract_grips, Summarizer, SummarizerError, Summary};
 
 /// Error type for TOC building.
 #[derive(Debug, thiserror::Error)]
@@ -36,7 +36,10 @@ pub struct TocBuilder {
 impl TocBuilder {
     /// Create a new TocBuilder.
     pub fn new(storage: Arc<Storage>, summarizer: Arc<dyn Summarizer>) -> Self {
-        Self { storage, summarizer }
+        Self {
+            storage,
+            summarizer,
+        }
     }
 
     /// Process a segment and create/update TOC nodes.
@@ -47,7 +50,9 @@ impl TocBuilder {
     /// 3. Extracts grips from events based on bullets (SUMM-03)
     pub async fn process_segment(&self, segment: &Segment) -> Result<TocNode, BuilderError> {
         if segment.events.is_empty() {
-            return Err(BuilderError::InvalidSegment("Segment has no events".to_string()));
+            return Err(BuilderError::InvalidSegment(
+                "Segment has no events".to_string(),
+            ));
         }
 
         info!(
@@ -75,7 +80,9 @@ impl TocBuilder {
             // Link bullet to grip if we know which bullet it supports
             if let Some(bullet_idx) = extracted.bullet_index {
                 if bullet_idx < segment_node.bullets.len() {
-                    segment_node.bullets[bullet_idx].grip_ids.push(grip.grip_id.clone());
+                    segment_node.bullets[bullet_idx]
+                        .grip_ids
+                        .push(grip.grip_id.clone());
                 }
             }
 
@@ -97,16 +104,18 @@ impl TocBuilder {
     }
 
     /// Create a segment-level TOC node.
-    fn create_segment_node(&self, segment: &Segment, summary: &Summary) -> Result<TocNode, BuilderError> {
-        let node_id = format!("toc:segment:{}:{}",
+    fn create_segment_node(
+        &self,
+        segment: &Segment,
+        summary: &Summary,
+    ) -> Result<TocNode, BuilderError> {
+        let node_id = format!(
+            "toc:segment:{}:{}",
             segment.start_time.format("%Y-%m-%d"),
             segment.segment_id.trim_start_matches("seg:")
         );
 
-        let bullets: Vec<TocBullet> = summary.bullets
-            .iter()
-            .map(|s| TocBullet::new(s))
-            .collect();
+        let bullets: Vec<TocBullet> = summary.bullets.iter().map(TocBullet::new).collect();
 
         let mut node = TocNode::new(
             node_id,
@@ -144,7 +153,8 @@ impl TocBuilder {
                     }
                 } else {
                     // Create parent node with placeholder summary
-                    let parent_node = self.create_parent_node(&parent_id, parent_level, child_node, &current_id)?;
+                    let parent_node =
+                        self.create_parent_node(&parent_id, parent_level, child_node, &current_id)?;
                     self.storage.put_toc_node(&parent_node)?;
                     debug!(
                         parent = %parent_id,
@@ -174,13 +184,7 @@ impl TocBuilder {
         let (start_time, end_time) = get_time_boundaries(level, child.start_time);
         let title = generate_title(level, child.start_time);
 
-        let mut node = TocNode::new(
-            parent_id.to_string(),
-            level,
-            title,
-            start_time,
-            end_time,
-        );
+        let mut node = TocNode::new(parent_id.to_string(), level, title, start_time, end_time);
         node.child_node_ids.push(child_id.to_string());
 
         // Placeholder bullet - will be replaced by rollup job
@@ -192,17 +196,19 @@ impl TocBuilder {
     /// Get all segment nodes for a day.
     pub fn get_segments_for_day(&self, date: DateTime<Utc>) -> Result<Vec<TocNode>, BuilderError> {
         let day_id = generate_node_id(TocLevel::Day, date);
-        self.storage.get_child_nodes(&day_id).map_err(BuilderError::from)
+        self.storage
+            .get_child_nodes(&day_id)
+            .map_err(BuilderError::from)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::summarizer::MockSummarizer;
     use chrono::TimeZone;
     use memory_types::{Event, EventRole, EventType};
     use tempfile::TempDir;
-    use crate::summarizer::MockSummarizer;
 
     fn create_test_storage() -> (Arc<Storage>, TempDir) {
         let temp_dir = TempDir::new().unwrap();

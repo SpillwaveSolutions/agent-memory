@@ -24,7 +24,7 @@ use memory_toc::rollup::RollupJob;
 use memory_toc::summarizer::Summarizer;
 use memory_types::TocLevel;
 
-use crate::{JitterConfig, OverlapPolicy, SchedulerError, SchedulerService};
+use crate::{JitterConfig, OverlapPolicy, SchedulerError, SchedulerService, TimeoutConfig};
 
 /// Configuration for TOC rollup jobs.
 ///
@@ -45,6 +45,9 @@ pub struct RollupJobConfig {
 
     /// Max jitter in seconds (default: 300 = 5 min)
     pub jitter_secs: u64,
+
+    /// Timeout in seconds for each rollup job (default: 1800 = 30 minutes)
+    pub timeout_secs: u64,
 }
 
 impl Default for RollupJobConfig {
@@ -55,6 +58,7 @@ impl Default for RollupJobConfig {
             month_cron: "0 0 3 1 * *".to_string(),
             timezone: "UTC".to_string(),
             jitter_secs: 300,
+            timeout_secs: 1800, // 30 minutes
         }
     }
 }
@@ -83,6 +87,8 @@ pub async fn create_rollup_jobs(
     summarizer: Arc<dyn Summarizer>,
     config: RollupJobConfig,
 ) -> Result<(), SchedulerError> {
+    let timeout = TimeoutConfig::new(config.timeout_secs);
+
     // Day rollup job
     let storage_day = storage.clone();
     let summarizer_day = summarizer.clone();
@@ -93,6 +99,7 @@ pub async fn create_rollup_jobs(
             Some(&config.timezone),
             OverlapPolicy::Skip,
             JitterConfig::new(config.jitter_secs),
+            timeout.clone(),
             move || {
                 let storage = storage_day.clone();
                 let summarizer = summarizer_day.clone();
@@ -111,6 +118,7 @@ pub async fn create_rollup_jobs(
             Some(&config.timezone),
             OverlapPolicy::Skip,
             JitterConfig::new(config.jitter_secs),
+            timeout.clone(),
             move || {
                 let storage = storage_week.clone();
                 let summarizer = summarizer_week.clone();
@@ -129,6 +137,7 @@ pub async fn create_rollup_jobs(
             Some(&config.timezone),
             OverlapPolicy::Skip,
             JitterConfig::new(config.jitter_secs),
+            timeout,
             move || {
                 let storage = storage_month.clone();
                 let summarizer = summarizer_month.clone();
@@ -199,6 +208,7 @@ mod tests {
         assert_eq!(config.month_cron, "0 0 3 1 * *");
         assert_eq!(config.timezone, "UTC");
         assert_eq!(config.jitter_secs, 300);
+        assert_eq!(config.timeout_secs, 1800);
     }
 
     #[test]

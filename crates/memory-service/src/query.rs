@@ -8,20 +8,15 @@ use tonic::{Request, Response, Status};
 use tracing::{debug, warn};
 
 use memory_storage::Storage;
-use memory_types::{Event, EventRole, EventType, TocLevel as DomainTocLevel, TocNode as DomainTocNode};
+use memory_types::{
+    Event, EventRole, EventType, TocLevel as DomainTocLevel, TocNode as DomainTocNode,
+};
 
 use crate::pb::{
-    BrowseTocRequest, BrowseTocResponse,
-    Event as ProtoEvent,
-    EventRole as ProtoEventRole,
-    EventType as ProtoEventType,
-    ExpandGripRequest, ExpandGripResponse,
-    GetEventsRequest, GetEventsResponse,
-    GetNodeRequest, GetNodeResponse,
-    GetTocRootRequest, GetTocRootResponse,
-    Grip as ProtoGrip,
-    TocBullet as ProtoTocBullet,
-    TocLevel as ProtoTocLevel,
+    BrowseTocRequest, BrowseTocResponse, Event as ProtoEvent, EventRole as ProtoEventRole,
+    EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, GetEventsRequest,
+    GetEventsResponse, GetNodeRequest, GetNodeResponse, GetTocRootRequest, GetTocRootResponse,
+    Grip as ProtoGrip, TocBullet as ProtoTocBullet, TocLevel as ProtoTocLevel,
     TocNode as ProtoTocNode,
 };
 
@@ -34,14 +29,12 @@ pub async fn get_toc_root(
 ) -> Result<Response<GetTocRootResponse>, Status> {
     debug!("GetTocRoot request");
 
-    let year_nodes = storage.get_toc_nodes_by_level(DomainTocLevel::Year, None, None)
+    let year_nodes = storage
+        .get_toc_nodes_by_level(DomainTocLevel::Year, None, None)
         .map_err(|e| Status::internal(format!("Storage error: {}", e)))?;
 
     // Sort by time descending (most recent first)
-    let mut nodes: Vec<ProtoTocNode> = year_nodes
-        .into_iter()
-        .map(domain_to_proto_node)
-        .collect();
+    let mut nodes: Vec<ProtoTocNode> = year_nodes.into_iter().map(domain_to_proto_node).collect();
     nodes.reverse();
 
     Ok(Response::new(GetTocRootResponse { nodes }))
@@ -61,7 +54,8 @@ pub async fn get_node(
         return Err(Status::invalid_argument("node_id is required"));
     }
 
-    let node = storage.get_toc_node(&req.node_id)
+    let node = storage
+        .get_toc_node(&req.node_id)
         .map_err(|e| Status::internal(format!("Storage error: {}", e)))?;
 
     let proto_node = node.map(domain_to_proto_node);
@@ -77,20 +71,29 @@ pub async fn browse_toc(
     request: Request<BrowseTocRequest>,
 ) -> Result<Response<BrowseTocResponse>, Status> {
     let req = request.into_inner();
-    debug!("BrowseToc request: parent={}, limit={}", req.parent_id, req.limit);
+    debug!(
+        "BrowseToc request: parent={}, limit={}",
+        req.parent_id, req.limit
+    );
 
     if req.parent_id.is_empty() {
         return Err(Status::invalid_argument("parent_id is required"));
     }
 
-    let limit = if req.limit <= 0 { 20 } else { req.limit as usize };
-    let offset: usize = req.continuation_token
+    let limit = if req.limit <= 0 {
+        20
+    } else {
+        req.limit as usize
+    };
+    let offset: usize = req
+        .continuation_token
         .as_ref()
         .and_then(|t| t.parse().ok())
         .unwrap_or(0);
 
     // Get all child nodes
-    let all_children = storage.get_child_nodes(&req.parent_id)
+    let all_children = storage
+        .get_child_nodes(&req.parent_id)
         .map_err(|e| Status::internal(format!("Storage error: {}", e)))?;
 
     // Apply pagination
@@ -125,11 +128,19 @@ pub async fn get_events(
     request: Request<GetEventsRequest>,
 ) -> Result<Response<GetEventsResponse>, Status> {
     let req = request.into_inner();
-    debug!("GetEvents request: from={} to={} limit={}", req.from_timestamp_ms, req.to_timestamp_ms, req.limit);
+    debug!(
+        "GetEvents request: from={} to={} limit={}",
+        req.from_timestamp_ms, req.to_timestamp_ms, req.limit
+    );
 
-    let limit = if req.limit <= 0 { 50 } else { req.limit as usize };
+    let limit = if req.limit <= 0 {
+        50
+    } else {
+        req.limit as usize
+    };
 
-    let raw_events = storage.get_events_in_range(req.from_timestamp_ms, req.to_timestamp_ms)
+    let raw_events = storage
+        .get_events_in_range(req.from_timestamp_ms, req.to_timestamp_ms)
         .map_err(|e| Status::internal(format!("Storage error: {}", e)))?;
 
     let has_more = raw_events.len() > limit;
@@ -189,7 +200,8 @@ pub async fn expand_grip(
     let start_time = grip_time.saturating_sub(time_window_ms);
     let end_time = grip_time.saturating_add(time_window_ms);
 
-    let raw_events = storage.get_events_in_range(start_time, end_time)
+    let raw_events = storage
+        .get_events_in_range(start_time, end_time)
         .map_err(|e| Status::internal(format!("Storage error: {}", e)))?;
 
     // Deserialize events
@@ -272,7 +284,8 @@ fn domain_to_proto_node(node: DomainTocNode) -> ProtoTocNode {
         DomainTocLevel::Segment => ProtoTocLevel::Segment,
     };
 
-    let bullets: Vec<ProtoTocBullet> = node.bullets
+    let bullets: Vec<ProtoTocBullet> = node
+        .bullets
         .into_iter()
         .map(|b| ProtoTocBullet {
             text: b.text,
@@ -282,7 +295,13 @@ fn domain_to_proto_node(node: DomainTocNode) -> ProtoTocNode {
 
     // Generate summary from first bullet text if available
     let summary = if !bullets.is_empty() {
-        Some(bullets.iter().map(|b| b.text.clone()).collect::<Vec<_>>().join(" "))
+        Some(
+            bullets
+                .iter()
+                .map(|b| b.text.clone())
+                .collect::<Vec<_>>()
+                .join(" "),
+        )
     } else {
         None
     };
@@ -335,7 +354,6 @@ fn domain_to_proto_event(event: Event) -> ProtoEvent {
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
-    use memory_types::TocBullet;
     use tempfile::TempDir;
 
     fn create_test_storage() -> (Arc<Storage>, TempDir) {

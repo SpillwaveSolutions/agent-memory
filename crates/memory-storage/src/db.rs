@@ -6,14 +6,18 @@
 //! - Single-key and range reads
 //! - Idempotent writes (ING-03)
 
-use rocksdb::{DB, Options, WriteBatch, IteratorMode, Direction};
+use rocksdb::{Direction, IteratorMode, Options, WriteBatch, DB};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::{debug, info};
 
-use crate::column_families::{build_cf_descriptors, ALL_CF_NAMES, CF_EVENTS, CF_OUTBOX, CF_CHECKPOINTS, CF_TOC_NODES, CF_TOC_LATEST, CF_GRIPS};
+use crate::column_families::{
+    build_cf_descriptors, ALL_CF_NAMES, CF_CHECKPOINTS, CF_EVENTS, CF_GRIPS, CF_OUTBOX,
+    CF_TOC_LATEST, CF_TOC_NODES,
+};
 use crate::error::StorageError;
-use crate::keys::{EventKey, OutboxKey, CheckpointKey};
+use crate::keys::{CheckpointKey, EventKey, OutboxKey};
+use memory_types::OutboxEntry;
 
 // Re-export TocLevel for use in this crate
 pub use memory_types::TocLevel;
@@ -55,7 +59,8 @@ impl Storage {
 
     /// Load the highest outbox sequence number from storage
     fn load_outbox_sequence(db: &DB) -> Result<u64, StorageError> {
-        let cf = db.cf_handle(CF_OUTBOX)
+        let cf = db
+            .cf_handle(CF_OUTBOX)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_OUTBOX.to_string()))?;
 
         // Iterate in reverse to find highest key
@@ -82,9 +87,13 @@ impl Storage {
         event_bytes: &[u8],
         outbox_bytes: &[u8],
     ) -> Result<(EventKey, bool), StorageError> {
-        let events_cf = self.db.cf_handle(CF_EVENTS)
+        let events_cf = self
+            .db
+            .cf_handle(CF_EVENTS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_EVENTS.to_string()))?;
-        let outbox_cf = self.db.cf_handle(CF_OUTBOX)
+        let outbox_cf = self
+            .db
+            .cf_handle(CF_OUTBOX)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_OUTBOX.to_string()))?;
 
         // Parse event_id to get key (ING-03: idempotent using event_id)
@@ -104,14 +113,19 @@ impl Storage {
         batch.put_cf(&outbox_cf, outbox_key.to_bytes(), outbox_bytes);
 
         self.db.write(batch)?;
-        debug!("Stored event {} with outbox seq {}", event_id, outbox_key.sequence);
+        debug!(
+            "Stored event {} with outbox seq {}",
+            event_id, outbox_key.sequence
+        );
 
         Ok((event_key, true))
     }
 
     /// Get an event by its event_id
     pub fn get_event(&self, event_id: &str) -> Result<Option<Vec<u8>>, StorageError> {
-        let events_cf = self.db.cf_handle(CF_EVENTS)
+        let events_cf = self
+            .db
+            .cf_handle(CF_EVENTS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_EVENTS.to_string()))?;
 
         let event_key = EventKey::from_event_id(event_id)?;
@@ -127,7 +141,9 @@ impl Storage {
         start_ms: i64,
         end_ms: i64,
     ) -> Result<Vec<(EventKey, Vec<u8>)>, StorageError> {
-        let events_cf = self.db.cf_handle(CF_EVENTS)
+        let events_cf = self
+            .db
+            .cf_handle(CF_EVENTS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_EVENTS.to_string()))?;
 
         let start_prefix = EventKey::prefix_start(start_ms);
@@ -153,8 +169,14 @@ impl Storage {
     }
 
     /// Store a checkpoint for crash recovery (STOR-03)
-    pub fn put_checkpoint(&self, job_name: &str, checkpoint_bytes: &[u8]) -> Result<(), StorageError> {
-        let cf = self.db.cf_handle(CF_CHECKPOINTS)
+    pub fn put_checkpoint(
+        &self,
+        job_name: &str,
+        checkpoint_bytes: &[u8],
+    ) -> Result<(), StorageError> {
+        let cf = self
+            .db
+            .cf_handle(CF_CHECKPOINTS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_CHECKPOINTS.to_string()))?;
 
         let key = CheckpointKey::new(job_name);
@@ -164,12 +186,86 @@ impl Storage {
 
     /// Get a checkpoint for crash recovery (STOR-03)
     pub fn get_checkpoint(&self, job_name: &str) -> Result<Option<Vec<u8>>, StorageError> {
-        let cf = self.db.cf_handle(CF_CHECKPOINTS)
+        let cf = self
+            .db
+            .cf_handle(CF_CHECKPOINTS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_CHECKPOINTS.to_string()))?;
 
         let key = CheckpointKey::new(job_name);
         let result = self.db.get_cf(&cf, key.to_bytes())?;
         Ok(result)
+    }
+
+    // ==================== Outbox Methods ====================
+
+    /// Get outbox entries starting from a sequence number.
+    ///
+    /// Returns Vec of (sequence, entry) tuples in sequence order.
+    /// Used by indexing pipelines to consume outbox entries.
+    pub fn get_outbox_entries(
+        &self,
+        start_sequence: u64,
+        limit: usize,
+    ) -> Result<Vec<(u64, OutboxEntry)>, StorageError> {
+        let cf = self
+            .db
+            .cf_handle(CF_OUTBOX)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_OUTBOX.to_string()))?;
+
+        let start_key = OutboxKey::new(start_sequence);
+        let iter = self.db.iterator_cf(
+            &cf,
+            IteratorMode::From(&start_key.to_bytes(), Direction::Forward),
+        );
+
+        let mut results = Vec::new();
+        for item in iter.take(limit) {
+            let (key, value) = item?;
+            let outbox_key = OutboxKey::from_bytes(&key)?;
+            let entry = OutboxEntry::from_bytes(&value)
+                .map_err(|e| StorageError::Serialization(e.to_string()))?;
+            results.push((outbox_key.sequence, entry));
+        }
+
+        Ok(results)
+    }
+
+    /// Delete outbox entries up to and including a sequence number.
+    ///
+    /// Used to clean up processed outbox entries after all indexes
+    /// have been updated. Returns count of deleted entries.
+    pub fn delete_outbox_entries(&self, up_to_sequence: u64) -> Result<usize, StorageError> {
+        let cf = self
+            .db
+            .cf_handle(CF_OUTBOX)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_OUTBOX.to_string()))?;
+
+        // Collect keys to delete
+        let iter = self.db.iterator_cf(&cf, IteratorMode::Start);
+        let mut batch = WriteBatch::default();
+        let mut count = 0;
+
+        for item in iter {
+            let (key, _) = item?;
+            let outbox_key = OutboxKey::from_bytes(&key)?;
+
+            if outbox_key.sequence > up_to_sequence {
+                break;
+            }
+
+            batch.delete_cf(&cf, &key);
+            count += 1;
+        }
+
+        if count > 0 {
+            self.db.write(batch)?;
+            debug!(
+                "Deleted {} outbox entries up to sequence {}",
+                count, up_to_sequence
+            );
+        }
+
+        Ok(count)
     }
 
     /// Flush all column families to disk
@@ -189,14 +285,20 @@ impl Storage {
     /// Appends a new version rather than mutating.
     /// Updates toc_latest to point to new version.
     pub fn put_toc_node(&self, node: &memory_types::TocNode) -> Result<(), StorageError> {
-        let nodes_cf = self.db.cf_handle(CF_TOC_NODES)
+        let nodes_cf = self
+            .db
+            .cf_handle(CF_TOC_NODES)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_NODES.to_string()))?;
-        let latest_cf = self.db.cf_handle(CF_TOC_LATEST)
+        let latest_cf = self
+            .db
+            .cf_handle(CF_TOC_LATEST)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_LATEST.to_string()))?;
 
         // Get current version
         let latest_key = format!("latest:{}", node.node_id);
-        let current_version = self.db.get_cf(&latest_cf, &latest_key)?
+        let current_version = self
+            .db
+            .get_cf(&latest_cf, &latest_key)?
             .map(|b| {
                 if b.len() >= 4 {
                     u32::from_be_bytes([b[0], b[1], b[2], b[3]])
@@ -213,13 +315,14 @@ impl Storage {
         let mut versioned_node = node.clone();
         versioned_node.version = new_version;
 
-        let node_bytes = versioned_node.to_bytes()
+        let node_bytes = versioned_node
+            .to_bytes()
             .map_err(|e| StorageError::Serialization(e.to_string()))?;
 
         // Atomic write: node + latest pointer
         let mut batch = WriteBatch::default();
         batch.put_cf(&nodes_cf, versioned_key.as_bytes(), &node_bytes);
-        batch.put_cf(&latest_cf, latest_key.as_bytes(), &new_version.to_be_bytes());
+        batch.put_cf(&latest_cf, latest_key.as_bytes(), new_version.to_be_bytes());
 
         self.db.write(batch)?;
 
@@ -228,10 +331,17 @@ impl Storage {
     }
 
     /// Get the latest version of a TOC node.
-    pub fn get_toc_node(&self, node_id: &str) -> Result<Option<memory_types::TocNode>, StorageError> {
-        let nodes_cf = self.db.cf_handle(CF_TOC_NODES)
+    pub fn get_toc_node(
+        &self,
+        node_id: &str,
+    ) -> Result<Option<memory_types::TocNode>, StorageError> {
+        let nodes_cf = self
+            .db
+            .cf_handle(CF_TOC_NODES)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_NODES.to_string()))?;
-        let latest_cf = self.db.cf_handle(CF_TOC_LATEST)
+        let latest_cf = self
+            .db
+            .cf_handle(CF_TOC_LATEST)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_LATEST.to_string()))?;
 
         // Get latest version number
@@ -260,9 +370,13 @@ impl Storage {
         start_time: Option<chrono::DateTime<chrono::Utc>>,
         end_time: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<Vec<memory_types::TocNode>, StorageError> {
-        let nodes_cf = self.db.cf_handle(CF_TOC_NODES)
+        let nodes_cf = self
+            .db
+            .cf_handle(CF_TOC_NODES)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_NODES.to_string()))?;
-        let latest_cf = self.db.cf_handle(CF_TOC_LATEST)
+        let latest_cf = self
+            .db
+            .cf_handle(CF_TOC_LATEST)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_TOC_LATEST.to_string()))?;
 
         let level_prefix = format!("latest:toc:{}:", level);
@@ -295,7 +409,9 @@ impl Storage {
 
                     // Filter by time range if specified
                     let include = match (start_time, end_time) {
-                        (Some(start), Some(end)) => node.end_time >= start && node.start_time <= end,
+                        (Some(start), Some(end)) => {
+                            node.end_time >= start && node.start_time <= end
+                        }
                         (Some(start), None) => node.end_time >= start,
                         (None, Some(end)) => node.start_time <= end,
                         (None, None) => true,
@@ -315,7 +431,10 @@ impl Storage {
     }
 
     /// Get child nodes of a parent node.
-    pub fn get_child_nodes(&self, parent_node_id: &str) -> Result<Vec<memory_types::TocNode>, StorageError> {
+    pub fn get_child_nodes(
+        &self,
+        parent_node_id: &str,
+    ) -> Result<Vec<memory_types::TocNode>, StorageError> {
         let parent = self.get_toc_node(parent_node_id)?;
         match parent {
             Some(node) => {
@@ -336,18 +455,22 @@ impl Storage {
 
     /// Store a grip.
     pub fn put_grip(&self, grip: &memory_types::Grip) -> Result<(), StorageError> {
-        let grips_cf = self.db.cf_handle(CF_GRIPS)
+        let grips_cf = self
+            .db
+            .cf_handle(CF_GRIPS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
 
-        let grip_bytes = grip.to_bytes()
+        let grip_bytes = grip
+            .to_bytes()
             .map_err(|e| StorageError::Serialization(e.to_string()))?;
 
-        self.db.put_cf(&grips_cf, grip.grip_id.as_bytes(), &grip_bytes)?;
+        self.db
+            .put_cf(&grips_cf, grip.grip_id.as_bytes(), &grip_bytes)?;
 
         // If linked to a TOC node, create index entry
         if let Some(ref node_id) = grip.toc_node_id {
             let index_key = format!("node:{}:{}", node_id, grip.grip_id);
-            self.db.put_cf(&grips_cf, index_key.as_bytes(), &[])?;
+            self.db.put_cf(&grips_cf, index_key.as_bytes(), [])?;
         }
 
         debug!(grip_id = %grip.grip_id, "Stored grip");
@@ -356,7 +479,9 @@ impl Storage {
 
     /// Get a grip by ID.
     pub fn get_grip(&self, grip_id: &str) -> Result<Option<memory_types::Grip>, StorageError> {
-        let grips_cf = self.db.cf_handle(CF_GRIPS)
+        let grips_cf = self
+            .db
+            .cf_handle(CF_GRIPS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
 
         match self.db.get_cf(&grips_cf, grip_id.as_bytes())? {
@@ -370,8 +495,13 @@ impl Storage {
     }
 
     /// Get all grips linked to a TOC node.
-    pub fn get_grips_for_node(&self, node_id: &str) -> Result<Vec<memory_types::Grip>, StorageError> {
-        let grips_cf = self.db.cf_handle(CF_GRIPS)
+    pub fn get_grips_for_node(
+        &self,
+        node_id: &str,
+    ) -> Result<Vec<memory_types::Grip>, StorageError> {
+        let grips_cf = self
+            .db
+            .cf_handle(CF_GRIPS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
 
         let prefix = format!("node:{}:", node_id);
@@ -403,7 +533,9 @@ impl Storage {
 
     /// Delete a grip and its index entry.
     pub fn delete_grip(&self, grip_id: &str) -> Result<(), StorageError> {
-        let grips_cf = self.db.cf_handle(CF_GRIPS)
+        let grips_cf = self
+            .db
+            .cf_handle(CF_GRIPS)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
 
         // Get grip first to find index entry
@@ -422,6 +554,80 @@ impl Storage {
         Ok(())
     }
 
+    // ===== Generic Column Family Operations =====
+
+    /// Put a value into a specific column family.
+    ///
+    /// This is a low-level method for use by other crates that manage their own
+    /// column families (e.g., memory-topics).
+    pub fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<(), StorageError> {
+        let cf = self
+            .db
+            .cf_handle(cf_name)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(cf_name.to_string()))?;
+        self.db.put_cf(&cf, key, value)?;
+        Ok(())
+    }
+
+    /// Get a value from a specific column family.
+    ///
+    /// This is a low-level method for use by other crates that manage their own
+    /// column families (e.g., memory-topics).
+    pub fn get(&self, cf_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>, StorageError> {
+        let cf = self
+            .db
+            .cf_handle(cf_name)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(cf_name.to_string()))?;
+        let result = self.db.get_cf(&cf, key)?;
+        Ok(result)
+    }
+
+    /// Delete a value from a specific column family.
+    ///
+    /// This is a low-level method for use by other crates that manage their own
+    /// column families (e.g., memory-topics).
+    pub fn delete(&self, cf_name: &str, key: &[u8]) -> Result<(), StorageError> {
+        let cf = self
+            .db
+            .cf_handle(cf_name)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(cf_name.to_string()))?;
+        self.db.delete_cf(&cf, key)?;
+        Ok(())
+    }
+
+    /// Iterate over entries with a given prefix in a column family.
+    ///
+    /// Returns an iterator of (key, value) pairs.
+    /// This is a low-level method for use by other crates that manage their own
+    /// column families (e.g., memory-topics).
+    #[allow(clippy::type_complexity)]
+    pub fn prefix_iterator(
+        &self,
+        cf_name: &str,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
+        let cf = self
+            .db
+            .cf_handle(cf_name)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(cf_name.to_string()))?;
+
+        let mut results = Vec::new();
+        let iter = self
+            .db
+            .iterator_cf(&cf, IteratorMode::From(prefix, Direction::Forward));
+
+        for item in iter {
+            let (key, value) = item?;
+            // Stop if we've passed the prefix
+            if !key.starts_with(prefix) {
+                break;
+            }
+            results.push((key.to_vec(), value.to_vec()));
+        }
+
+        Ok(results)
+    }
+
     // ===== Admin Operations =====
 
     /// Trigger manual compaction on all column families.
@@ -431,7 +637,14 @@ impl Storage {
         info!("Starting full compaction...");
         self.db.compact_range::<&[u8], &[u8]>(None, None);
 
-        for cf_name in &[CF_EVENTS, CF_TOC_NODES, CF_TOC_LATEST, CF_GRIPS, CF_OUTBOX, CF_CHECKPOINTS] {
+        for cf_name in &[
+            CF_EVENTS,
+            CF_TOC_NODES,
+            CF_TOC_LATEST,
+            CF_GRIPS,
+            CF_OUTBOX,
+            CF_CHECKPOINTS,
+        ] {
             if let Some(cf) = self.db.cf_handle(cf_name) {
                 self.db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
             }
@@ -442,7 +655,9 @@ impl Storage {
 
     /// Trigger compaction on a specific column family.
     pub fn compact_cf(&self, cf_name: &str) -> Result<(), StorageError> {
-        let cf = self.db.cf_handle(cf_name)
+        let cf = self
+            .db
+            .cf_handle(cf_name)
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(cf_name.to_string()))?;
         info!(cf = %cf_name, "Starting compaction...");
         self.db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
@@ -458,22 +673,22 @@ impl Storage {
 
         // Count events
         if let Some(cf) = self.db.cf_handle(CF_EVENTS) {
-            stats.event_count = self.count_cf_entries(&cf)?;
+            stats.event_count = self.count_cf_entries(cf)?;
         }
 
         // Count TOC nodes
         if let Some(cf) = self.db.cf_handle(CF_TOC_NODES) {
-            stats.toc_node_count = self.count_cf_entries(&cf)?;
+            stats.toc_node_count = self.count_cf_entries(cf)?;
         }
 
         // Count grips
         if let Some(cf) = self.db.cf_handle(CF_GRIPS) {
-            stats.grip_count = self.count_cf_entries(&cf)?;
+            stats.grip_count = self.count_cf_entries(cf)?;
         }
 
         // Count outbox entries
         if let Some(cf) = self.db.cf_handle(CF_OUTBOX) {
-            stats.outbox_count = self.count_cf_entries(&cf)?;
+            stats.outbox_count = self.count_cf_entries(cf)?;
         }
 
         // Get disk usage
@@ -539,7 +754,11 @@ mod tests {
         let (storage, _temp) = create_test_storage();
         // Verify all CFs exist by trying to get handles
         for cf_name in ALL_CF_NAMES {
-            assert!(storage.db.cf_handle(cf_name).is_some(), "CF {} should exist", cf_name);
+            assert!(
+                storage.db.cf_handle(cf_name).is_some(),
+                "CF {} should exist",
+                cf_name
+            );
         }
     }
 
@@ -551,7 +770,9 @@ mod tests {
         let event_bytes = b"test event data";
         let outbox_bytes = b"outbox entry";
 
-        let (key, created) = storage.put_event(&event_id, event_bytes, outbox_bytes).unwrap();
+        let (key, created) = storage
+            .put_event(&event_id, event_bytes, outbox_bytes)
+            .unwrap();
         assert!(created);
         assert_eq!(key.event_id(), event_id);
 
@@ -567,8 +788,12 @@ mod tests {
         let event_bytes = b"test event data";
         let outbox_bytes = b"outbox entry";
 
-        let (_, created1) = storage.put_event(&event_id, event_bytes, outbox_bytes).unwrap();
-        let (_, created2) = storage.put_event(&event_id, event_bytes, outbox_bytes).unwrap();
+        let (_, created1) = storage
+            .put_event(&event_id, event_bytes, outbox_bytes)
+            .unwrap();
+        let (_, created2) = storage
+            .put_event(&event_id, event_bytes, outbox_bytes)
+            .unwrap();
 
         assert!(created1);
         assert!(!created2); // Second write should be idempotent
@@ -587,9 +812,15 @@ mod tests {
         let ulid2 = ulid::Ulid::from_parts(ts2 as u64, rand::random());
         let ulid3 = ulid::Ulid::from_parts(ts3 as u64, rand::random());
 
-        storage.put_event(&ulid1.to_string(), b"event1", b"outbox1").unwrap();
-        storage.put_event(&ulid2.to_string(), b"event2", b"outbox2").unwrap();
-        storage.put_event(&ulid3.to_string(), b"event3", b"outbox3").unwrap();
+        storage
+            .put_event(&ulid1.to_string(), b"event1", b"outbox1")
+            .unwrap();
+        storage
+            .put_event(&ulid2.to_string(), b"event2", b"outbox2")
+            .unwrap();
+        storage
+            .put_event(&ulid3.to_string(), b"event3", b"outbox3")
+            .unwrap();
 
         // Query range [1500, 2500) should only get event2
         let results = storage.get_events_in_range(1500, 2500).unwrap();
@@ -695,7 +926,9 @@ mod tests {
             chrono::Utc::now(),
             chrono::Utc::now(),
         );
-        parent.child_node_ids.push("toc:segment:2024-01-15:abc123".to_string());
+        parent
+            .child_node_ids
+            .push("toc:segment:2024-01-15:abc123".to_string());
         storage.put_toc_node(&parent).unwrap();
 
         // Get children
@@ -736,7 +969,8 @@ mod tests {
             "event-015".to_string(),
             chrono::Utc::now(),
             "segment_summarizer".to_string(),
-        ).with_toc_node("toc:day:2024-01-29".to_string());
+        )
+        .with_toc_node("toc:day:2024-01-29".to_string());
 
         storage.put_grip(&grip).unwrap();
 
@@ -764,16 +998,157 @@ mod tests {
             "event-002".to_string(),
             chrono::Utc::now(),
             "test".to_string(),
-        ).with_toc_node("toc:day:2024-01-30".to_string());
+        )
+        .with_toc_node("toc:day:2024-01-30".to_string());
 
         storage.put_grip(&grip).unwrap();
-        assert!(storage.get_grip("grip:1706540400000:del123").unwrap().is_some());
+        assert!(storage
+            .get_grip("grip:1706540400000:del123")
+            .unwrap()
+            .is_some());
 
         storage.delete_grip("grip:1706540400000:del123").unwrap();
-        assert!(storage.get_grip("grip:1706540400000:del123").unwrap().is_none());
+        assert!(storage
+            .get_grip("grip:1706540400000:del123")
+            .unwrap()
+            .is_none());
 
         // Index should also be deleted
         let grips = storage.get_grips_for_node("toc:day:2024-01-30").unwrap();
         assert!(grips.is_empty());
+    }
+
+    // ==================== Outbox Tests ====================
+
+    #[test]
+    fn test_get_outbox_entries_empty() {
+        let (storage, _temp) = create_test_storage();
+
+        let entries = storage.get_outbox_entries(0, 10).unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_get_outbox_entries_after_event() {
+        let (storage, _temp) = create_test_storage();
+
+        // Create an event which also creates an outbox entry
+        let event_id = ulid::Ulid::new().to_string();
+        let outbox_entry = memory_types::OutboxEntry::for_index(event_id.clone(), 1000);
+        let outbox_bytes = outbox_entry.to_bytes().unwrap();
+
+        storage
+            .put_event(&event_id, b"test event", &outbox_bytes)
+            .unwrap();
+
+        // Read outbox entries
+        let entries = storage.get_outbox_entries(0, 10).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, 0); // First sequence is 0
+        assert_eq!(entries[0].1.event_id, event_id);
+    }
+
+    #[test]
+    fn test_get_outbox_entries_with_limit() {
+        let (storage, _temp) = create_test_storage();
+
+        // Create multiple events
+        for i in 0..5 {
+            let event_id = ulid::Ulid::new().to_string();
+            let outbox_entry = memory_types::OutboxEntry::for_index(event_id.clone(), i * 1000);
+            let outbox_bytes = outbox_entry.to_bytes().unwrap();
+            storage
+                .put_event(&event_id, b"test", &outbox_bytes)
+                .unwrap();
+        }
+
+        // Read with limit
+        let entries = storage.get_outbox_entries(0, 3).unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].0, 0);
+        assert_eq!(entries[1].0, 1);
+        assert_eq!(entries[2].0, 2);
+    }
+
+    #[test]
+    fn test_get_outbox_entries_from_offset() {
+        let (storage, _temp) = create_test_storage();
+
+        // Create multiple events
+        let mut event_ids = Vec::new();
+        for i in 0..5 {
+            let event_id = ulid::Ulid::new().to_string();
+            event_ids.push(event_id.clone());
+            let outbox_entry = memory_types::OutboxEntry::for_index(event_id.clone(), i * 1000);
+            let outbox_bytes = outbox_entry.to_bytes().unwrap();
+            storage
+                .put_event(&event_id, b"test", &outbox_bytes)
+                .unwrap();
+        }
+
+        // Read starting from sequence 2
+        let entries = storage.get_outbox_entries(2, 10).unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].0, 2);
+        assert_eq!(entries[0].1.event_id, event_ids[2]);
+        assert_eq!(entries[1].0, 3);
+        assert_eq!(entries[2].0, 4);
+    }
+
+    #[test]
+    fn test_delete_outbox_entries() {
+        let (storage, _temp) = create_test_storage();
+
+        // Create multiple events
+        for i in 0..5 {
+            let event_id = ulid::Ulid::new().to_string();
+            let outbox_entry = memory_types::OutboxEntry::for_index(event_id.clone(), i * 1000);
+            let outbox_bytes = outbox_entry.to_bytes().unwrap();
+            storage
+                .put_event(&event_id, b"test", &outbox_bytes)
+                .unwrap();
+        }
+
+        // Delete entries up to sequence 2 (inclusive)
+        let deleted = storage.delete_outbox_entries(2).unwrap();
+        assert_eq!(deleted, 3); // Sequences 0, 1, 2
+
+        // Verify remaining entries
+        let entries = storage.get_outbox_entries(0, 10).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0, 3);
+        assert_eq!(entries[1].0, 4);
+    }
+
+    #[test]
+    fn test_delete_outbox_entries_none() {
+        let (storage, _temp) = create_test_storage();
+
+        // Delete from empty outbox
+        let deleted = storage.delete_outbox_entries(10).unwrap();
+        assert_eq!(deleted, 0);
+    }
+
+    #[test]
+    fn test_delete_outbox_entries_all() {
+        let (storage, _temp) = create_test_storage();
+
+        // Create multiple events
+        for i in 0..3 {
+            let event_id = ulid::Ulid::new().to_string();
+            let outbox_entry = memory_types::OutboxEntry::for_index(event_id.clone(), i * 1000);
+            let outbox_bytes = outbox_entry.to_bytes().unwrap();
+            storage
+                .put_event(&event_id, b"test", &outbox_bytes)
+                .unwrap();
+        }
+
+        // Delete all entries
+        let deleted = storage.delete_outbox_entries(100).unwrap();
+        assert_eq!(deleted, 3);
+
+        // Verify all gone
+        let entries = storage.get_outbox_entries(0, 10).unwrap();
+        assert!(entries.is_empty());
     }
 }

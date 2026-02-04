@@ -22,8 +22,8 @@ use anyhow::Result;
 use clap::Parser;
 
 use memory_daemon::{
-    handle_admin, handle_query, handle_scheduler, show_status, start_daemon, stop_daemon, Cli,
-    Commands,
+    handle_admin, handle_query, handle_scheduler, handle_teleport_command, handle_topics_command,
+    show_status, start_daemon, stop_daemon, Cli, Commands,
 };
 
 #[tokio::main]
@@ -59,6 +59,12 @@ async fn main() -> Result<()> {
         }
         Commands::Scheduler { endpoint, command } => {
             handle_scheduler(&endpoint, command).await?;
+        }
+        Commands::Teleport(cmd) => {
+            handle_teleport_command(cmd).await?;
+        }
+        Commands::Topics(cmd) => {
+            handle_topics_command(cmd).await?;
         }
     }
 

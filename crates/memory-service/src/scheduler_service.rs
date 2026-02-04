@@ -146,7 +146,7 @@ impl SchedulerGrpcService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use memory_scheduler::{JitterConfig, OverlapPolicy, SchedulerConfig};
+    use memory_scheduler::{JitterConfig, OverlapPolicy, SchedulerConfig, TimeoutConfig};
 
     async fn create_test_scheduler() -> Arc<SchedulerService> {
         let config = SchedulerConfig::default();
@@ -178,6 +178,7 @@ mod tests {
                 None,
                 OverlapPolicy::Skip,
                 JitterConfig::none(),
+                TimeoutConfig::none(),
                 || async { Ok(()) },
             )
             .await
@@ -206,6 +207,7 @@ mod tests {
                 None,
                 OverlapPolicy::Skip,
                 JitterConfig::none(),
+                TimeoutConfig::none(),
                 || async { Ok(()) },
             )
             .await
@@ -250,6 +252,7 @@ mod tests {
                 None,
                 OverlapPolicy::Skip,
                 JitterConfig::none(),
+                TimeoutConfig::none(),
                 || async { Ok(()) },
             )
             .await

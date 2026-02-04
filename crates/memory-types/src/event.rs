@@ -167,7 +167,8 @@ mod tests {
             EventType::ToolResult,
             EventRole::Tool,
             "File contents here".to_string(),
-        ).with_metadata(metadata);
+        )
+        .with_metadata(metadata);
 
         assert_eq!(event.metadata.get("tool_name"), Some(&"Read".to_string()));
     }

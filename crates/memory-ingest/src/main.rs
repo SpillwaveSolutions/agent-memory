@@ -127,7 +127,7 @@ fn main() {
         }
     };
 
-    let _ = rt.block_on(async {
+    rt.block_on(async {
         if let Ok(mut client) = MemoryClient::connect_default().await {
             // Ignore result - fail-open
             let _ = client.ingest(event).await;
@@ -190,17 +190,44 @@ mod tests {
 
     #[test]
     fn test_map_cch_event_type_all_types() {
-        assert!(matches!(map_cch_event_type("SessionStart"), HookEventType::SessionStart));
-        assert!(matches!(map_cch_event_type("UserPromptSubmit"), HookEventType::UserPromptSubmit));
-        assert!(matches!(map_cch_event_type("AssistantResponse"), HookEventType::AssistantResponse));
-        assert!(matches!(map_cch_event_type("PreToolUse"), HookEventType::ToolUse));
-        assert!(matches!(map_cch_event_type("PostToolUse"), HookEventType::ToolResult));
+        assert!(matches!(
+            map_cch_event_type("SessionStart"),
+            HookEventType::SessionStart
+        ));
+        assert!(matches!(
+            map_cch_event_type("UserPromptSubmit"),
+            HookEventType::UserPromptSubmit
+        ));
+        assert!(matches!(
+            map_cch_event_type("AssistantResponse"),
+            HookEventType::AssistantResponse
+        ));
+        assert!(matches!(
+            map_cch_event_type("PreToolUse"),
+            HookEventType::ToolUse
+        ));
+        assert!(matches!(
+            map_cch_event_type("PostToolUse"),
+            HookEventType::ToolResult
+        ));
         assert!(matches!(map_cch_event_type("Stop"), HookEventType::Stop));
-        assert!(matches!(map_cch_event_type("SessionEnd"), HookEventType::Stop));
-        assert!(matches!(map_cch_event_type("SubagentStart"), HookEventType::SubagentStart));
-        assert!(matches!(map_cch_event_type("SubagentStop"), HookEventType::SubagentStop));
+        assert!(matches!(
+            map_cch_event_type("SessionEnd"),
+            HookEventType::Stop
+        ));
+        assert!(matches!(
+            map_cch_event_type("SubagentStart"),
+            HookEventType::SubagentStart
+        ));
+        assert!(matches!(
+            map_cch_event_type("SubagentStop"),
+            HookEventType::SubagentStop
+        ));
         // Unknown defaults to UserPromptSubmit
-        assert!(matches!(map_cch_event_type("UnknownType"), HookEventType::UserPromptSubmit));
+        assert!(matches!(
+            map_cch_event_type("UnknownType"),
+            HookEventType::UserPromptSubmit
+        ));
     }
 
     #[test]

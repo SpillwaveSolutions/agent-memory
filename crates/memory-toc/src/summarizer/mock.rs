@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use memory_types::Event;
 
-use super::{Summary, Summarizer, SummarizerError};
+use super::{Summarizer, SummarizerError, Summary};
 
 /// Mock summarizer that generates deterministic summaries.
 ///
@@ -47,11 +47,7 @@ impl Summarizer for MockSummarizer {
         let first_event = &events[0];
         let last_event = &events[events.len() - 1];
 
-        let title = format!(
-            "{} {} events",
-            self.title_prefix,
-            events.len()
-        );
+        let title = format!("{} {} events", self.title_prefix, events.len());
 
         let bullets = vec![
             format!("First message: {}", truncate(&first_event.text, 50)),
@@ -70,11 +66,7 @@ impl Summarizer for MockSummarizer {
             return Err(SummarizerError::NoEvents);
         }
 
-        let title = format!(
-            "{} {} child summaries",
-            self.title_prefix,
-            summaries.len()
-        );
+        let title = format!("{} {} child summaries", self.title_prefix, summaries.len());
 
         // Collect bullets from children (first bullet from each)
         let bullets: Vec<String> = summaries
@@ -84,10 +76,8 @@ impl Summarizer for MockSummarizer {
             .collect();
 
         // Merge keywords from all children
-        let mut all_keywords: Vec<String> = summaries
-            .iter()
-            .flat_map(|s| s.keywords.clone())
-            .collect();
+        let mut all_keywords: Vec<String> =
+            summaries.iter().flat_map(|s| s.keywords.clone()).collect();
         all_keywords.sort();
         all_keywords.dedup();
         let keywords = all_keywords.into_iter().take(7).collect();
@@ -107,7 +97,11 @@ fn truncate(text: &str, max_len: usize) -> String {
 
 /// Extract mock keywords from events (simple word extraction).
 fn extract_mock_keywords(events: &[Event]) -> Vec<String> {
-    let all_text: String = events.iter().map(|e| e.text.as_str()).collect::<Vec<_>>().join(" ");
+    let all_text: String = events
+        .iter()
+        .map(|e| e.text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
 
     // Simple keyword extraction: split by whitespace, filter short words
     let words: Vec<String> = all_text
@@ -118,7 +112,8 @@ fn extract_mock_keywords(events: &[Event]) -> Vec<String> {
         .collect();
 
     // Count and sort by frequency
-    let mut word_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut word_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for word in words {
         *word_counts.entry(word).or_insert(0) += 1;
     }
@@ -132,9 +127,9 @@ fn extract_mock_keywords(events: &[Event]) -> Vec<String> {
 /// Check if word is a common stopword.
 fn is_stopword(word: &str) -> bool {
     const STOPWORDS: &[&str] = &[
-        "the", "and", "for", "that", "this", "with", "from", "have", "has",
-        "been", "were", "will", "would", "could", "should", "there", "their",
-        "what", "when", "where", "which", "about", "into", "through",
+        "the", "and", "for", "that", "this", "with", "from", "have", "has", "been", "were", "will",
+        "would", "could", "should", "there", "their", "what", "when", "where", "which", "about",
+        "into", "through",
     ];
     STOPWORDS.contains(&word)
 }

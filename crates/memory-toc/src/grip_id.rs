@@ -22,8 +22,10 @@ pub fn parse_grip_timestamp(grip_id: &str) -> Option<DateTime<Utc>> {
         return None;
     }
 
-    parts[1].parse::<i64>().ok()
-        .and_then(|ms| chrono::DateTime::from_timestamp_millis(ms))
+    parts[1]
+        .parse::<i64>()
+        .ok()
+        .and_then(chrono::DateTime::from_timestamp_millis)
 }
 
 /// Check if a string is a valid grip ID format.

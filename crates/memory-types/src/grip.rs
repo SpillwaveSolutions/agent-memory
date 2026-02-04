@@ -87,7 +87,8 @@ mod tests {
             "event-003".to_string(),
             Utc::now(),
             "segment_summarizer".to_string(),
-        ).with_toc_node("toc-day-20240115".to_string());
+        )
+        .with_toc_node("toc-day-20240115".to_string());
 
         let bytes = grip.to_bytes().unwrap();
         let decoded = Grip::from_bytes(&bytes).unwrap();

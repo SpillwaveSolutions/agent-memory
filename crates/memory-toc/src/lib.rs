@@ -7,6 +7,7 @@
 //! - Node ID generation
 //! - Grip ID generation and provenance
 //! - Grip expansion for context retrieval (GRIP-04)
+//! - TOC node search with term-overlap scoring (Phase 10.5)
 
 pub mod builder;
 pub mod config;
@@ -14,14 +15,18 @@ pub mod expand;
 pub mod grip_id;
 pub mod node_id;
 pub mod rollup;
+pub mod search;
 pub mod segmenter;
 pub mod summarizer;
 
 pub use builder::{BuilderError, TocBuilder};
 pub use config::{SegmentationConfig, TocConfig};
-pub use expand::{expand_grip, ExpandConfig, ExpandedGrip, ExpandError, GripExpander};
+pub use expand::{expand_grip, ExpandConfig, ExpandError, ExpandedGrip, GripExpander};
 pub use grip_id::{generate_grip_id, is_valid_grip_id, parse_grip_timestamp};
 pub use node_id::{generate_node_id, generate_title, get_parent_node_id, parse_level};
-pub use rollup::{RollupCheckpoint, RollupError, RollupJob, run_all_rollups};
+pub use rollup::{run_all_rollups, RollupCheckpoint, RollupError, RollupJob};
+pub use search::{search_node, term_overlap_score, SearchField, SearchMatch};
 pub use segmenter::{segment_events, SegmentBuilder, TokenCounter};
-pub use summarizer::{ApiSummarizer, ApiSummarizerConfig, MockSummarizer, Summary, Summarizer, SummarizerError};
+pub use summarizer::{
+    ApiSummarizer, ApiSummarizerConfig, MockSummarizer, Summarizer, SummarizerError, Summary,
+};

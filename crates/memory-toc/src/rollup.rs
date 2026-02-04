@@ -3,15 +3,15 @@
 //! Per TOC-05: Day/Week/Month rollup jobs with checkpointing.
 //! Per SUMM-04: Rollup summarizer aggregates child node summaries.
 
-use std::sync::Arc;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tracing::{debug, info};
 
 use memory_storage::Storage;
 use memory_types::{TocBullet, TocLevel, TocNode};
 
-use crate::summarizer::{Summary, Summarizer, SummarizerError};
+use crate::summarizer::{Summarizer, SummarizerError, Summary};
 
 /// Checkpoint for rollup job crash recovery.
 ///
@@ -101,15 +101,32 @@ impl RollupJob {
     }
 
     /// Create rollup jobs for all levels.
-    pub fn create_all(
-        storage: Arc<Storage>,
-        summarizer: Arc<dyn Summarizer>,
-    ) -> Vec<Self> {
+    pub fn create_all(storage: Arc<Storage>, summarizer: Arc<dyn Summarizer>) -> Vec<Self> {
         vec![
-            Self::new(storage.clone(), summarizer.clone(), TocLevel::Day, Duration::hours(1)),
-            Self::new(storage.clone(), summarizer.clone(), TocLevel::Week, Duration::hours(24)),
-            Self::new(storage.clone(), summarizer.clone(), TocLevel::Month, Duration::hours(24)),
-            Self::new(storage.clone(), summarizer.clone(), TocLevel::Year, Duration::days(7)),
+            Self::new(
+                storage.clone(),
+                summarizer.clone(),
+                TocLevel::Day,
+                Duration::hours(1),
+            ),
+            Self::new(
+                storage.clone(),
+                summarizer.clone(),
+                TocLevel::Week,
+                Duration::hours(24),
+            ),
+            Self::new(
+                storage.clone(),
+                summarizer.clone(),
+                TocLevel::Month,
+                Duration::hours(24),
+            ),
+            Self::new(
+                storage.clone(),
+                summarizer.clone(),
+                TocLevel::Year,
+                Duration::days(7),
+            ),
         ]
     }
 
@@ -122,15 +139,15 @@ impl RollupJob {
 
         // Load checkpoint
         let checkpoint = self.load_checkpoint(&job_name)?;
-        let start_time = checkpoint.map(|c| c.last_processed_time).unwrap_or(DateTime::<Utc>::MIN_UTC);
+        let start_time = checkpoint
+            .map(|c| c.last_processed_time)
+            .unwrap_or(DateTime::<Utc>::MIN_UTC);
 
         // Get nodes at this level that need rollup
         let cutoff_time = Utc::now() - self.min_age;
-        let nodes = self.storage.get_toc_nodes_by_level(
-            self.level,
-            Some(start_time),
-            Some(cutoff_time),
-        )?;
+        let nodes =
+            self.storage
+                .get_toc_nodes_by_level(self.level, Some(start_time), Some(cutoff_time))?;
 
         let mut processed = 0;
 
@@ -154,11 +171,13 @@ impl RollupJob {
             // Convert children to summaries
             let summaries: Vec<Summary> = children
                 .iter()
-                .map(|c| Summary::new(
-                    c.title.clone(),
-                    c.bullets.iter().map(|b| b.text.clone()).collect(),
-                    c.keywords.clone(),
-                ))
+                .map(|c| {
+                    Summary::new(
+                        c.title.clone(),
+                        c.bullets.iter().map(|b| b.text.clone()).collect(),
+                        c.keywords.clone(),
+                    )
+                })
                 .collect();
 
             // Generate rollup summary
@@ -167,7 +186,8 @@ impl RollupJob {
             // Update node with rollup summary
             let mut updated_node = node.clone();
             updated_node.title = rollup_summary.title;
-            updated_node.bullets = rollup_summary.bullets
+            updated_node.bullets = rollup_summary
+                .bullets
                 .into_iter()
                 .map(TocBullet::new)
                 .collect();
@@ -220,7 +240,8 @@ impl RollupJob {
             created_at: Utc::now(),
         };
 
-        let bytes = checkpoint.to_bytes()
+        let bytes = checkpoint
+            .to_bytes()
             .map_err(|e| RollupError::Checkpoint(e.to_string()))?;
 
         self.storage.put_checkpoint(job_name, &bytes)?;
@@ -246,11 +267,11 @@ pub async fn run_all_rollups(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::builder::TocBuilder;
+    use crate::summarizer::MockSummarizer;
+    use chrono::TimeZone;
     use memory_types::{Event, EventRole, EventType, Segment};
     use tempfile::TempDir;
-    use chrono::TimeZone;
-    use crate::summarizer::MockSummarizer;
-    use crate::builder::TocBuilder;
 
     fn create_test_storage() -> (Arc<Storage>, TempDir) {
         let temp_dir = TempDir::new().unwrap();
@@ -307,16 +328,14 @@ mod tests {
 
         // Create segment in the past
         let past_time = Utc::now() - Duration::days(2);
-        let events = vec![
-            Event::new(
-                ulid::Ulid::new().to_string(),
-                "session".to_string(),
-                past_time,
-                EventType::UserMessage,
-                EventRole::User,
-                "Test event".to_string(),
-            ),
-        ];
+        let events = vec![Event::new(
+            ulid::Ulid::new().to_string(),
+            "session".to_string(),
+            past_time,
+            EventType::UserMessage,
+            EventRole::User,
+            "Test event".to_string(),
+        )];
         let segment = Segment::new(
             "seg:test".to_string(),
             events.clone(),
@@ -338,6 +357,7 @@ mod tests {
         let result = job.run().await.unwrap();
         // Result depends on whether the day node has children
         // This tests the basic flow works without errors
-        assert!(result >= 0);
+        // result is a count of nodes processed
+        let _ = result;
     }
 }

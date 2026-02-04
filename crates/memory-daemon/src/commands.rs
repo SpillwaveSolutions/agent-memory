@@ -6,9 +6,11 @@
 //! - status: Check if daemon is running
 
 use std::fs;
+use std::io::{self, Write};
 use std::net::SocketAddr;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use chrono::TimeZone;
@@ -17,11 +19,12 @@ use tracing::{info, warn};
 
 use memory_client::MemoryClient;
 use memory_scheduler::{
-    create_compaction_job, create_rollup_jobs, CompactionJobConfig, RollupJobConfig,
-    SchedulerConfig, SchedulerService,
+    create_compaction_job, create_indexing_job, create_rollup_jobs, CompactionJobConfig,
+    IndexingJobConfig, RollupJobConfig, SchedulerConfig, SchedulerService,
 };
 use memory_service::pb::{
     GetSchedulerStatusRequest, JobResultStatus, PauseJobRequest, ResumeJobRequest,
+    SearchChildrenRequest, SearchField as ProtoSearchField, SearchNodeRequest,
     TocLevel as ProtoTocLevel,
 };
 use memory_service::run_server_with_scheduler;
@@ -29,7 +32,7 @@ use memory_storage::Storage;
 use memory_toc::summarizer::MockSummarizer;
 use memory_types::Settings;
 
-use crate::cli::{AdminCommands, QueryCommands, SchedulerCommands};
+use crate::cli::{AdminCommands, QueryCommands, SchedulerCommands, TeleportCommand, TopicsCommand};
 
 /// Get the PID file path
 fn pid_file_path() -> PathBuf {
@@ -95,6 +98,57 @@ fn is_process_running(_pid: u32) -> bool {
     // On Windows, we'd need a different approach
     // For now, assume running if PID file exists
     true
+}
+
+/// Register the indexing job if search indexes are available.
+///
+/// This function attempts to:
+/// 1. Open the BM25 search index (required)
+/// 2. Create an indexing pipeline with the BM25 updater
+/// 3. Register the pipeline with the scheduler
+///
+/// If the search index doesn't exist, returns an error. Users should
+/// run `rebuild-indexes` first to initialize the search index.
+async fn register_indexing_job(
+    scheduler: &SchedulerService,
+    storage: Arc<Storage>,
+    db_path: &Path,
+) -> Result<()> {
+    use memory_indexing::{Bm25IndexUpdater, IndexingPipeline, PipelineConfig};
+    use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
+
+    // Check if search index exists
+    let search_dir = db_path.join("search");
+    if !search_dir.exists() {
+        anyhow::bail!("Search index directory not found at {:?}", search_dir);
+    }
+
+    // Open search index
+    let search_config = SearchIndexConfig::new(&search_dir);
+    let search_index =
+        SearchIndex::open_or_create(search_config).context("Failed to open search index")?;
+    let indexer =
+        Arc::new(SearchIndexer::new(&search_index).context("Failed to create search indexer")?);
+
+    // Create BM25 updater
+    let bm25_updater = Bm25IndexUpdater::new(indexer, storage.clone());
+
+    // Create indexing pipeline with BM25 updater
+    let mut pipeline = IndexingPipeline::new(storage.clone(), PipelineConfig::default());
+    pipeline.add_updater(Box::new(bm25_updater));
+    pipeline
+        .load_checkpoints()
+        .context("Failed to load indexing checkpoints")?;
+
+    let pipeline = Arc::new(tokio::sync::Mutex::new(pipeline));
+
+    // Register with scheduler
+    create_indexing_job(scheduler, pipeline, IndexingJobConfig::default())
+        .await
+        .context("Failed to register indexing job")?;
+
+    info!("Indexing job registered with BM25 updater");
+    Ok(())
 }
 
 /// Start the memory daemon.
@@ -168,8 +222,7 @@ pub async fn start_daemon(
 
     // Create summarizer for rollup jobs
     // TODO: Load from config - use ApiSummarizer if OPENAI_API_KEY or ANTHROPIC_API_KEY set
-    let summarizer: Arc<dyn memory_toc::summarizer::Summarizer> =
-        Arc::new(MockSummarizer::new());
+    let summarizer: Arc<dyn memory_toc::summarizer::Summarizer> = Arc::new(MockSummarizer::new());
 
     // Register rollup jobs (day/week/month)
     create_rollup_jobs(
@@ -185,6 +238,13 @@ pub async fn start_daemon(
     create_compaction_job(&scheduler, storage.clone(), CompactionJobConfig::default())
         .await
         .context("Failed to register compaction job")?;
+
+    // Register indexing job if search index exists
+    // The indexing pipeline processes outbox entries into search indexes
+    if let Err(e) = register_indexing_job(&scheduler, storage.clone(), &db_path).await {
+        warn!("Indexing job not registered: {}", e);
+        info!("Run 'rebuild-indexes' to initialize the search index");
+    }
 
     info!(
         "Scheduler initialized with {} jobs",
@@ -299,7 +359,10 @@ pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> 
 
     match command {
         QueryCommands::Root => {
-            let nodes = client.get_toc_root().await.context("Failed to get TOC root")?;
+            let nodes = client
+                .get_toc_root()
+                .await
+                .context("Failed to get TOC root")?;
             if nodes.is_empty() {
                 println!("No TOC nodes found.");
             } else {
@@ -315,7 +378,11 @@ pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> 
         }
 
         QueryCommands::Node { node_id } => {
-            match client.get_node(&node_id).await.context("Failed to get node")? {
+            match client
+                .get_node(&node_id)
+                .await
+                .context("Failed to get node")?
+            {
                 Some(node) => {
                     print_node_details(&node);
                 }
@@ -325,15 +392,24 @@ pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> 
             }
         }
 
-        QueryCommands::Browse { parent_id, limit, token } => {
-            let result = client.browse_toc(&parent_id, limit, token)
+        QueryCommands::Browse {
+            parent_id,
+            limit,
+            token,
+        } => {
+            let result = client
+                .browse_toc(&parent_id, limit, token)
                 .await
                 .context("Failed to browse TOC")?;
 
             if result.children.is_empty() {
                 println!("No children found for: {}", parent_id);
             } else {
-                println!("Children of {} ({} found):\n", parent_id, result.children.len());
+                println!(
+                    "Children of {} ({} found):\n",
+                    parent_id,
+                    result.children.len()
+                );
                 for child in result.children {
                     let level = level_to_string(child.level);
                     println!("  {} [{}]", child.title, level);
@@ -349,7 +425,8 @@ pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> 
         }
 
         QueryCommands::Events { from, to, limit } => {
-            let result = client.get_events(from, to, limit)
+            let result = client
+                .get_events(from, to, limit)
                 .await
                 .context("Failed to get events")?;
 
@@ -379,8 +456,13 @@ pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> 
             }
         }
 
-        QueryCommands::Expand { grip_id, before, after } => {
-            let result = client.expand_grip(&grip_id, Some(before), Some(after))
+        QueryCommands::Expand {
+            grip_id,
+            before,
+            after,
+        } => {
+            let result = client
+                .expand_grip(&grip_id, Some(before), Some(after))
                 .await
                 .context("Failed to expand grip")?;
 
@@ -417,6 +499,14 @@ pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> 
                 }
             }
         }
+
+        QueryCommands::Search {
+            query,
+            node,
+            parent,
+            fields,
+            limit,
+        } => handle_search(endpoint, query, node, parent, fields, limit).await?,
     }
 
     Ok(())
@@ -439,7 +529,10 @@ fn print_node_details(node: &memory_service::pb::TocNode) {
     println!("  ID: {}", node.node_id);
     println!("  Level: {}", level);
     println!("  Version: {}", node.version);
-    println!("  Time Range: {} - {}", node.start_time_ms, node.end_time_ms);
+    println!(
+        "  Time Range: {} - {}",
+        node.start_time_ms, node.end_time_ms
+    );
 
     if let Some(summary) = &node.summary {
         println!("\nSummary: {}", summary);
@@ -479,9 +572,138 @@ fn truncate_text(text: &str, max_len: usize) -> String {
     }
 }
 
+/// Handle search command.
+///
+/// Per SEARCH-01, SEARCH-02: Search TOC nodes for matching content.
+async fn handle_search(
+    endpoint: &str,
+    query: String,
+    node: Option<String>,
+    parent: Option<String>,
+    fields_str: Option<String>,
+    limit: u32,
+) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+
+    let mut client = MemoryServiceClient::connect(endpoint.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Parse fields from comma-separated string
+    let fields: Vec<i32> = fields_str
+        .map(|s| {
+            s.split(',')
+                .filter_map(|f| match f.trim().to_lowercase().as_str() {
+                    "title" => Some(ProtoSearchField::Title as i32),
+                    "summary" => Some(ProtoSearchField::Summary as i32),
+                    "bullets" => Some(ProtoSearchField::Bullets as i32),
+                    "keywords" => Some(ProtoSearchField::Keywords as i32),
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if let Some(node_id) = node {
+        // Search within single node
+        let response = client
+            .search_node(SearchNodeRequest {
+                node_id: node_id.clone(),
+                query: query.clone(),
+                fields: fields.clone(),
+                limit: limit as i32,
+                token_budget: 0,
+            })
+            .await
+            .context("SearchNode RPC failed")?;
+
+        let resp = response.into_inner();
+        println!("Search Results for node: {}", node_id);
+        println!("Query: \"{}\"", query);
+        println!("Matched: {}", resp.matched);
+        println!();
+
+        if resp.matches.is_empty() {
+            println!("No matches found.");
+        } else {
+            for (i, m) in resp.matches.iter().enumerate() {
+                let field_name = match ProtoSearchField::try_from(m.field) {
+                    Ok(ProtoSearchField::Title) => "title",
+                    Ok(ProtoSearchField::Summary) => "summary",
+                    Ok(ProtoSearchField::Bullets) => "bullets",
+                    Ok(ProtoSearchField::Keywords) => "keywords",
+                    _ => "unknown",
+                };
+                println!("{}. [{}] score={:.2}", i + 1, field_name, m.score);
+                println!("   Text: {}", truncate_text(&m.text, 100));
+                if !m.grip_ids.is_empty() {
+                    println!("   Grips: {}", m.grip_ids.join(", "));
+                }
+            }
+        }
+    } else {
+        // Search children of parent (or root if no parent)
+        let parent_id = parent.unwrap_or_default();
+        let response = client
+            .search_children(SearchChildrenRequest {
+                parent_id: parent_id.clone(),
+                query: query.clone(),
+                child_level: 0, // Ignored when parent_id is provided
+                fields: fields.clone(),
+                limit: limit as i32,
+                token_budget: 0,
+            })
+            .await
+            .context("SearchChildren RPC failed")?;
+
+        let resp = response.into_inner();
+        let scope = if parent_id.is_empty() {
+            "root level".to_string()
+        } else {
+            format!("children of {}", parent_id)
+        };
+        println!("Search Results for {}", scope);
+        println!("Query: \"{}\"", query);
+        println!("Found: {} nodes", resp.results.len());
+        if resp.has_more {
+            println!("(more results available, increase --limit)");
+        }
+        println!();
+
+        if resp.results.is_empty() {
+            println!("No matching nodes found.");
+        } else {
+            for result in resp.results {
+                println!(
+                    "Node: {} (score={:.2})",
+                    result.node_id, result.relevance_score
+                );
+                println!("  Title: {}", result.title);
+                println!("  Matches:");
+                for m in result.matches.iter().take(3) {
+                    let field_name = match ProtoSearchField::try_from(m.field) {
+                        Ok(ProtoSearchField::Title) => "title",
+                        Ok(ProtoSearchField::Summary) => "summary",
+                        Ok(ProtoSearchField::Bullets) => "bullets",
+                        Ok(ProtoSearchField::Keywords) => "keywords",
+                        _ => "unknown",
+                    };
+                    println!("    - [{}] {}", field_name, truncate_text(&m.text, 80));
+                }
+                if result.matches.len() > 3 {
+                    println!("    ... and {} more matches", result.matches.len() - 3);
+                }
+                println!();
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Handle admin commands.
 ///
-/// Per CLI-03: Admin commands include rebuild-toc, compact, status.
+/// Per CLI-03: Admin commands include rebuild-toc, compact, status, rebuild-indexes.
 pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<()> {
     // Load settings to get default db_path if not provided
     let settings = Settings::load(None).context("Failed to load configuration")?;
@@ -491,6 +713,7 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
     // Open storage directly (not via gRPC)
     let storage = Storage::open(std::path::Path::new(&expanded_path))
         .context(format!("Failed to open storage at {}", expanded_path))?;
+    let storage = Arc::new(storage);
 
     match command {
         AdminCommands::Stats => {
@@ -508,21 +731,20 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
             println!("Disk Usage:   {:>10}", format_bytes(stats.disk_usage_bytes));
         }
 
-        AdminCommands::Compact { cf } => {
-            match cf {
-                Some(cf_name) => {
-                    println!("Compacting column family: {}", cf_name);
-                    storage.compact_cf(&cf_name)
-                        .context(format!("Failed to compact {}", cf_name))?;
-                    println!("Compaction complete.");
-                }
-                None => {
-                    println!("Compacting all column families...");
-                    storage.compact().context("Failed to compact")?;
-                    println!("Compaction complete.");
-                }
+        AdminCommands::Compact { cf } => match cf {
+            Some(cf_name) => {
+                println!("Compacting column family: {}", cf_name);
+                storage
+                    .compact_cf(&cf_name)
+                    .context(format!("Failed to compact {}", cf_name))?;
+                println!("Compaction complete.");
             }
-        }
+            None => {
+                println!("Compacting all column families...");
+                storage.compact().context("Failed to compact")?;
+                println!("Compaction complete.");
+            }
+        },
 
         AdminCommands::RebuildToc { from_date, dry_run } => {
             if dry_run {
@@ -544,7 +766,8 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
             let start_ms = from_timestamp.unwrap_or(0);
             let end_ms = chrono::Utc::now().timestamp_millis();
 
-            let events = storage.get_events_in_range(start_ms, end_ms)
+            let events = storage
+                .get_events_in_range(start_ms, end_ms)
                 .context("Failed to query events")?;
 
             println!("Found {} events to process", events.len());
@@ -557,8 +780,14 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
             if dry_run {
                 println!();
                 println!("Would process events from {} to {}", start_ms, end_ms);
-                println!("First event timestamp: {}", events.first().map(|(k, _)| k.timestamp_ms).unwrap_or(0));
-                println!("Last event timestamp: {}", events.last().map(|(k, _)| k.timestamp_ms).unwrap_or(0));
+                println!(
+                    "First event timestamp: {}",
+                    events.first().map(|(k, _)| k.timestamp_ms).unwrap_or(0)
+                );
+                println!(
+                    "Last event timestamp: {}",
+                    events.last().map(|(k, _)| k.timestamp_ms).unwrap_or(0)
+                );
                 println!();
                 println!("To actually rebuild, run without --dry-run");
             } else {
@@ -570,9 +799,385 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
                 println!("Events are intact and can be manually processed.");
             }
         }
+
+        AdminCommands::RebuildIndexes {
+            index,
+            batch_size,
+            force,
+            search_path,
+            vector_path,
+        } => {
+            handle_rebuild_indexes(
+                storage,
+                &expanded_path,
+                &index,
+                batch_size,
+                force,
+                search_path,
+                vector_path,
+            )?;
+        }
+
+        AdminCommands::IndexStats {
+            search_path,
+            vector_path,
+        } => {
+            handle_index_stats(&expanded_path, search_path, vector_path)?;
+        }
+
+        AdminCommands::ClearIndex {
+            index,
+            force,
+            search_path,
+            vector_path,
+        } => {
+            handle_clear_index(&index, force, search_path, vector_path, &expanded_path)?;
+        }
     }
 
     Ok(())
+}
+
+/// Handle the rebuild-indexes command.
+fn handle_rebuild_indexes(
+    storage: Arc<Storage>,
+    db_path: &str,
+    index: &str,
+    batch_size: usize,
+    force: bool,
+    search_path: Option<String>,
+    vector_path: Option<String>,
+) -> Result<()> {
+    use memory_embeddings::EmbeddingModel;
+    use memory_indexing::{
+        rebuild_bm25_index, rebuild_vector_index, Bm25IndexUpdater, RebuildConfig,
+        VectorIndexUpdater,
+    };
+    use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
+    use memory_vector::{HnswConfig, HnswIndex, VectorMetadata};
+
+    // Determine which indexes to rebuild
+    let rebuild_bm25 = index == "all" || index == "bm25";
+    let rebuild_vector = index == "all" || index == "vector";
+
+    if !rebuild_bm25 && !rebuild_vector {
+        anyhow::bail!("Invalid index type: {}. Use bm25, vector, or all.", index);
+    }
+
+    // Count documents to process
+    let stats = storage.get_stats().context("Failed to get stats")?;
+    let total_docs = stats.toc_node_count + stats.grip_count;
+
+    if total_docs == 0 {
+        println!("No documents found in storage to index.");
+        return Ok(());
+    }
+
+    println!("Index Rebuild");
+    println!("=============");
+    println!("Storage path: {}", db_path);
+    println!("Index type:   {}", index);
+    println!(
+        "Documents:    {} ({} TOC nodes, {} grips)",
+        total_docs, stats.toc_node_count, stats.grip_count
+    );
+    println!("Batch size:   {}", batch_size);
+    println!();
+
+    // Confirmation prompt
+    if !force {
+        print!("This will rebuild the index from scratch. Continue? [y/N] ");
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+
+    let start_time = Instant::now();
+    let config = RebuildConfig::default().with_batch_size(batch_size);
+
+    // Progress callback that prints to console
+    let progress_callback = ConsoleProgressCallback::new(batch_size);
+
+    // Rebuild BM25 index
+    if rebuild_bm25 {
+        let search_dir = search_path
+            .clone()
+            .unwrap_or_else(|| format!("{}/search", db_path));
+        let search_dir = shellexpand::tilde(&search_dir).to_string();
+        let search_path = Path::new(&search_dir);
+
+        println!("Rebuilding BM25 index at: {}", search_dir);
+
+        // Create search directory if needed
+        std::fs::create_dir_all(search_path).context("Failed to create search index directory")?;
+
+        // Open or create search index
+        let search_config = SearchIndexConfig::new(search_path);
+        let search_index =
+            SearchIndex::open_or_create(search_config).context("Failed to open search index")?;
+        let indexer =
+            Arc::new(SearchIndexer::new(&search_index).context("Failed to create search indexer")?);
+
+        let updater = Bm25IndexUpdater::new(indexer, storage.clone());
+
+        let progress = rebuild_bm25_index(storage.clone(), &updater, &config, &progress_callback)
+            .map_err(|e| anyhow::anyhow!("BM25 rebuild failed: {}", e))?;
+
+        println!();
+        println!("BM25 index rebuilt:");
+        println!("  TOC nodes: {}", progress.toc_nodes_indexed);
+        println!("  Grips:     {}", progress.grips_indexed);
+        println!("  Errors:    {}", progress.errors);
+    }
+
+    // Rebuild vector index
+    if rebuild_vector {
+        let vector_dir = vector_path
+            .clone()
+            .unwrap_or_else(|| format!("{}/vector", db_path));
+        let vector_dir = shellexpand::tilde(&vector_dir).to_string();
+        let vector_path = Path::new(&vector_dir);
+
+        println!("Rebuilding vector index at: {}", vector_dir);
+
+        // Create vector directory if needed
+        std::fs::create_dir_all(vector_path).context("Failed to create vector index directory")?;
+
+        // Create embedder
+        let embedder = Arc::new(
+            memory_embeddings::CandleEmbedder::load_default()
+                .context("Failed to create embedder")?,
+        );
+
+        // Open or create HNSW index
+        let hnsw_config = HnswConfig::new(embedder.info().dimension, vector_path);
+        let hnsw_index = Arc::new(RwLock::new(
+            HnswIndex::open_or_create(hnsw_config).context("Failed to open HNSW index")?,
+        ));
+
+        // Open metadata store
+        let metadata_path = vector_path.join("metadata");
+        std::fs::create_dir_all(&metadata_path).context("Failed to create metadata directory")?;
+        let metadata = Arc::new(
+            VectorMetadata::open(&metadata_path).context("Failed to open vector metadata")?,
+        );
+
+        let updater = VectorIndexUpdater::new(hnsw_index, embedder, metadata, storage.clone());
+
+        let progress = rebuild_vector_index(storage.clone(), &updater, &config, &progress_callback)
+            .map_err(|e| anyhow::anyhow!("Vector rebuild failed: {}", e))?;
+
+        println!();
+        println!("Vector index rebuilt:");
+        println!("  TOC nodes: {}", progress.toc_nodes_indexed);
+        println!("  Grips:     {}", progress.grips_indexed);
+        println!("  Skipped:   {}", progress.skipped);
+        println!("  Errors:    {}", progress.errors);
+    }
+
+    let elapsed = start_time.elapsed();
+    println!();
+    println!("Rebuild complete in {:.2}s", elapsed.as_secs_f64());
+
+    Ok(())
+}
+
+/// Handle the index-stats command.
+fn handle_index_stats(
+    db_path: &str,
+    search_path: Option<String>,
+    vector_path: Option<String>,
+) -> Result<()> {
+    use memory_search::{SearchIndex, SearchIndexConfig};
+    use memory_vector::{HnswConfig, HnswIndex, VectorIndex, VectorMetadata};
+
+    println!("Search Index Statistics");
+    println!("=======================");
+    println!();
+
+    // BM25 index stats
+    let search_dir = search_path.unwrap_or_else(|| format!("{}/search", db_path));
+    let search_dir = shellexpand::tilde(&search_dir).to_string();
+    let search_path = Path::new(&search_dir);
+
+    println!("BM25 Index:");
+    println!("  Path: {}", search_dir);
+
+    if search_path.exists() {
+        match SearchIndex::open_or_create(SearchIndexConfig::new(search_path)) {
+            Ok(index) => {
+                // Create a searcher to get doc count
+                match memory_search::TeleportSearcher::new(&index) {
+                    Ok(searcher) => {
+                        let doc_count = searcher.num_docs();
+                        println!("  Documents: {}", doc_count);
+                        println!("  Status:    Available");
+                    }
+                    Err(e) => {
+                        println!("  Status:    Error creating searcher - {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                println!("  Status:    Error - {}", e);
+            }
+        }
+    } else {
+        println!("  Status:    Not found");
+    }
+
+    println!();
+
+    // Vector index stats
+    let vector_dir = vector_path.unwrap_or_else(|| format!("{}/vector", db_path));
+    let vector_dir = shellexpand::tilde(&vector_dir).to_string();
+    let vector_path = Path::new(&vector_dir);
+
+    println!("Vector Index:");
+    println!("  Path: {}", vector_dir);
+
+    if vector_path.exists() {
+        // Try to get dimension from an existing index
+        // Default to 384 for all-MiniLM-L6-v2
+        let dimension = 384;
+        let hnsw_config = HnswConfig::new(dimension, vector_path);
+
+        match HnswIndex::open_or_create(hnsw_config) {
+            Ok(index) => {
+                println!("  Vectors:   {}", index.len());
+                println!("  Dimension: {}", dimension);
+                println!("  Status:    Available");
+            }
+            Err(e) => {
+                println!("  Status:    Error - {}", e);
+            }
+        }
+
+        // Metadata stats
+        let metadata_path = vector_path.join("metadata");
+        if metadata_path.exists() {
+            match VectorMetadata::open(&metadata_path) {
+                Ok(metadata) => {
+                    println!("  Metadata:  Available");
+                    if let Ok(count) = metadata.count() {
+                        println!("  Entries:   {}", count);
+                    }
+                }
+                Err(e) => {
+                    println!("  Metadata:  Error - {}", e);
+                }
+            }
+        }
+    } else {
+        println!("  Status:    Not found");
+    }
+
+    Ok(())
+}
+
+/// Handle the clear-index command.
+fn handle_clear_index(
+    index: &str,
+    force: bool,
+    search_path: Option<String>,
+    vector_path: Option<String>,
+    db_path: &str,
+) -> Result<()> {
+    let clear_bm25 = index == "all" || index == "bm25";
+    let clear_vector = index == "all" || index == "vector";
+
+    if !clear_bm25 && !clear_vector {
+        anyhow::bail!("Invalid index type: {}. Use bm25, vector, or all.", index);
+    }
+
+    println!("Clear Index");
+    println!("===========");
+
+    // Confirmation prompt
+    if !force {
+        print!(
+            "This will PERMANENTLY DELETE the {} index. Continue? [y/N] ",
+            index
+        );
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+
+    // Clear BM25 index
+    if clear_bm25 {
+        let search_dir = search_path
+            .clone()
+            .unwrap_or_else(|| format!("{}/search", db_path));
+        let search_dir = shellexpand::tilde(&search_dir).to_string();
+        let search_path = Path::new(&search_dir);
+
+        if search_path.exists() {
+            println!("Removing BM25 index at: {}", search_dir);
+            std::fs::remove_dir_all(search_path)
+                .context("Failed to remove BM25 index directory")?;
+            println!("BM25 index cleared.");
+        } else {
+            println!("BM25 index not found at: {}", search_dir);
+        }
+    }
+
+    // Clear vector index
+    if clear_vector {
+        let vector_dir = vector_path
+            .clone()
+            .unwrap_or_else(|| format!("{}/vector", db_path));
+        let vector_dir = shellexpand::tilde(&vector_dir).to_string();
+        let vector_path = Path::new(&vector_dir);
+
+        if vector_path.exists() {
+            println!("Removing vector index at: {}", vector_dir);
+            std::fs::remove_dir_all(vector_path)
+                .context("Failed to remove vector index directory")?;
+            println!("Vector index cleared.");
+        } else {
+            println!("Vector index not found at: {}", vector_dir);
+        }
+    }
+
+    Ok(())
+}
+
+/// Console progress callback for rebuild operations.
+struct ConsoleProgressCallback {
+    batch_size: usize,
+}
+
+impl ConsoleProgressCallback {
+    fn new(batch_size: usize) -> Self {
+        Self { batch_size }
+    }
+}
+
+impl memory_indexing::ProgressCallback for ConsoleProgressCallback {
+    fn on_progress(&self, progress: &memory_indexing::RebuildProgress) {
+        if progress
+            .total_processed
+            .is_multiple_of(self.batch_size as u64)
+            && progress.total_processed > 0
+        {
+            println!(
+                "  Progress: {} documents ({} TOC nodes, {} grips, {} errors)",
+                progress.total_processed,
+                progress.toc_nodes_indexed,
+                progress.grips_indexed,
+                progress.errors
+            );
+        }
+    }
 }
 
 fn format_bytes(bytes: u64) -> String {
@@ -714,6 +1319,600 @@ fn format_timestamp(ms: i64) -> String {
         .map(|t| t.with_timezone(&Local))
         .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
         .unwrap_or_else(|| "Invalid".to_string())
+}
+
+/// Handle teleport commands.
+///
+/// Per TEL-01 through TEL-04: BM25 keyword search for teleporting to content.
+/// Per VEC-01 through VEC-03: Vector semantic search for teleporting to content.
+pub async fn handle_teleport_command(cmd: TeleportCommand) -> Result<()> {
+    match cmd {
+        TeleportCommand::Search {
+            query,
+            doc_type,
+            limit,
+            addr,
+        } => teleport_search(&query, &doc_type, limit, &addr).await,
+        TeleportCommand::VectorSearch {
+            query,
+            top_k,
+            min_score,
+            target,
+            addr,
+        } => vector_search(&query, top_k, min_score, &target, &addr).await,
+        TeleportCommand::HybridSearch {
+            query,
+            top_k,
+            mode,
+            bm25_weight,
+            vector_weight,
+            target,
+            addr,
+        } => {
+            hybrid_search(
+                &query,
+                top_k,
+                &mode,
+                bm25_weight,
+                vector_weight,
+                &target,
+                &addr,
+            )
+            .await
+        }
+        TeleportCommand::Stats { addr } => teleport_stats(&addr).await,
+        TeleportCommand::VectorStats { addr } => vector_stats(&addr).await,
+        TeleportCommand::Rebuild { addr } => teleport_rebuild(&addr).await,
+    }
+}
+
+/// Execute teleport search via gRPC.
+async fn teleport_search(query: &str, doc_type: &str, limit: usize, addr: &str) -> Result<()> {
+    println!("Searching for: \"{}\"", query);
+    println!("Filter: {}, Limit: {}", doc_type, limit);
+    println!();
+
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Map doc_type string to enum value
+    let doc_type_value = match doc_type.to_lowercase().as_str() {
+        "toc" | "toc_node" => 1, // TeleportDocType::TocNode
+        "grip" | "grips" => 2,   // TeleportDocType::Grip
+        _ => 0,                  // TeleportDocType::Unspecified (all)
+    };
+
+    let response = client
+        .teleport_search(query, doc_type_value, limit as i32)
+        .await
+        .context("Teleport search failed")?;
+
+    if response.results.is_empty() {
+        println!("No results found.");
+        return Ok(());
+    }
+
+    println!("Found {} results:", response.results.len());
+    println!("{:-<60}", "");
+
+    for (i, result) in response.results.iter().enumerate() {
+        let type_str = match result.doc_type {
+            1 => "TOC",
+            2 => "Grip",
+            _ => "?",
+        };
+
+        println!(
+            "{}. [{}] {} (score: {:.4})",
+            i + 1,
+            type_str,
+            result.doc_id,
+            result.score
+        );
+
+        if let Some(ref keywords) = result.keywords {
+            if !keywords.is_empty() {
+                println!("   Keywords: {}", keywords);
+            }
+        }
+    }
+
+    println!("{:-<60}", "");
+    println!("Total documents in index: {}", response.total_docs);
+
+    Ok(())
+}
+
+/// Show teleport index statistics.
+async fn teleport_stats(addr: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Use empty search to get total_docs
+    let response = client
+        .teleport_search("", 0, 0)
+        .await
+        .context("Failed to get index stats")?;
+
+    println!("Teleport Index Statistics");
+    println!("{:-<40}", "");
+    println!("Total documents: {}", response.total_docs);
+
+    Ok(())
+}
+
+/// Trigger index rebuild (placeholder - will be implemented in Phase 13).
+async fn teleport_rebuild(_addr: &str) -> Result<()> {
+    println!("Index rebuild not yet implemented.");
+    println!("This will be available in Phase 13 (Outbox Index Ingestion).");
+    Ok(())
+}
+
+/// Execute vector semantic search via gRPC.
+async fn vector_search(
+    query: &str,
+    top_k: i32,
+    min_score: f32,
+    target: &str,
+    addr: &str,
+) -> Result<()> {
+    println!("Vector Search: \"{}\"", query);
+    println!(
+        "Top-K: {}, Min Score: {:.2}, Target: {}",
+        top_k, min_score, target
+    );
+    println!();
+
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Map target string to enum value
+    let target_value = match target.to_lowercase().as_str() {
+        "toc" | "toc_node" => 1, // VectorTargetType::TocNode
+        "grip" | "grips" => 2,   // VectorTargetType::Grip
+        "all" => 3,              // VectorTargetType::All
+        _ => 0,                  // VectorTargetType::Unspecified
+    };
+
+    let response = client
+        .vector_teleport(query, top_k, min_score, target_value)
+        .await
+        .context("Vector search failed")?;
+
+    if response.matches.is_empty() {
+        println!("No results found.");
+        return Ok(());
+    }
+
+    println!("Found {} results:", response.matches.len());
+    println!("{:-<70}", "");
+
+    for (i, m) in response.matches.iter().enumerate() {
+        println!(
+            "{}. [{}] {} (score: {:.4})",
+            i + 1,
+            m.doc_type,
+            m.doc_id,
+            m.score
+        );
+
+        // Show text preview (truncated)
+        let preview = truncate_text(&m.text_preview, 80);
+        println!("   {}", preview);
+
+        // Show timestamp if available
+        if m.timestamp_ms > 0 {
+            println!("   Time: {}", format_timestamp(m.timestamp_ms));
+        }
+
+        println!();
+    }
+
+    // Show index status if available
+    if let Some(status) = &response.index_status {
+        println!("{:-<70}", "");
+        println!(
+            "Index: {} vectors, dim={}, last updated: {}",
+            status.vector_count, status.dimension, status.last_indexed
+        );
+    }
+
+    Ok(())
+}
+
+/// Execute hybrid BM25 + vector search via gRPC.
+async fn hybrid_search(
+    query: &str,
+    top_k: i32,
+    mode: &str,
+    bm25_weight: f32,
+    vector_weight: f32,
+    target: &str,
+    addr: &str,
+) -> Result<()> {
+    println!("Hybrid Search: \"{}\"", query);
+    println!(
+        "Mode: {}, BM25 Weight: {:.2}, Vector Weight: {:.2}",
+        mode, bm25_weight, vector_weight
+    );
+    println!();
+
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Map mode string to enum value
+    let mode_value = match mode.to_lowercase().as_str() {
+        "vector-only" | "vector" => 1, // HybridMode::VectorOnly
+        "bm25-only" | "bm25" => 2,     // HybridMode::Bm25Only
+        "hybrid" => 3,                 // HybridMode::Hybrid
+        _ => 0,                        // HybridMode::Unspecified
+    };
+
+    // Map target string to enum value
+    let target_value = match target.to_lowercase().as_str() {
+        "toc" | "toc_node" => 1, // VectorTargetType::TocNode
+        "grip" | "grips" => 2,   // VectorTargetType::Grip
+        "all" => 3,              // VectorTargetType::All
+        _ => 0,                  // VectorTargetType::Unspecified
+    };
+
+    let response = client
+        .hybrid_search(
+            query,
+            top_k,
+            mode_value,
+            bm25_weight,
+            vector_weight,
+            target_value,
+        )
+        .await
+        .context("Hybrid search failed")?;
+
+    // Show mode used and availability
+    let mode_used = match response.mode_used {
+        1 => "vector-only",
+        2 => "bm25-only",
+        3 => "hybrid",
+        _ => "unknown",
+    };
+    println!(
+        "Mode used: {} (BM25: {}, Vector: {})",
+        mode_used,
+        if response.bm25_available { "yes" } else { "no" },
+        if response.vector_available {
+            "yes"
+        } else {
+            "no"
+        }
+    );
+    println!();
+
+    if response.matches.is_empty() {
+        println!("No results found.");
+        return Ok(());
+    }
+
+    println!("Found {} results:", response.matches.len());
+    println!("{:-<70}", "");
+
+    for (i, m) in response.matches.iter().enumerate() {
+        println!(
+            "{}. [{}] {} (score: {:.4})",
+            i + 1,
+            m.doc_type,
+            m.doc_id,
+            m.score
+        );
+
+        // Show text preview (truncated)
+        let preview = truncate_text(&m.text_preview, 80);
+        println!("   {}", preview);
+
+        // Show timestamp if available
+        if m.timestamp_ms > 0 {
+            println!("   Time: {}", format_timestamp(m.timestamp_ms));
+        }
+
+        println!();
+    }
+
+    Ok(())
+}
+
+/// Show vector index statistics.
+async fn vector_stats(addr: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    let status = client
+        .get_vector_index_status()
+        .await
+        .context("Failed to get vector index status")?;
+
+    println!("Vector Index Statistics");
+    println!("{:-<40}", "");
+    println!(
+        "Status:        {}",
+        if status.available {
+            "Available"
+        } else {
+            "Unavailable"
+        }
+    );
+    println!("Vectors:       {}", status.vector_count);
+    println!("Dimension:     {}", status.dimension);
+    println!("Last Indexed:  {}", status.last_indexed);
+    println!("Index Path:    {}", status.index_path);
+    println!("Index Size:    {}", format_bytes(status.size_bytes as u64));
+
+    Ok(())
+}
+
+/// Handle topics commands.
+///
+/// Per TOPIC-08: Topic graph discovery and navigation.
+pub async fn handle_topics_command(cmd: TopicsCommand) -> Result<()> {
+    match cmd {
+        TopicsCommand::Status { addr } => topics_status(&addr).await,
+        TopicsCommand::Explore { query, limit, addr } => topics_explore(&query, limit, &addr).await,
+        TopicsCommand::Related {
+            topic_id,
+            rel_type,
+            limit,
+            addr,
+        } => topics_related(&topic_id, rel_type.as_deref(), limit, &addr).await,
+        TopicsCommand::Top { limit, days, addr } => topics_top(limit, days, &addr).await,
+        TopicsCommand::RefreshScores { db_path } => topics_refresh_scores(db_path).await,
+        TopicsCommand::Prune {
+            days,
+            force,
+            db_path,
+        } => topics_prune(days, force, db_path).await,
+    }
+}
+
+/// Show topic graph status.
+async fn topics_status(addr: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    let status = client
+        .get_topic_graph_status()
+        .await
+        .context("Failed to get topic graph status")?;
+
+    println!("Topic Graph Status");
+    println!("{:-<40}", "");
+    println!(
+        "Status:         {}",
+        if status.available {
+            "Available"
+        } else {
+            "Unavailable"
+        }
+    );
+    println!("Topics:         {}", status.topic_count);
+    println!("Relationships:  {}", status.relationship_count);
+    println!("Last Updated:   {}", status.last_updated);
+
+    Ok(())
+}
+
+/// Explore topics matching a query.
+async fn topics_explore(query: &str, limit: u32, addr: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    println!("Searching for topics: \"{}\"", query);
+    println!();
+
+    let topics = client
+        .get_topics_by_query(query, limit)
+        .await
+        .context("Failed to search topics")?;
+
+    if topics.is_empty() {
+        println!("No topics found matching query.");
+        return Ok(());
+    }
+
+    println!("Found {} topics:", topics.len());
+    println!("{:-<70}", "");
+
+    for (i, topic) in topics.iter().enumerate() {
+        println!(
+            "{}. {} (importance: {:.4})",
+            i + 1,
+            topic.label,
+            topic.importance_score
+        );
+        println!("   ID: {}", topic.id);
+        if !topic.keywords.is_empty() {
+            println!("   Keywords: {}", topic.keywords.join(", "));
+        }
+        println!("   Created: {}", topic.created_at);
+        println!("   Last Mention: {}", topic.last_mention);
+        println!();
+    }
+
+    Ok(())
+}
+
+/// Show related topics.
+async fn topics_related(
+    topic_id: &str,
+    rel_type: Option<&str>,
+    limit: u32,
+    addr: &str,
+) -> Result<()> {
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    println!("Finding topics related to: {}", topic_id);
+    if let Some(rt) = rel_type {
+        println!("Filtering by relationship type: {}", rt);
+    }
+    println!();
+
+    let response = client
+        .get_related_topics(topic_id, rel_type, limit)
+        .await
+        .context("Failed to get related topics")?;
+
+    if response.related_topics.is_empty() {
+        println!("No related topics found.");
+        return Ok(());
+    }
+
+    println!("Found {} related topics:", response.related_topics.len());
+    println!("{:-<70}", "");
+
+    for (i, topic) in response.related_topics.iter().enumerate() {
+        // Find the relationship for this topic
+        let rel = response
+            .relationships
+            .iter()
+            .find(|r| r.target_id == topic.id);
+
+        let rel_info = rel
+            .map(|r| format!("{} (strength: {:.2})", r.relationship_type, r.strength))
+            .unwrap_or_default();
+
+        println!(
+            "{}. {} (importance: {:.4})",
+            i + 1,
+            topic.label,
+            topic.importance_score
+        );
+        println!("   ID: {}", topic.id);
+        if !rel_info.is_empty() {
+            println!("   Relationship: {}", rel_info);
+        }
+        println!();
+    }
+
+    Ok(())
+}
+
+/// Show top topics by importance.
+async fn topics_top(limit: u32, days: u32, addr: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    println!("Top {} topics (last {} days):", limit, days);
+    println!();
+
+    let topics = client
+        .get_top_topics(limit, days)
+        .await
+        .context("Failed to get top topics")?;
+
+    if topics.is_empty() {
+        println!("No topics found.");
+        return Ok(());
+    }
+
+    println!("{:-<70}", "");
+
+    for (i, topic) in topics.iter().enumerate() {
+        println!(
+            "{}. {} (importance: {:.4})",
+            i + 1,
+            topic.label,
+            topic.importance_score
+        );
+        println!("   ID: {}", topic.id);
+        if !topic.keywords.is_empty() {
+            println!("   Keywords: {}", topic.keywords.join(", "));
+        }
+        println!("   Last Mention: {}", topic.last_mention);
+        println!();
+    }
+
+    Ok(())
+}
+
+/// Refresh topic importance scores.
+async fn topics_refresh_scores(db_path: Option<String>) -> Result<()> {
+    use memory_topics::{config::ImportanceConfig, ImportanceScorer, TopicStorage};
+
+    // Load settings to get default db_path if not provided
+    let settings = Settings::load(None).context("Failed to load configuration")?;
+    let db_path = db_path.unwrap_or_else(|| settings.db_path.clone());
+    let expanded_path = shellexpand::tilde(&db_path).to_string();
+
+    println!("Refreshing topic importance scores...");
+    println!("Database: {}", expanded_path);
+    println!();
+
+    // Open storage directly
+    let storage = Storage::open(std::path::Path::new(&expanded_path))
+        .context(format!("Failed to open storage at {}", expanded_path))?;
+    let storage = Arc::new(storage);
+    let topic_storage = TopicStorage::new(storage);
+
+    let scorer = ImportanceScorer::new(ImportanceConfig::default());
+    let updated = topic_storage
+        .refresh_importance_scores(&scorer)
+        .context("Failed to refresh importance scores")?;
+
+    println!("Refreshed {} topic importance scores.", updated);
+
+    Ok(())
+}
+
+/// Prune stale topics.
+async fn topics_prune(days: u32, force: bool, db_path: Option<String>) -> Result<()> {
+    use memory_topics::{TopicLifecycleManager, TopicStorage};
+
+    // Load settings to get default db_path if not provided
+    let settings = Settings::load(None).context("Failed to load configuration")?;
+    let db_path = db_path.unwrap_or_else(|| settings.db_path.clone());
+    let expanded_path = shellexpand::tilde(&db_path).to_string();
+
+    println!("Pruning stale topics...");
+    println!("Database: {}", expanded_path);
+    println!("Inactivity threshold: {} days", days);
+    println!();
+
+    // Confirmation prompt
+    if !force {
+        print!(
+            "This will archive topics not mentioned in {} days. Continue? [y/N] ",
+            days
+        );
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+
+    // Open storage directly
+    let storage = Storage::open(std::path::Path::new(&expanded_path))
+        .context(format!("Failed to open storage at {}", expanded_path))?;
+    let storage = Arc::new(storage);
+    let topic_storage = TopicStorage::new(storage);
+
+    let mut manager = TopicLifecycleManager::new(&topic_storage);
+    let pruned = manager
+        .prune_stale_topics(days)
+        .context("Failed to prune topics")?;
+
+    println!("Pruned {} stale topics.", pruned);
+
+    Ok(())
 }
 
 #[cfg(test)]

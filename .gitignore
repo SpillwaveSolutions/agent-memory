@@ -43,3 +43,6 @@ coverage/
 # Override global gitignore for project-specific config
 !CLAUDE.md
 !AGENTS.md
+
+# Local Cargo configuration (platform-specific)
+.cargo/
