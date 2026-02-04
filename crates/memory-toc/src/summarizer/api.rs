@@ -15,7 +15,7 @@ use super::{Summarizer, SummarizerError, Summary};
 /// Configuration for API-based summarizer.
 #[derive(Debug, Clone)]
 pub struct ApiSummarizerConfig {
-    /// API base URL (e.g., "https://api.openai.com/v1")
+    /// API base URL (e.g., `https://api.openai.com/v1`)
     pub base_url: String,
 
     /// Model to use (e.g., "gpt-4o-mini", "claude-3-haiku-20240307")

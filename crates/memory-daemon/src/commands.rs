@@ -1746,7 +1746,12 @@ async fn topics_explore(query: &str, limit: u32, addr: &str) -> Result<()> {
 }
 
 /// Show related topics.
-async fn topics_related(topic_id: &str, rel_type: Option<&str>, limit: u32, addr: &str) -> Result<()> {
+async fn topics_related(
+    topic_id: &str,
+    rel_type: Option<&str>,
+    limit: u32,
+    addr: &str,
+) -> Result<()> {
     let mut client = MemoryClient::connect(addr)
         .await
         .context("Failed to connect to daemon")?;
@@ -1838,7 +1843,7 @@ async fn topics_top(limit: u32, days: u32, addr: &str) -> Result<()> {
 
 /// Refresh topic importance scores.
 async fn topics_refresh_scores(db_path: Option<String>) -> Result<()> {
-    use memory_topics::{ImportanceScorer, TopicStorage, config::ImportanceConfig};
+    use memory_topics::{config::ImportanceConfig, ImportanceScorer, TopicStorage};
 
     // Load settings to get default db_path if not provided
     let settings = Settings::load(None).context("Failed to load configuration")?;
@@ -1881,7 +1886,10 @@ async fn topics_prune(days: u32, force: bool, db_path: Option<String>) -> Result
 
     // Confirmation prompt
     if !force {
-        print!("This will archive topics not mentioned in {} days. Continue? [y/N] ", days);
+        print!(
+            "This will archive topics not mentioned in {} days. Continue? [y/N] ",
+            days
+        );
         io::stdout().flush()?;
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;

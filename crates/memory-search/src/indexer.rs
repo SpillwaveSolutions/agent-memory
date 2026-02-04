@@ -1,6 +1,6 @@
 //! Search indexer for adding documents to the Tantivy index.
 //!
-//! The indexer wraps IndexWriter with shared access via Arc<Mutex>.
+//! The indexer wraps IndexWriter with shared access via `Arc<Mutex>`.
 //! Documents are not visible until commit() is called.
 
 use std::sync::{Arc, Mutex};

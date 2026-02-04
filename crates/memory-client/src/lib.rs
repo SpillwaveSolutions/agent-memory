@@ -12,7 +12,7 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Connect to daemon
-//!     let mut client = MemoryClient::connect("http://[::1]:50051").await?;
+//!     let mut client = MemoryClient::connect("http://localhost:50051").await?;
 //!
 //!     // Create a hook event
 //!     let hook = HookEvent::new("session-1", HookEventType::UserPromptSubmit, "Hello!");

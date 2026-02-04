@@ -50,7 +50,7 @@ pub enum Commands {
 
     /// Query the memory system
     Query {
-        /// gRPC endpoint (default: http://[::1]:50051)
+        /// gRPC endpoint (default: `http://[::1]:50051`)
         #[arg(short, long, default_value = "http://[::1]:50051")]
         endpoint: String,
 
@@ -70,7 +70,7 @@ pub enum Commands {
 
     /// Scheduler management commands
     Scheduler {
-        /// gRPC endpoint (default: http://[::1]:50051)
+        /// gRPC endpoint (default: `http://[::1]:50051`)
         #[arg(short, long, default_value = "http://[::1]:50051")]
         endpoint: String,
 
@@ -1103,15 +1103,7 @@ mod tests {
 
     #[test]
     fn test_cli_topics_top_with_options() {
-        let cli = Cli::parse_from([
-            "memory-daemon",
-            "topics",
-            "top",
-            "-n",
-            "25",
-            "--days",
-            "7",
-        ]);
+        let cli = Cli::parse_from(["memory-daemon", "topics", "top", "-n", "25", "--days", "7"]);
         match cli.command {
             Commands::Topics(TopicsCommand::Top { limit, days, .. }) => {
                 assert_eq!(limit, 25);

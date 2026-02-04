@@ -31,7 +31,7 @@ impl MemoryClient {
     ///
     /// # Arguments
     ///
-    /// * `endpoint` - The gRPC endpoint (e.g., "http://[::1]:50051")
+    /// * `endpoint` - The gRPC endpoint (e.g., `http://localhost:50051`)
     ///
     /// # Errors
     ///
@@ -293,9 +293,7 @@ impl MemoryClient {
     /// Get topic graph status and statistics.
     ///
     /// Per TOPIC-08: Topic graph discovery.
-    pub async fn get_topic_graph_status(
-        &mut self,
-    ) -> Result<TopicGraphStatus, ClientError> {
+    pub async fn get_topic_graph_status(&mut self) -> Result<TopicGraphStatus, ClientError> {
         debug!("GetTopicGraphStatus request");
         let request = tonic::Request::new(GetTopicGraphStatusRequest {});
         let response = self.inner.get_topic_graph_status(request).await?;
