@@ -424,6 +424,169 @@ impl SchedulerService {
         Ok(uuid)
     }
 
+    /// Register a job that returns metadata with its result.
+    ///
+    /// Like `register_job`, but the job function returns `Result<JobOutput, String>`
+    /// where `JobOutput` contains optional metadata that is stored in the registry.
+    ///
+    /// This is useful for jobs that need to report stats (e.g., prune count, items processed)
+    /// that can be queried via the scheduler status API.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use memory_scheduler::{OverlapPolicy, JitterConfig, TimeoutConfig, JobOutput};
+    ///
+    /// scheduler.register_job_with_metadata(
+    ///     "prune-job",
+    ///     "0 3 * * * *",
+    ///     None,
+    ///     OverlapPolicy::Skip,
+    ///     JitterConfig::new(30),
+    ///     TimeoutConfig::new(300),
+    ///     || async {
+    ///         let count = do_prune().await?;
+    ///         Ok(JobOutput::new().with_prune_count(count))
+    ///     },
+    /// ).await?;
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub async fn register_job_with_metadata<F, Fut>(
+        &self,
+        name: &str,
+        cron_expr: &str,
+        timezone: Option<&str>,
+        overlap_policy: OverlapPolicy,
+        jitter: JitterConfig,
+        timeout: TimeoutConfig,
+        job_fn: F,
+    ) -> Result<uuid::Uuid, SchedulerError>
+    where
+        F: Fn() -> Fut + Clone + Send + Sync + 'static,
+        Fut: Future<Output = Result<crate::registry::JobOutput, String>> + Send,
+    {
+        use std::collections::HashMap;
+
+        // Parse timezone
+        let tz: Tz = match timezone {
+            Some(tz_str) => tz_str
+                .parse()
+                .map_err(|_| SchedulerError::InvalidTimezone(tz_str.to_string()))?,
+            None => self.config.parse_timezone()?,
+        };
+
+        // Validate cron expression
+        validate_cron_expression(cron_expr)?;
+
+        // Register in registry
+        self.registry.register(name, cron_expr);
+
+        let job_name = name.to_string();
+        let registry = self.registry.clone();
+        let overlap_guard = Arc::new(OverlapGuard::new(overlap_policy));
+        let max_jitter_secs = jitter.max_jitter_secs;
+        let timeout_duration = timeout.as_duration();
+
+        // Create timezone-aware job with overlap, jitter, and timeout support
+        let job = Job::new_async_tz(cron_expr, tz, move |_uuid, _lock| {
+            let name = job_name.clone();
+            let registry = registry.clone();
+            let guard = overlap_guard.clone();
+            let job_fn = job_fn.clone();
+            let timeout_dur = timeout_duration;
+
+            Box::pin(async move {
+                // Check if job is paused
+                if registry.is_paused(&name) {
+                    debug!(job = %name, "Job is paused, skipping execution");
+                    registry.record_complete(&name, JobResult::Skipped("paused".into()), 0);
+                    return;
+                }
+
+                // Try to acquire overlap guard
+                let run_guard = match guard.try_acquire() {
+                    Some(g) => g,
+                    None => {
+                        debug!(job = %name, "Job already running, skipping due to overlap policy");
+                        registry.record_complete(&name, JobResult::Skipped("overlap".into()), 0);
+                        return;
+                    }
+                };
+
+                // Record start
+                registry.record_start(&name);
+                info!(job = %name, "Job started");
+                let start = std::time::Instant::now();
+
+                // Apply jitter
+                if max_jitter_secs > 0 {
+                    let jitter_config = JitterConfig::new(max_jitter_secs);
+                    let jitter_duration = jitter_config.generate_jitter();
+                    if !jitter_duration.is_zero() {
+                        debug!(job = %name, jitter_ms = jitter_duration.as_millis(), "Applying jitter delay");
+                        tokio::time::sleep(jitter_duration).await;
+                    }
+                }
+
+                // Execute the job function with optional timeout
+                let (result, metadata) = match timeout_dur {
+                    Some(duration) => {
+                        debug!(job = %name, timeout_secs = duration.as_secs(), "Executing with timeout");
+                        match tokio::time::timeout(duration, job_fn()).await {
+                            Ok(Ok(output)) => (JobResult::Success, output.metadata),
+                            Ok(Err(e)) => {
+                                warn!(job = %name, error = %e, "Job failed");
+                                (JobResult::Failed(e), HashMap::new())
+                            }
+                            Err(_) => {
+                                warn!(job = %name, timeout_secs = duration.as_secs(), "Job timed out");
+                                (
+                                    JobResult::Failed(format!(
+                                        "Job timed out after {} seconds",
+                                        duration.as_secs()
+                                    )),
+                                    HashMap::new(),
+                                )
+                            }
+                        }
+                    }
+                    None => match job_fn().await {
+                        Ok(output) => (JobResult::Success, output.metadata),
+                        Err(e) => {
+                            warn!(job = %name, error = %e, "Job failed");
+                            (JobResult::Failed(e), HashMap::new())
+                        }
+                    },
+                };
+
+                let elapsed = start.elapsed();
+                let duration_ms = elapsed.as_millis() as u64;
+
+                // Record completion with metadata
+                registry.record_complete_with_metadata(&name, result, duration_ms, metadata);
+                info!(job = %name, duration_ms = duration_ms, "Job completed");
+
+                // RunGuard is dropped here, releasing the overlap lock
+                drop(run_guard);
+            })
+        })
+        .map_err(|e| SchedulerError::InvalidCron(e.to_string()))?;
+
+        let uuid = self.scheduler.add(job).await?;
+        info!(
+            job = %name,
+            uuid = %uuid,
+            cron = %cron_expr,
+            timezone = %tz.name(),
+            overlap = ?overlap_policy,
+            jitter_secs = max_jitter_secs,
+            timeout_secs = timeout.timeout_secs,
+            "Job registered with metadata support"
+        );
+
+        Ok(uuid)
+    }
+
     /// Pause a job by name.
     ///
     /// Paused jobs will skip execution when their scheduled time arrives.
@@ -941,7 +1104,7 @@ mod tests {
         scheduler
             .register_job(
                 "slow-job",
-                "*/1 * * * * *", // Every second
+                "*/5 * * * * *", // Every 5 seconds to avoid overlap during test
                 None,
                 OverlapPolicy::Skip,
                 JitterConfig::none(),
@@ -959,9 +1122,9 @@ mod tests {
             .await
             .unwrap();
 
-        // Start scheduler and let it run
+        // Start scheduler and let it run (wait long enough for one cron fire + timeout)
         scheduler.start().await.unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(2500)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(6000)).await;
         scheduler.shutdown().await.unwrap();
 
         // If the job ran, it should have been marked as failed due to timeout

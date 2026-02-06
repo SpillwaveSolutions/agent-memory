@@ -152,6 +152,65 @@ impl VectorTeleportHandler {
             Err(_) => true,
         }
     }
+
+    /// Direct search method for retrieval handler.
+    ///
+    /// Returns simplified results for use by the retrieval executor.
+    pub async fn search(
+        &self,
+        query: &str,
+        limit: usize,
+        min_score: f32,
+    ) -> Result<Vec<VectorSearchResult>, String> {
+        if !self.is_available() {
+            return Err("Vector index not available".to_string());
+        }
+
+        // Embed query
+        let embedder = self.embedder.clone();
+        let query_owned = query.to_string();
+        let embedding = tokio::task::spawn_blocking(move || embedder.embed(&query_owned))
+            .await
+            .map_err(|e| format!("Task error: {}", e))?
+            .map_err(|e| format!("Embedding failed: {}", e))?;
+
+        // Search index
+        let results = {
+            let index = self.index.read().unwrap();
+            index
+                .search(&embedding, limit)
+                .map_err(|e| format!("Search failed: {}", e))?
+        };
+
+        // Convert to simplified results
+        let mut search_results = Vec::new();
+        for result in results {
+            if result.score < min_score {
+                continue;
+            }
+
+            if let Ok(Some(entry)) = self.metadata.get(result.vector_id) {
+                search_results.push(VectorSearchResult {
+                    doc_id: entry.doc_id,
+                    doc_type: entry.doc_type.as_str().to_string(),
+                    score: result.score,
+                    text_preview: entry.text_preview,
+                    timestamp_ms: entry.created_at,
+                });
+            }
+        }
+
+        Ok(search_results)
+    }
+}
+
+/// Simplified search result for retrieval handler.
+pub struct VectorSearchResult {
+    pub doc_id: String,
+    pub doc_type: String,
+    pub score: f32,
+    pub text_preview: String,
+    pub timestamp_ms: i64,
 }
 
 #[cfg(test)]

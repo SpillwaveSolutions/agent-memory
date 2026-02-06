@@ -80,6 +80,28 @@ service MemoryService {
 
     // Get top topics by importance score
     rpc GetTopTopics(GetTopTopicsRequest) returns (GetTopTopicsResponse);
+
+    // ===== Index Lifecycle RPCs (Phase 16 - FR-08, FR-09) =====
+
+    // Prune old vectors per lifecycle policy (FR-08)
+    rpc PruneVectorIndex(PruneVectorIndexRequest) returns (PruneVectorIndexResponse);
+
+    // Prune old BM25 documents per lifecycle policy (FR-09)
+    rpc PruneBm25Index(PruneBm25IndexRequest) returns (PruneBm25IndexResponse);
+
+    // Get ranking and novelty status
+    rpc GetRankingStatus(GetRankingStatusRequest) returns (GetRankingStatusResponse);
+
+    // ===== Agent Retrieval Policy RPCs (Phase 17) =====
+
+    // Get combined status of all retrieval layers (single call pattern)
+    rpc GetRetrievalCapabilities(GetRetrievalCapabilitiesRequest) returns (GetRetrievalCapabilitiesResponse);
+
+    // Classify query intent
+    rpc ClassifyQueryIntent(ClassifyQueryIntentRequest) returns (ClassifyQueryIntentResponse);
+
+    // Route a query through the retrieval policy
+    rpc RouteQuery(RouteQueryRequest) returns (RouteQueryResponse);
 }
 
 // Role of the message author
@@ -111,6 +133,16 @@ enum SearchField {
     SEARCH_FIELD_SUMMARY = 2;
     SEARCH_FIELD_BULLETS = 3;
     SEARCH_FIELD_KEYWORDS = 4;
+}
+
+// Classification of memory type for salience scoring (Phase 16)
+enum MemoryKind {
+    MEMORY_KIND_UNSPECIFIED = 0;
+    MEMORY_KIND_OBSERVATION = 1;  // Default, no boost
+    MEMORY_KIND_PREFERENCE = 2;   // User preferences ("prefer", "like", "avoid")
+    MEMORY_KIND_PROCEDURE = 3;    // Steps or instructions ("step", "first", "then")
+    MEMORY_KIND_CONSTRAINT = 4;   // Requirements or limitations ("must", "should")
+    MEMORY_KIND_DEFINITION = 5;   // Definitions or meanings ("is defined as", "means")
 }
 
 // A conversation event to be stored.
@@ -197,6 +229,14 @@ message TocNode {
     int64 end_time_ms = 9;
     // Version number
     int32 version = 10;
+
+    // Phase 16: Salience scoring fields (field numbers > 100 to avoid conflicts)
+    // Salience score (0.0-1.0+), default 0.5 for neutral
+    float salience_score = 101;
+    // Memory type classification
+    MemoryKind memory_kind = 102;
+    // Whether node is pinned (boosted importance)
+    bool is_pinned = 103;
 }
 
 // A grip providing provenance for a bullet
@@ -213,6 +253,14 @@ message Grip {
     int64 timestamp_ms = 5;
     // Source reference
     string source = 6;
+
+    // Phase 16: Salience scoring fields (field numbers > 10)
+    // Salience score (0.0-1.0+), default 0.5 for neutral
+    float salience_score = 11;
+    // Memory type classification
+    MemoryKind memory_kind = 12;
+    // Whether grip is pinned (boosted importance)
+    bool is_pinned = 13;
 }
 
 // Request for root TOC nodes
@@ -332,6 +380,8 @@ message JobStatusProto {
     bool is_running = 10;
     // Paused by user
     bool is_paused = 11;
+    // Job-specific metadata from last run (e.g., prune_count, items_processed)
+    map<string, string> last_run_metadata = 12;
 }
 
 // Request for scheduler status
@@ -682,4 +732,224 @@ message GetTopTopicsRequest {
 message GetTopTopicsResponse {
     // Topics sorted by importance score (descending)
     repeated Topic topics = 1;
+}
+
+// ===== Index Lifecycle Messages (Phase 16 - FR-08, FR-09) =====
+
+// Request to prune vector index
+message PruneVectorIndexRequest {
+    // Optional: prune specific level only ("segment", "grip", "day", "week", or "" for all)
+    string level = 1;
+    // Override retention days (0 = use config)
+    uint32 age_days_override = 2;
+    // If true, report what would be pruned without actually deleting
+    bool dry_run = 3;
+}
+
+// Response from vector prune
+message PruneVectorIndexResponse {
+    bool success = 1;
+    uint32 segments_pruned = 2;
+    uint32 grips_pruned = 3;
+    uint32 days_pruned = 4;
+    uint32 weeks_pruned = 5;
+    string message = 6;
+}
+
+// Request to prune BM25 index
+message PruneBm25IndexRequest {
+    // Optional: prune specific level only ("segment", "grip", "day", "week", "all", or "")
+    string level = 1;
+    // Override retention days (0 = use config)
+    uint32 age_days_override = 2;
+    // If true, report what would be pruned without actually deleting
+    bool dry_run = 3;
+}
+
+// Response from BM25 prune
+message PruneBm25IndexResponse {
+    bool success = 1;
+    uint32 segments_pruned = 2;
+    uint32 grips_pruned = 3;
+    uint32 days_pruned = 4;
+    uint32 weeks_pruned = 5;
+    bool optimized = 6;
+    string message = 7;
+}
+
+// Request for ranking/novelty status
+message GetRankingStatusRequest {}
+
+// Ranking and novelty status
+message GetRankingStatusResponse {
+    // Whether salience scoring is enabled
+    bool salience_enabled = 1;
+
+    // Whether usage decay is enabled
+    bool usage_decay_enabled = 2;
+
+    // Novelty checking status
+    bool novelty_enabled = 3;
+    int64 novelty_checked_total = 4;
+    int64 novelty_rejected_total = 5;
+    int64 novelty_skipped_total = 6;
+
+    // Vector lifecycle status
+    bool vector_lifecycle_enabled = 7;
+    int64 vector_last_prune_timestamp = 8;
+    uint32 vector_last_prune_count = 9;
+
+    // BM25 lifecycle status
+    bool bm25_lifecycle_enabled = 10;
+    int64 bm25_last_prune_timestamp = 11;
+    uint32 bm25_last_prune_count = 12;
+}
+
+// ===== Agent Retrieval Policy Messages (Phase 17) =====
+
+// Query intent classification
+enum QueryIntent {
+    QUERY_INTENT_UNSPECIFIED = 0;
+    QUERY_INTENT_EXPLORE = 1;     // Discover patterns, themes
+    QUERY_INTENT_ANSWER = 2;      // Get evidence-backed result
+    QUERY_INTENT_LOCATE = 3;      // Find exact snippet
+    QUERY_INTENT_TIME_BOXED = 4;  // Return best partial in N ms
+}
+
+// Capability tier based on available layers
+enum CapabilityTier {
+    CAPABILITY_TIER_UNSPECIFIED = 0;
+    CAPABILITY_TIER_FULL = 1;     // Topics + Hybrid + Agentic
+    CAPABILITY_TIER_HYBRID = 2;   // BM25 + Vector + Agentic
+    CAPABILITY_TIER_SEMANTIC = 3; // Vector + Agentic only
+    CAPABILITY_TIER_KEYWORD = 4;  // BM25 + Agentic only
+    CAPABILITY_TIER_AGENTIC = 5;  // Agentic TOC only
+}
+
+// Execution mode for retrieval
+enum ExecutionMode {
+    EXECUTION_MODE_UNSPECIFIED = 0;
+    EXECUTION_MODE_SEQUENTIAL = 1;  // One layer at a time
+    EXECUTION_MODE_PARALLEL = 2;    // Multiple layers at once
+    EXECUTION_MODE_HYBRID = 3;      // Start parallel, cancel losers
+}
+
+// Retrieval layer identifier
+enum RetrievalLayer {
+    RETRIEVAL_LAYER_UNSPECIFIED = 0;
+    RETRIEVAL_LAYER_TOPICS = 1;
+    RETRIEVAL_LAYER_HYBRID = 2;
+    RETRIEVAL_LAYER_VECTOR = 3;
+    RETRIEVAL_LAYER_BM25 = 4;
+    RETRIEVAL_LAYER_AGENTIC = 5;
+}
+
+// Status of a single retrieval layer
+message LayerStatus {
+    RetrievalLayer layer = 1;
+    bool enabled = 2;
+    bool healthy = 3;
+    uint64 doc_count = 4;
+    optional string message = 5;
+}
+
+// Request for retrieval capabilities
+message GetRetrievalCapabilitiesRequest {}
+
+// Response with combined status of all layers
+message GetRetrievalCapabilitiesResponse {
+    // Detected capability tier
+    CapabilityTier tier = 1;
+
+    // Individual layer statuses
+    LayerStatus bm25_status = 2;
+    LayerStatus vector_status = 3;
+    LayerStatus topics_status = 4;
+    LayerStatus agentic_status = 5;
+
+    // Detection time in milliseconds
+    uint64 detection_time_ms = 6;
+
+    // Any warnings from detection
+    repeated string warnings = 7;
+}
+
+// Stop conditions for retrieval
+message StopConditions {
+    uint32 max_depth = 1;
+    uint32 max_nodes = 2;
+    uint32 max_rpc_calls = 3;
+    uint32 max_tokens = 4;
+    uint64 timeout_ms = 5;
+    uint32 beam_width = 6;
+    float min_confidence = 7;
+}
+
+// Request to classify query intent
+message ClassifyQueryIntentRequest {
+    string query = 1;
+    // Optional explicit timeout (forces TIME_BOXED)
+    optional uint64 timeout_ms = 2;
+}
+
+// Response with classified intent
+message ClassifyQueryIntentResponse {
+    QueryIntent intent = 1;
+    float confidence = 2;
+    string reason = 3;
+    repeated string matched_keywords = 4;
+    // Time constraint if detected
+    optional uint64 lookback_ms = 5;
+}
+
+// Request to route a query
+message RouteQueryRequest {
+    string query = 1;
+    // Optional intent override (skips classification)
+    optional QueryIntent intent_override = 2;
+    // Optional stop conditions (uses defaults if not provided)
+    optional StopConditions stop_conditions = 3;
+    // Optional execution mode override
+    optional ExecutionMode mode_override = 4;
+    // Maximum results to return
+    int32 limit = 5;
+}
+
+// A single retrieval result
+message RetrievalResult {
+    string doc_id = 1;
+    string doc_type = 2;
+    float score = 3;
+    string text_preview = 4;
+    RetrievalLayer source_layer = 5;
+    map<string, string> metadata = 6;
+}
+
+// Explainability payload for retrieval decisions
+message ExplainabilityPayload {
+    QueryIntent intent = 1;
+    CapabilityTier tier = 2;
+    ExecutionMode mode = 3;
+    repeated RetrievalLayer candidates_considered = 4;
+    RetrievalLayer winner = 5;
+    string why_winner = 6;
+    bool fallback_occurred = 7;
+    optional string fallback_reason = 8;
+    uint64 total_time_ms = 9;
+    repeated string grip_ids = 10;
+}
+
+// Response from query routing
+message RouteQueryResponse {
+    // Search results
+    repeated RetrievalResult results = 1;
+
+    // Explainability payload
+    ExplainabilityPayload explanation = 2;
+
+    // Whether any results were found
+    bool has_results = 3;
+
+    // Layers that were attempted
+    repeated RetrievalLayer layers_attempted = 4;
 }

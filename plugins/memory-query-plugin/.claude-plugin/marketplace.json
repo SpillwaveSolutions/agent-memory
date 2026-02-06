@@ -5,17 +5,21 @@
     "email": "rick@spillwave.com"
   },
   "metadata": {
-    "description": "Query past conversations from the agent-memory system",
-    "version": "1.0.0"
+    "description": "Intelligent memory retrieval with tier-aware routing, intent classification, and fallback chains",
+    "version": "2.0.0"
   },
   "plugins": [
     {
       "name": "memory-query",
-      "description": "Query past conversations from the agent-memory system. Use when asked to 'recall what we discussed', 'search conversation history', 'find previous session', 'what did we talk about', or 'get context from last week'. Provides /memory-search (topic search), /memory-recent (recent summaries), /memory-context (expand excerpts).",
+      "description": "Query past conversations with intelligent tier-aware retrieval. Provides /memory-search (topic search), /memory-recent (recent summaries), /memory-context (expand excerpts). Automatically detects available tiers (Topics, Hybrid, Semantic, Keyword, Agentic) and routes through optimal layers with fallback chains.",
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/memory-query"
+        "./skills/memory-query",
+        "./skills/retrieval-policy",
+        "./skills/topic-graph",
+        "./skills/bm25-search",
+        "./skills/vector-search"
       ],
       "commands": [
         "./commands/memory-search.md",

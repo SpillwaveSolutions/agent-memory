@@ -343,11 +343,29 @@ impl<E: EmbeddingModel> VectorIndexPipeline<E> {
     /// Removes vectors older than age_days from the HNSW index.
     /// Does NOT delete primary data (TOC nodes, grips remain in RocksDB).
     pub fn prune(&self, age_days: u64) -> Result<usize, VectorError> {
+        self.prune_level(age_days, None)
+    }
+
+    /// Prune old vectors based on age with optional level filter.
+    ///
+    /// Removes vectors older than age_days from the HNSW index.
+    /// If level_filter is provided, only prunes vectors matching that level.
+    /// Level is determined from doc_id format:
+    /// - TOC nodes: "toc:{level}:{date}" -> extract level
+    /// - Grips: doc_type == Grip -> "grip" level
+    ///
+    /// Does NOT delete primary data (TOC nodes, grips remain in RocksDB).
+    pub fn prune_level(
+        &self,
+        age_days: u64,
+        level_filter: Option<&str>,
+    ) -> Result<usize, VectorError> {
         let cutoff_ms = Utc::now().timestamp_millis() - (age_days as i64 * 24 * 60 * 60 * 1000);
 
         info!(
             age_days = age_days,
             cutoff_ms = cutoff_ms,
+            level = ?level_filter,
             "Pruning old vectors"
         );
 
@@ -355,6 +373,16 @@ impl<E: EmbeddingModel> VectorIndexPipeline<E> {
         let mut pruned = 0;
 
         for entry in all_entries {
+            // Determine the level of this entry
+            let entry_level = self.extract_level(&entry);
+
+            // Apply level filter if specified
+            if let Some(filter) = level_filter {
+                if entry_level != filter {
+                    continue;
+                }
+            }
+
             if entry.created_at < cutoff_ms {
                 // Remove from HNSW index
                 {
@@ -366,6 +394,13 @@ impl<E: EmbeddingModel> VectorIndexPipeline<E> {
                 // Remove metadata
                 self.metadata.delete(entry.vector_id)?;
                 pruned += 1;
+
+                debug!(
+                    vector_id = entry.vector_id,
+                    doc_id = %entry.doc_id,
+                    level = entry_level,
+                    "Pruned vector"
+                );
             }
         }
 
@@ -377,8 +412,28 @@ impl<E: EmbeddingModel> VectorIndexPipeline<E> {
             index.save()?;
         }
 
-        info!(pruned = pruned, "Prune complete");
+        info!(pruned = pruned, level = ?level_filter, "Prune complete");
         Ok(pruned)
+    }
+
+    /// Extract level from a vector entry.
+    ///
+    /// For TOC nodes: parses "toc:{level}:{date}" to get level.
+    /// For Grips: returns "grip".
+    fn extract_level<'a>(&self, entry: &'a VectorEntry) -> &'a str {
+        match entry.doc_type {
+            DocType::Grip => "grip",
+            DocType::TocNode => {
+                // Parse doc_id format: "toc:{level}:{date}"
+                // e.g., "toc:day:2024-01-15" -> "day"
+                let parts: Vec<&str> = entry.doc_id.split(':').collect();
+                if parts.len() >= 2 {
+                    parts[1]
+                } else {
+                    "unknown"
+                }
+            }
+        }
     }
 
     /// Get the current index statistics.

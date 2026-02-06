@@ -22,8 +22,9 @@ use anyhow::Result;
 use clap::Parser;
 
 use memory_daemon::{
-    handle_admin, handle_query, handle_scheduler, handle_teleport_command, handle_topics_command,
-    show_status, start_daemon, stop_daemon, Cli, Commands,
+    handle_admin, handle_query, handle_retrieval_command, handle_scheduler,
+    handle_teleport_command, handle_topics_command, show_status, start_daemon, stop_daemon, Cli,
+    Commands,
 };
 
 #[tokio::main]
@@ -65,6 +66,9 @@ async fn main() -> Result<()> {
         }
         Commands::Topics(cmd) => {
             handle_topics_command(cmd).await?;
+        }
+        Commands::Retrieval(cmd) => {
+            handle_retrieval_command(cmd).await?;
         }
     }
 

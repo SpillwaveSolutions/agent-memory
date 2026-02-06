@@ -4,7 +4,7 @@
 
 Revise the "Time-Aware BM25 Lexical Memory System PRD" to align with the actual agent-memory Rust project architecture. The PRD has valuable conceptual ideas but uses different terminology and assumptions that need correction.
 
-## Key Findings
+## Key Findings (updated)
 
 ### What the PRD Gets Right
 - 4-level agentic search model (L1: TOC, L2: Summaries, L3: Search, L4: Raw)
@@ -17,7 +17,7 @@ Revise the "Time-Aware BM25 Lexical Memory System PRD" to align with the actual 
 |-------------|----------------------|
 | Hot/Warm/Cold/Archive layers | TOC levels: Segment → Day → Week → Month → Year |
 | Raw conversation indexing | TOC nodes + Grips indexed (NOT raw events) |
-| Eviction/TTL policies | **None** - Append-only, no deletion |
+| Eviction/TTL policies | BM25 index now uses level-based retention; primary data stays append-only |
 | Lexical compaction | LLM-based rollup summarization |
 | Separate layer indexes | Single Tantivy index with `doc_type` field |
 
@@ -49,10 +49,11 @@ Original: Hot (raw) → Daily → Weekly → Monthly
 Revised:  Segment (30min/4K tokens) → Day → Week → Month → Year
 ```
 
-**Remove Eviction Concepts:**
+**Refine Lifecycle Concepts:**
 - Raw events: Append-only, never deleted
 - TOC nodes: Versioned, immutable
-- BM25 index: Rebuildable from storage (disposable accelerator)
+- BM25 index: Rebuildable AND prunable; fine-grain docs drop after retention, coarse rollups stay
+- Add FR-09 to PRD: per-level retention config + scheduled prune + admin CLI + status telemetry
 
 **Clarify What Gets Indexed:**
 - TOC nodes: `title + bullets.text + keywords`

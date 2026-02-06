@@ -25,6 +25,22 @@ pub struct TopicGraphHandler {
     storage: Arc<TopicStorage>,
 }
 
+/// Status of the topic graph.
+pub struct TopicGraphStatus {
+    pub available: bool,
+    pub topic_count: u64,
+    pub relationship_count: u64,
+    pub last_updated: String,
+}
+
+/// Simplified topic search result for retrieval handler.
+pub struct TopicSearchResult {
+    pub id: String,
+    pub label: String,
+    pub importance_score: f32,
+    pub keywords: Vec<String>,
+}
+
 impl TopicGraphHandler {
     /// Create a new topic graph handler.
     pub fn new(storage: Arc<TopicStorage>) -> Self {
@@ -37,6 +53,75 @@ impl TopicGraphHandler {
             .get_stats()
             .map(|s| s.topic_count > 0)
             .unwrap_or(false)
+    }
+
+    /// Get the current topic graph status.
+    pub async fn get_status(&self) -> TopicGraphStatus {
+        let stats = self.storage.get_stats().unwrap_or_default();
+        TopicGraphStatus {
+            available: stats.topic_count > 0,
+            topic_count: stats.topic_count,
+            relationship_count: stats.relationship_count,
+            last_updated: if stats.last_extraction_ms > 0 {
+                chrono::DateTime::from_timestamp_millis(stats.last_extraction_ms)
+                    .map(|dt| dt.to_rfc3339())
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            },
+        }
+    }
+
+    /// Direct search method for retrieval handler.
+    ///
+    /// Returns simplified results for use by the retrieval executor.
+    pub async fn search_topics(
+        &self,
+        query: &str,
+        limit: u32,
+    ) -> Result<Vec<TopicSearchResult>, String> {
+        let query_lower = query.to_lowercase();
+        let query_terms: Vec<&str> = query_lower.split_whitespace().collect();
+
+        let all_topics = self
+            .storage
+            .list_topics()
+            .map_err(|e| format!("Failed to list topics: {}", e))?;
+
+        // Filter topics by query matching label or keywords
+        let mut matching_topics: Vec<_> = all_topics
+            .into_iter()
+            .filter(|topic| {
+                let label_lower = topic.label.to_lowercase();
+                let keywords_lower: Vec<String> =
+                    topic.keywords.iter().map(|k| k.to_lowercase()).collect();
+
+                query_terms.iter().any(|term| {
+                    label_lower.contains(term) || keywords_lower.iter().any(|k| k.contains(term))
+                })
+            })
+            .collect();
+
+        // Sort by importance score descending
+        matching_topics.sort_by(|a, b| {
+            b.importance_score
+                .partial_cmp(&a.importance_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Limit results and convert to search results
+        let results: Vec<TopicSearchResult> = matching_topics
+            .into_iter()
+            .take(limit as usize)
+            .map(|t| TopicSearchResult {
+                id: t.topic_id,
+                label: t.label,
+                importance_score: t.importance_score as f32,
+                keywords: t.keywords,
+            })
+            .collect();
+
+        Ok(results)
     }
 
     /// Handle GetTopicGraphStatus RPC request.

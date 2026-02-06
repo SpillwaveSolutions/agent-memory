@@ -117,7 +117,7 @@ pub fn build_teleport_schema() -> SearchSchema {
     let doc_id = schema_builder.add_text_field("doc_id", STRING | STORED);
 
     // TOC level (for toc_node only): "year", "month", "week", "day", "segment"
-    let level = schema_builder.add_text_field("level", STRING);
+    let level = schema_builder.add_text_field("level", STRING | STORED);
 
     // Searchable text content (title + bullets for TOC, excerpt for grip)
     let text = schema_builder.add_text_field("text", TEXT);

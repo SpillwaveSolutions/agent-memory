@@ -203,7 +203,8 @@ rpc GetTeleportStatus(GetTeleportStatusRequest) returns (TeleportStatus);
 |----------|-----------|
 | Single Tantivy index | Simpler than per-level indexes; use `doc_type` field to filter |
 | Index TOC nodes + Grips | Not raw events (token explosion, redundant with summaries) |
-| Append-only, no eviction | Index grows with storage; rebuild instead of evict |
+| Primary data append-only | RocksDB remains immutable source of truth |
+| Index lifecycle | Prune fine-grain docs over time; keep coarse rollups resident |
 | MmapDirectory | Persistent, memory-efficient, crash-safe |
 
 ---
@@ -218,9 +219,9 @@ The following table maps conceptual PRD terms to actual agent-memory implementat
 | Warm layer | Day / Week nodes | Medium granularity rollups |
 | Cold layer | Month / Year nodes | Coarse rollups |
 | Archive layer | Year nodes | Oldest, most compressed |
-| Lexical compaction | LLM rollup summarization | No eviction, summaries compress detail |
+| Lexical compaction | LLM rollup summarization | Summaries compress detail; lifecycle pruning limits fine-grain docs |
 | Document | `TocNode` or `Grip` | Two document types in single index |
-| TTL / Eviction | **Not used** | Append-only storage, no deletion |
+| TTL / Eviction | Not for primary data; index uses level-based retention |
 | Layer indexes | Single index with `doc_type` field | Query filters by type if needed |
 
 ---
@@ -316,9 +317,22 @@ Option B: Teleport (with BM25)
 
 ## 7. Bounded Growth via Summarization
 
-### Growth Model (Not Eviction)
+### Index Lifecycle (Warm → Cold) and Summarization
 
-The agent-memory system uses **summarization-based compression**, not eviction:
+The BM25 index keeps coarse rollups long-term and prunes fine-grain docs after they age out. Summaries still provide compression, but the index now has an explicit lifecycle:
+
+| Level | Default retention in index | Why |
+|-------|----------------------------|-----|
+| Segment | 30 days | High churn; rolled up quickly |
+| Day | 180 days | Mid-term recall while weekly/monthly rollups mature |
+| Week | 5 years | Good balance of specificity vs. size |
+| Month/Year | Keep | Stable, low-cardinality anchors |
+
+Retention is enforced by a scheduled prune job (FR-09) and by skipping indexing of expired fine-grain docs once their rollups exist.
+
+### Growth Model
+
+The agent-memory system uses **summarization-based compression plus index lifecycle pruning**:
 
 | Layer | Creation Trigger | Content |
 |-------|-----------------|---------|
@@ -341,12 +355,12 @@ For a typical development workflow with ~300 events/day:
 
 **Key insight:** Index grows with TOC nodes, not raw events. Rollup summarization bounds growth logarithmically.
 
-### Why No Eviction?
+### Why Lifecycle Instead of Blind Eviction?
 
-1. **Append-only truth**: Raw events are immutable history
-2. **Summarization compresses**: TOC nodes capture essence without keeping all detail
-3. **Rebuildable index**: Delete and rebuild if corrupted or bloated
-4. **Storage is cheap**: 150 MB over 5 years is trivial
+1. **Append-only truth**: RocksDB stays immutable; pruning only affects the accelerator layer
+2. **Signal over noise**: Old fine-grain docs drop out once rolled up, keeping recall focused
+3. **Predictable size**: Level-based retention bounds index growth
+4. **Rebuildable**: Full rebuilds remain supported; lifecycle is additive safety, not a dependency
 
 ---
 
@@ -490,6 +504,16 @@ Requirements defined in REQUIREMENTS.md, Phase 11 coverage:
 - [ ] Configurable index path, memory budget, commit interval
 - [ ] Config changes require daemon restart (no hot reload)
 - [ ] Default: BM25 enabled, Vector disabled (not yet implemented)
+
+#### FR-09: BM25 Lifecycle Pruning
+
+**Acceptance Criteria:**
+- [ ] Configurable per-level retention days for BM25 index (segment/day/week/month)
+- [ ] Scheduler job runs prune on a cron (default 03:00 daily)
+- [ ] Prune only removes BM25 docs; primary RocksDB data untouched
+- [ ] Post-prune optimize/compact keeps index healthy
+- [ ] TeleportStatus reports last prune time and pruned doc counts
+- [ ] CLI/admin command `memory-daemon admin prune-bm25 --age-days <n> --level <segment|day|week|all>`
 
 ---
 

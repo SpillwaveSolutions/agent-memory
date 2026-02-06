@@ -94,6 +94,16 @@ This project uses the Get Shit Done (GSD) workflow:
 - STATE.md tracks current position
 - PLAN.md files define executable tasks
 
+## Plan Storage
+
+**IMPORTANT: All phase plans and RFCs must be stored in `docs/plans/`.**
+
+- Phase plans: `docs/plans/phase-<N>-<name>-plan.md`
+- RFCs: `docs/plans/<name>-rfc.md`
+- Research docs: `docs/plans/<name>-research.md`
+
+Do NOT leave plans only in `~/.claude/plans/` - always copy the final plan to `docs/plans/`.
+
 ## Key Decisions
 
 See `.planning/PROJECT.md` for architectural decisions and requirements.

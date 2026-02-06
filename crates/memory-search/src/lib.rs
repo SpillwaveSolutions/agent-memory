@@ -21,6 +21,7 @@ pub mod document;
 pub mod error;
 pub mod index;
 pub mod indexer;
+pub mod lifecycle;
 pub mod schema;
 pub mod searcher;
 
@@ -28,5 +29,8 @@ pub use document::{extract_toc_text, grip_to_doc, toc_node_to_doc};
 pub use error::SearchError;
 pub use index::{open_or_create_index, SearchIndex, SearchIndexConfig};
 pub use indexer::SearchIndexer;
+pub use lifecycle::{
+    is_protected_level, retention_map, Bm25LifecycleConfig, Bm25MaintenanceConfig, Bm25PruneStats,
+};
 pub use schema::{build_teleport_schema, DocType, SearchSchema};
 pub use searcher::{SearchOptions, TeleportResult, TeleportSearcher};

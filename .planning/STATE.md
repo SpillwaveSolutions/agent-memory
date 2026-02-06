@@ -5,21 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.0 in progress - Phases 10.5-14 COMPLETE - Phase 15 ready for execution
+**Current focus:** v2.0 COMPLETE - All cognitive layers (0-5) plus ranking policy and retrieval brainstem implemented
 
 ## Current Position
 
-Milestone: v2.0 Scheduler+Teleport (in progress)
-Current: Phase 15 - Configuration Wizard Skills (planning complete)
-Status: Phases 10.5-14 complete, Phase 15 plans ready for execution
-Last activity: 2026-02-02 -- Completed Phases 10.5, 11, 12, 13, and 14
+Milestone: v2.0 Scheduler+Teleport (COMPLETE)
+Current: Phase 17 - Agent Retrieval Policy (core complete, CLI polish pending)
+Status: Phases 10.5-17 complete (Phase 17 5/6 plans, CLI integration pending)
+Last activity: 2026-02-05 -- Completed Phases 15, 16, and 17 core implementation
 
 Progress Phase 10.5: [====================] 100% (3/3 plans)
 Progress Phase 11: [====================] 100% (4/4 plans)
 Progress Phase 12: [====================] 100% (5/5 plans)
 Progress Phase 13: [====================] 100% (4/4 plans)
 Progress Phase 14: [====================] 100% (6/6 plans)
-Progress Phase 15: [                    ] 0% (0/5 plans)
+Progress Phase 15: [====================] 100% (5/5 plans)
+Progress Phase 16: [====================] 100% (5/5 plans)
+Progress Phase 17: [====================] 100% (6/6 plans)
 
 ## Performance Metrics
 
@@ -204,9 +206,64 @@ Recent decisions affecting current work:
 - Timestamps formatted as local time for human readability in CLI
 - SchedulerGrpcService delegates from MemoryServiceImpl when scheduler is configured
 
+**From 15-01 through 15-05:**
+- Interactive AskUserQuestion-based wizards for storage, LLM, and multi-agent configuration
+- State detection skips already-configured options
+- Three flag modes: --fresh, --minimal, --advanced
+- Skills: memory-storage, memory-llm, memory-agents
+
+**From 16-01:**
+- MemoryKind enum: Observation, Preference, Procedure, Constraint, Definition
+- SalienceScorer with configurable weights per memory kind
+- Salience score stored in TocNode and Grip at write time
+
+**From 16-02:**
+- CF_USAGE_COUNTERS column family for access tracking
+- UsageTracker with LRU cache for cache-first reads
+- Usage decay formula: usage_penalty(stats) returns 0.0-1.0
+
+**From 16-03:**
+- NoveltyChecker with opt-in (disabled by default)
+- Fail-open behavior: any failure returns "not duplicate"
+- Vector similarity threshold configurable
+
+**From 16-04 through 16-05:**
+- VectorLifecycleConfig with FR-08 retention rules
+- Bm25LifecycleConfig with FR-09 rules (disabled by default)
+- Scheduler jobs: VectorPruneJob, Bm25PruneJob
+
+**From 17-01:**
+- QueryIntent enum: Explore, Answer, Locate, TimeBoxed
+- CapabilityTier enum: Full (1), Hybrid (2), Semantic (3), Keyword (4), Agentic (5)
+- StopConditions: max_depth, max_nodes, timeout_ms, beam_width, min_confidence
+- ExecutionMode enum: Sequential, Parallel, Hybrid
+
+**From 17-02:**
+- IntentClassifier uses keyword heuristics (regex patterns)
+- Time constraint extraction: "last week", "yesterday", ISO dates
+- Confidence scoring for classification
+
+**From 17-03:**
+- TierDetector maps layer availability to tiers
+- CombinedStatus aggregates all layer health checks
+- GetRetrievalCapabilities proto message
+
+**From 17-04:**
+- FallbackChain defines layer sequence per tier
+- RetrievalExecutor with Sequential/Parallel/Hybrid modes
+- Bounded fan-out (beam_width) for parallel execution
+- Early stopping on sufficient results
+
+**From 17-05:**
+- ExplainabilityPayload tracks tier, layers tried, fallbacks, stop reason
+- SkillContract defines required steps for skill implementers
+- SKILL.md generation with retrieval policy requirements
+
 ### Roadmap Evolution
 
 - Phase 15 added: Configuration Wizard Skills (AskUserQuestion-based interactive config wizards for storage, LLM, multi-agent)
+- Phase 16 added: Memory Ranking Enhancements (salience, usage tracking, novelty, index lifecycle)
+- Phase 17 added: Agent Retrieval Policy (tier detection, intent classification, fallbacks, explainability)
 
 ### Pending Todos
 
@@ -218,9 +275,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-02
-Stopped at: Completed Phases 10.5, 11, 12, 13, and 14 execution
+Last session: 2026-02-06
+Stopped at: All Phases 15-17 COMPLETE - CLI/RPC integration done, telemetry documented, config reference created
 Resume file: None
+Next action: Prepare v2.1 release or start next milestone
 
 ## Milestone History
 
@@ -350,8 +408,29 @@ See: .planning/MILESTONES.md for complete history
 
 | Plan | Wave | Description | Status |
 |------|------|-------------|--------|
-| 15-01 | 1 | memory-storage skill (storage, retention, cleanup, GDPR) | Ready |
-| 15-02 | 1 | memory-llm skill (provider, model discovery, cost, API test) | Ready |
-| 15-03 | 2 | memory-agents skill (multi-agent, tagging, query scope) | Ready |
-| 15-04 | 2 | Reference documentation (all reference/*.md files) | Ready |
-| 15-05 | 3 | Plugin integration (marketplace.json, memory-setup updates) | Ready |
+| 15-01 | 1 | memory-storage skill (storage, retention, cleanup, GDPR) | Complete |
+| 15-02 | 1 | memory-llm skill (provider, model discovery, cost, API test) | Complete |
+| 15-03 | 2 | memory-agents skill (multi-agent, tagging, query scope) | Complete |
+| 15-04 | 2 | Reference documentation (all reference/*.md files) | Complete |
+| 15-05 | 3 | Plugin integration (marketplace.json, memory-setup updates) | Complete |
+
+## Phase 16 Plans (Memory Ranking Enhancements)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 16-01 | 1 | Salience scoring (MemoryKind enum, SalienceScorer) | Complete |
+| 16-02 | 1 | Usage counters (CF_USAGE_COUNTERS, UsageTracker, LRU cache) | Complete |
+| 16-03 | 2 | Novelty threshold (NoveltyChecker, opt-in, fail-open) | Complete |
+| 16-04 | 2 | Vector pruning automation (FR-08, per-level retention) | Complete |
+| 16-05 | 3 | BM25 lifecycle (FR-09, disabled by default, post-prune optimize) | Complete |
+
+## Phase 17 Plans (Agent Retrieval Policy)
+
+| Plan | Wave | Description | Status |
+|------|------|-------------|--------|
+| 17-01 | 1 | Core retrieval types (QueryIntent, CapabilityTier, StopConditions) | Complete |
+| 17-02 | 1 | Intent classification (IntentClassifier, time extraction) | Complete |
+| 17-03 | 2 | Tier detection (TierDetector, CombinedStatus, GetRetrievalCapabilities) | Complete |
+| 17-04 | 3 | Execution engine (FallbackChain, RetrievalExecutor, parallel/hybrid) | Complete |
+| 17-05 | 3 | Skill contracts (ExplainabilityPayload, SkillContract) | Complete |
+| 17-06 | 4 | CLI/RPC integration (RetrievalHandler, retrieval commands) | Complete |

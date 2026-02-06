@@ -12,7 +12,9 @@
 
 pub mod hybrid;
 pub mod ingest;
+pub mod novelty;
 pub mod query;
+pub mod retrieval;
 pub mod scheduler_service;
 pub mod search_service;
 pub mod server;
@@ -28,7 +30,9 @@ pub mod pb {
 
 pub use hybrid::HybridSearchHandler;
 pub use ingest::MemoryServiceImpl;
+pub use novelty::{NoveltyChecker, NoveltyMetrics, NoveltyMetricsSnapshot};
+pub use retrieval::RetrievalHandler;
 pub use scheduler_service::SchedulerGrpcService;
 pub use server::{run_server, run_server_with_scheduler, run_server_with_shutdown};
-pub use topics::TopicGraphHandler;
-pub use vector::VectorTeleportHandler;
+pub use topics::{TopicGraphHandler, TopicGraphStatus, TopicSearchResult};
+pub use vector::{VectorSearchResult, VectorTeleportHandler};

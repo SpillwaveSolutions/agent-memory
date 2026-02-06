@@ -43,6 +43,16 @@ This is the agent-memory project - a local, append-only conversational memory sy
 - Rust workspace with multiple crates
 - GSD (Get Shit Done) workflow for planning
 
+## Plan Storage
+
+**IMPORTANT: All phase plans and RFCs must be stored in `docs/plans/`.**
+
+- Phase plans: `docs/plans/phase-<N>-<name>-plan.md`
+- RFCs: `docs/plans/<name>-rfc.md`
+- Research docs: `docs/plans/<name>-research.md`
+
+Do NOT leave plans only in `~/.claude/plans/` - always copy the final plan to `docs/plans/`.
+
 ## Before Starting Work
 
 1. Check current branch: `git branch --show-current`

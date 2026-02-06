@@ -32,7 +32,10 @@ use memory_storage::Storage;
 use memory_toc::summarizer::MockSummarizer;
 use memory_types::Settings;
 
-use crate::cli::{AdminCommands, QueryCommands, SchedulerCommands, TeleportCommand, TopicsCommand};
+use crate::cli::{
+    AdminCommands, QueryCommands, RetrievalCommand, SchedulerCommands, TeleportCommand,
+    TopicsCommand,
+};
 
 /// Get the PID file path
 fn pid_file_path() -> PathBuf {
@@ -151,6 +154,139 @@ async fn register_indexing_job(
     Ok(())
 }
 
+/// Register lifecycle prune jobs if indexes are available.
+///
+/// This function registers:
+/// 1. BM25 prune job - prunes old documents from Tantivy index
+/// 2. Vector prune job - prunes old vectors from HNSW index
+///
+/// Both jobs use per-level retention configured in lifecycle settings.
+/// BM25 pruning is DISABLED by default (per PRD append-only philosophy).
+/// Vector pruning is ENABLED by default.
+async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Result<()> {
+    use memory_embeddings::EmbeddingModel;
+    use memory_scheduler::{
+        register_bm25_prune_job, register_vector_prune_job, Bm25PruneJob, Bm25PruneJobConfig,
+        VectorPruneJob, VectorPruneJobConfig,
+    };
+    use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
+    use memory_vector::{
+        HnswConfig, HnswIndex, PipelineConfig as VectorPipelineConfig, VectorIndexPipeline,
+        VectorMetadata,
+    };
+
+    let search_dir = db_path.join("search");
+    let vector_dir = db_path.join("vector");
+
+    // Register BM25 prune job if search index exists
+    if search_dir.exists() {
+        let search_config = SearchIndexConfig::new(&search_dir);
+        match SearchIndex::open_or_create(search_config) {
+            Ok(search_index) => {
+                match SearchIndexer::new(&search_index) {
+                    Ok(indexer) => {
+                        let indexer = Arc::new(indexer);
+
+                        // Create prune job with callback
+                        let bm25_job = Bm25PruneJob::with_prune_fn(
+                            Bm25PruneJobConfig::default(),
+                            move |age_days, level, dry_run| {
+                                let idx = Arc::clone(&indexer);
+                                async move {
+                                    idx.prune_and_commit(age_days, level.as_deref(), dry_run)
+                                        .map_err(|e| e.to_string())
+                                }
+                            },
+                        );
+
+                        register_bm25_prune_job(scheduler, bm25_job)
+                            .await
+                            .context("Failed to register BM25 prune job")?;
+
+                        info!("BM25 prune job registered");
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "Failed to create search indexer for BM25 prune job");
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to open search index for BM25 prune job");
+            }
+        }
+    } else {
+        info!("Search index not found, skipping BM25 prune job registration");
+    }
+
+    // Register vector prune job if vector index exists
+    if vector_dir.exists() {
+        // Try to create embedder
+        match memory_embeddings::CandleEmbedder::load_default() {
+            Ok(embedder) => {
+                let embedder = Arc::new(embedder);
+                let hnsw_config = HnswConfig::new(embedder.info().dimension, &vector_dir);
+
+                match HnswIndex::open_or_create(hnsw_config) {
+                    Ok(hnsw_index) => {
+                        let hnsw_index = Arc::new(RwLock::new(hnsw_index));
+
+                        // Open metadata store
+                        let metadata_path = vector_dir.join("metadata");
+                        if metadata_path.exists() {
+                            match VectorMetadata::open(&metadata_path) {
+                                Ok(metadata) => {
+                                    let metadata = Arc::new(metadata);
+                                    let pipeline = Arc::new(VectorIndexPipeline::new(
+                                        embedder,
+                                        hnsw_index,
+                                        metadata,
+                                        VectorPipelineConfig::default(),
+                                    ));
+
+                                    // Create prune job with callback
+                                    let vector_job = VectorPruneJob::with_prune_fn(
+                                        VectorPruneJobConfig::default(),
+                                        move |age_days, level| {
+                                            let p = Arc::clone(&pipeline);
+                                            async move {
+                                                p.prune_level(age_days, level.as_deref())
+                                                    .map_err(|e| e.to_string())
+                                            }
+                                        },
+                                    );
+
+                                    register_vector_prune_job(scheduler, vector_job)
+                                        .await
+                                        .context("Failed to register vector prune job")?;
+
+                                    info!("Vector prune job registered");
+                                }
+                                Err(e) => {
+                                    warn!(error = %e, "Failed to open vector metadata for prune job");
+                                }
+                            }
+                        } else {
+                            info!(
+                                "Vector metadata not found, skipping vector prune job registration"
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "Failed to open HNSW index for vector prune job");
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to load embedder for vector prune job");
+            }
+        }
+    } else {
+        info!("Vector index not found, skipping vector prune job registration");
+    }
+
+    Ok(())
+}
+
 /// Start the memory daemon.
 ///
 /// 1. Load configuration (CFG-01: defaults -> file -> env -> CLI)
@@ -244,6 +380,12 @@ pub async fn start_daemon(
     if let Err(e) = register_indexing_job(&scheduler, storage.clone(), &db_path).await {
         warn!("Indexing job not registered: {}", e);
         info!("Run 'rebuild-indexes' to initialize the search index");
+    }
+
+    // Register lifecycle prune jobs if indexes exist
+    // These jobs prune old documents/vectors based on per-level retention policies
+    if let Err(e) = register_prune_jobs(&scheduler, &db_path).await {
+        warn!("Prune jobs not fully registered: {}", e);
     }
 
     info!(
@@ -1911,6 +2053,343 @@ async fn topics_prune(days: u32, force: bool, db_path: Option<String>) -> Result
         .context("Failed to prune topics")?;
 
     println!("Pruned {} stale topics.", pruned);
+
+    Ok(())
+}
+
+/// Handle retrieval commands.
+///
+/// Per Phase 17: Retrieval policy status, intent classification, and query routing.
+pub async fn handle_retrieval_command(cmd: RetrievalCommand) -> Result<()> {
+    match cmd {
+        RetrievalCommand::Status { addr } => retrieval_status(&addr).await,
+        RetrievalCommand::Classify {
+            query,
+            timeout_ms,
+            addr,
+        } => retrieval_classify(&query, timeout_ms, &addr).await,
+        RetrievalCommand::Route {
+            query,
+            intent,
+            limit,
+            mode,
+            timeout_ms,
+            addr,
+        } => {
+            retrieval_route(
+                &query,
+                intent.as_deref(),
+                limit,
+                mode.as_deref(),
+                timeout_ms,
+                &addr,
+            )
+            .await
+        }
+    }
+}
+
+/// Show retrieval tier and layer availability.
+async fn retrieval_status(addr: &str) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+    use memory_service::pb::GetRetrievalCapabilitiesRequest;
+
+    let mut client = MemoryServiceClient::connect(addr.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    let response = client
+        .get_retrieval_capabilities(GetRetrievalCapabilitiesRequest {})
+        .await
+        .context("Failed to get retrieval capabilities")?
+        .into_inner();
+
+    // Map tier to string
+    let tier_str = match response.tier {
+        1 => "Full (Topics + Hybrid + Agentic)",
+        2 => "Hybrid (BM25 + Vector + Agentic)",
+        3 => "Semantic (Vector + Agentic)",
+        4 => "Keyword (BM25 + Agentic)",
+        5 => "Agentic (TOC only)",
+        _ => "Unknown",
+    };
+
+    println!("Retrieval Capabilities");
+    println!("{:-<50}", "");
+    println!("Tier: {}", tier_str);
+    println!();
+
+    // Print layer statuses
+    println!("Layer Availability:");
+    if let Some(status) = response.bm25_status {
+        let emoji = if status.healthy { "[ok]" } else { "[--]" };
+        println!(
+            "  {} BM25:    {} docs - {}",
+            emoji,
+            status.doc_count,
+            status.message.unwrap_or_default()
+        );
+    }
+    if let Some(status) = response.vector_status {
+        let emoji = if status.healthy { "[ok]" } else { "[--]" };
+        println!(
+            "  {} Vector:  {} docs - {}",
+            emoji,
+            status.doc_count,
+            status.message.unwrap_or_default()
+        );
+    }
+    if let Some(status) = response.topics_status {
+        let emoji = if status.healthy { "[ok]" } else { "[--]" };
+        println!(
+            "  {} Topics:  {} docs - {}",
+            emoji,
+            status.doc_count,
+            status.message.unwrap_or_default()
+        );
+    }
+    if let Some(status) = response.agentic_status {
+        let emoji = if status.healthy { "[ok]" } else { "[--]" };
+        println!(
+            "  {} Agentic: {}",
+            emoji,
+            status.message.unwrap_or_default()
+        );
+    }
+
+    println!();
+    println!("Detection time: {}ms", response.detection_time_ms);
+
+    if !response.warnings.is_empty() {
+        println!();
+        println!("Warnings:");
+        for warning in response.warnings {
+            println!("  - {}", warning);
+        }
+    }
+
+    Ok(())
+}
+
+/// Classify query intent.
+async fn retrieval_classify(query: &str, timeout_ms: Option<u64>, addr: &str) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+    use memory_service::pb::ClassifyQueryIntentRequest;
+
+    let mut client = MemoryServiceClient::connect(addr.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    let response = client
+        .classify_query_intent(ClassifyQueryIntentRequest {
+            query: query.to_string(),
+            timeout_ms,
+        })
+        .await
+        .context("Failed to classify query intent")?
+        .into_inner();
+
+    // Map intent to string
+    let intent_str = match response.intent {
+        1 => "Explore (discover patterns/themes)",
+        2 => "Answer (evidence-backed result)",
+        3 => "Locate (find exact snippet)",
+        4 => "Time-boxed (best partial in N ms)",
+        _ => "Unknown",
+    };
+
+    println!("Query Classification");
+    println!("{:-<50}", "");
+    println!("Query:      \"{}\"", query);
+    println!("Intent:     {}", intent_str);
+    println!("Confidence: {:.2}", response.confidence);
+    println!("Reason:     {}", response.reason);
+
+    if !response.matched_keywords.is_empty() {
+        println!("Keywords:   {}", response.matched_keywords.join(", "));
+    }
+
+    if let Some(lookback) = response.lookback_ms {
+        if lookback > 0 {
+            let hours = lookback / 3_600_000;
+            let days = hours / 24;
+            if days > 0 {
+                println!("Lookback:   {} days", days);
+            } else if hours > 0 {
+                println!("Lookback:   {} hours", hours);
+            } else {
+                println!("Lookback:   {} ms", lookback);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Route query through optimal layers.
+async fn retrieval_route(
+    query: &str,
+    intent_override: Option<&str>,
+    limit: u32,
+    mode_override: Option<&str>,
+    timeout_ms: Option<u64>,
+    addr: &str,
+) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+    use memory_service::pb::{
+        ExecutionMode as ProtoExecMode, QueryIntent as ProtoIntent, RouteQueryRequest,
+        StopConditions as ProtoStopConditions,
+    };
+
+    let mut client = MemoryServiceClient::connect(addr.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Parse intent override
+    let intent_override = intent_override.map(|s| match s.to_lowercase().as_str() {
+        "explore" => ProtoIntent::Explore as i32,
+        "answer" => ProtoIntent::Answer as i32,
+        "locate" => ProtoIntent::Locate as i32,
+        "time-boxed" | "timeboxed" => ProtoIntent::TimeBoxed as i32,
+        _ => ProtoIntent::Unspecified as i32,
+    });
+
+    // Parse mode override
+    let mode_override = mode_override.map(|s| match s.to_lowercase().as_str() {
+        "sequential" => ProtoExecMode::Sequential as i32,
+        "parallel" => ProtoExecMode::Parallel as i32,
+        "hybrid" => ProtoExecMode::Hybrid as i32,
+        _ => ProtoExecMode::Unspecified as i32,
+    });
+
+    // Build stop conditions
+    let stop_conditions = timeout_ms.map(|timeout| ProtoStopConditions {
+        max_depth: 0,
+        max_nodes: 0,
+        max_rpc_calls: 0,
+        max_tokens: 0,
+        timeout_ms: timeout,
+        beam_width: 0,
+        min_confidence: 0.0,
+    });
+
+    let response = client
+        .route_query(RouteQueryRequest {
+            query: query.to_string(),
+            intent_override,
+            stop_conditions,
+            mode_override,
+            limit: limit as i32,
+        })
+        .await
+        .context("Failed to route query")?
+        .into_inner();
+
+    println!("Query Routing");
+    println!("{:-<70}", "");
+    println!("Query: \"{}\"", query);
+
+    // Print explanation
+    if let Some(exp) = &response.explanation {
+        let intent_str = match exp.intent {
+            1 => "Explore",
+            2 => "Answer",
+            3 => "Locate",
+            4 => "Time-boxed",
+            _ => "Unknown",
+        };
+        let tier_str = match exp.tier {
+            1 => "Full",
+            2 => "Hybrid",
+            3 => "Semantic",
+            4 => "Keyword",
+            5 => "Agentic",
+            _ => "Unknown",
+        };
+        let mode_str = match exp.mode {
+            1 => "Sequential",
+            2 => "Parallel",
+            3 => "Hybrid",
+            _ => "Unknown",
+        };
+        let winner_str = match exp.winner {
+            1 => "Topics",
+            2 => "Hybrid",
+            3 => "Vector",
+            4 => "BM25",
+            5 => "Agentic",
+            _ => "Unknown",
+        };
+
+        println!();
+        println!("Execution:");
+        println!(
+            "  Intent: {} | Tier: {} | Mode: {}",
+            intent_str, tier_str, mode_str
+        );
+        println!("  Winner: {} - {}", winner_str, exp.why_winner);
+
+        if exp.fallback_occurred {
+            if let Some(reason) = &exp.fallback_reason {
+                println!("  Fallback: {}", reason);
+            }
+        }
+
+        println!("  Time: {}ms", exp.total_time_ms);
+    }
+
+    // Print results
+    println!();
+    if response.results.is_empty() {
+        println!("No results found.");
+    } else {
+        println!("Results ({} found):", response.results.len());
+        println!("{:-<70}", "");
+
+        for (i, result) in response.results.iter().enumerate() {
+            let layer_str = match result.source_layer {
+                1 => "Topics",
+                2 => "Hybrid",
+                3 => "Vector",
+                4 => "BM25",
+                5 => "Agentic",
+                _ => "?",
+            };
+
+            println!(
+                "{}. [{}] {} (score: {:.4})",
+                i + 1,
+                layer_str,
+                result.doc_id,
+                result.score
+            );
+
+            if !result.text_preview.is_empty() {
+                let preview = truncate_text(&result.text_preview, 80);
+                println!("   {}", preview);
+            }
+
+            println!("   Type: {}", result.doc_type);
+            println!();
+        }
+    }
+
+    // Print layers attempted
+    if !response.layers_attempted.is_empty() {
+        let layers: Vec<&str> = response
+            .layers_attempted
+            .iter()
+            .map(|l| match *l {
+                1 => "Topics",
+                2 => "Hybrid",
+                3 => "Vector",
+                4 => "BM25",
+                5 => "Agentic",
+                _ => "?",
+            })
+            .collect();
+        println!("Layers attempted: {}", layers.join(" -> "));
+    }
 
     Ok(())
 }

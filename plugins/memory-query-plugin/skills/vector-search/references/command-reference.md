@@ -159,6 +159,9 @@ memory-daemon teleport vector-stats --addr http://localhost:9999
 | Last Indexed | Timestamp of last index update |
 | Index Path | File path to index on disk |
 | Index Size | Size of index file |
+| Lifecycle Enabled | Whether vector lifecycle pruning is enabled |
+| Last Prune | Timestamp of last prune operation |
+| Last Prune Count | Vectors pruned in last operation |
 
 ---
 
@@ -224,3 +227,83 @@ memory-daemon teleport search "debugging" -n 5
 | Error messages | `teleport search` or `hybrid --bm25-weight 0.8` |
 | Finding similar topics | `teleport vector-search` |
 | Technical documentation | `teleport hybrid-search` |
+
+---
+
+## Lifecycle Telemetry
+
+Vector lifecycle metrics are available via the `GetRankingStatus` RPC.
+
+### GetRankingStatus RPC
+
+Returns lifecycle and ranking status for all indexes.
+
+```protobuf
+message GetRankingStatusRequest {}
+
+message GetRankingStatusResponse {
+  // Salience and usage decay
+  bool salience_enabled = 1;
+  bool usage_decay_enabled = 2;
+
+  // Novelty checking
+  bool novelty_enabled = 3;
+  int64 novelty_checked_total = 4;
+  int64 novelty_rejected_total = 5;
+  int64 novelty_skipped_total = 6;
+
+  // Vector lifecycle (FR-08)
+  bool vector_lifecycle_enabled = 7;
+  int64 vector_last_prune_timestamp = 8;
+  uint32 vector_last_prune_count = 9;
+
+  // BM25 lifecycle (FR-09)
+  bool bm25_lifecycle_enabled = 10;
+  int64 bm25_last_prune_timestamp = 11;
+  uint32 bm25_last_prune_count = 12;
+}
+```
+
+### Vector Lifecycle Configuration
+
+Default retention periods (per PRD FR-08):
+
+| Level | Retention | Notes |
+|-------|-----------|-------|
+| Segment | 30 days | High churn, rolled up quickly |
+| Grip | 30 days | Same as segment |
+| Day | 365 days | Mid-term recall |
+| Week | 5 years | Long-term recall |
+| Month | Never | Protected (stable anchor) |
+| Year | Never | Protected (stable anchor) |
+
+**Note:** Vector lifecycle pruning is ENABLED by default, unlike BM25.
+
+### admin prune-vector
+
+Prune old vectors from the HNSW index.
+
+```bash
+memory-daemon admin prune-vector [OPTIONS]
+```
+
+#### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--dry-run` | false | Show what would be pruned |
+| `--level <LEVEL>` | all | Prune specific level only |
+| `--age-days <N>` | config | Override retention days |
+
+#### Examples
+
+```bash
+# Dry run - see what would be pruned
+memory-daemon admin prune-vector --dry-run
+
+# Prune per configuration
+memory-daemon admin prune-vector
+
+# Prune segments older than 14 days
+memory-daemon admin prune-vector --level segment --age-days 14
+```

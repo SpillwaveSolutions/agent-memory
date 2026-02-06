@@ -17,7 +17,9 @@ Phases are grouped by the cognitive layer they implement:
 | **Semantic Acceleration** (4) | 12 | Vector/HNSW teleport | Complete |
 | **Index Lifecycle** | 13 | Outbox-driven index updates | Complete |
 | **Conceptual Enrichment** (5) | 14 | Topic graph discovery | Complete |
-| **Configuration UX** | 15 | Interactive wizard skills | Planned |
+| **Configuration UX** | 15 | Interactive wizard skills | Complete |
+| **Ranking Policy** (6) | 16 | Salience, usage decay, novelty, lifecycle | Complete |
+| **Retrieval Policy** (Control) | 17 | Intent routing, tier detection, fallbacks | Complete |
 
 **See:** [Cognitive Architecture Manifesto](../docs/COGNITIVE_ARCHITECTURE.md)
 
@@ -42,7 +44,9 @@ Phases are grouped by the cognitive layer they implement:
 - [x] **Phase 12: Vector Teleport (HNSW)** - Semantic similarity search via local HNSW vector index
 - [x] **Phase 13: Outbox Index Ingestion** - Event-driven index updates from outbox for rebuildable search indexes
 - [x] **Phase 14: Topic Graph Memory** - Semantic topic extraction, time-decayed importance, topic relationships for conceptual discovery
-- [ ] **Phase 15: Configuration Wizard Skills** - Interactive AskUserQuestion-based configuration wizards for storage, LLM, and multi-agent settings
+- [x] **Phase 15: Configuration Wizard Skills** - Interactive AskUserQuestion-based configuration wizards for storage, LLM, and multi-agent settings
+- [x] **Phase 16: Memory Ranking Enhancements** - Salience scoring, usage tracking, novelty filtering, and index lifecycle automation
+- [x] **Phase 17: Agent Retrieval Policy** - Intent routing, tier detection, fallback chains, and skill contracts
 
 ## Phase Details
 
@@ -391,16 +395,73 @@ Plans:
 - Technical Plan: docs/plans/configuration-wizard-skills-plan.md
 
 Plans:
-- [ ] 15-01-PLAN.md — memory-storage skill (storage paths, retention, cleanup, GDPR, performance tuning)
-- [ ] 15-02-PLAN.md — memory-llm skill (provider, model discovery, API testing, cost estimation, budget)
-- [ ] 15-03-PLAN.md — memory-agents skill (multi-agent mode, agent ID, query scope, team settings)
-- [ ] 15-04-PLAN.md — Reference documentation (retention-policies.md, provider-comparison.md, storage-strategies.md)
-- [ ] 15-05-PLAN.md — Plugin integration and memory-setup updates (marketplace.json, gap resolution)
+- [x] 15-01-PLAN.md — memory-storage skill (storage paths, retention, cleanup, GDPR, performance tuning)
+- [x] 15-02-PLAN.md — memory-llm skill (provider, model discovery, API testing, cost estimation, budget)
+- [x] 15-03-PLAN.md — memory-agents skill (multi-agent mode, agent ID, query scope, team settings)
+- [x] 15-04-PLAN.md — Reference documentation (retention-policies.md, provider-comparison.md, storage-strategies.md)
+- [x] 15-05-PLAN.md — Plugin integration and memory-setup updates (marketplace.json, gap resolution)
+
+### Phase 16: Memory Ranking Enhancements
+**Goal**: Add retrieval policy improvements with salience scoring, usage tracking, novelty filtering, and index lifecycle automation
+**Depends on**: Phase 14 (Topic Graph - uses time-decay pattern)
+**Requirements**: RANK-01 through RANK-10
+**Success Criteria** (what must be TRUE):
+  1. Salience scoring applied to new TOC nodes and Grips at write time
+  2. Usage counters stored in separate CF (CF_USAGE_COUNTERS) with cache-first reads
+  3. Novelty check is opt-in (disabled by default) with fallback on any failure
+  4. Vector pruning scheduler job runs daily per FR-08 retention rules
+  5. BM25 pruning scheduler job available per FR-09 (disabled by default)
+  6. All features behind config flags with master switch for rollback
+  7. Backward compatible with v2.0.0 data (no migration required)
+**Plans**: 5 plans in 3 waves
+
+**Documentation:**
+- RFC: docs/plans/memory-ranking-enhancements-rfc.md
+- Technical Plan: docs/plans/phase-16-memory-ranking-plan.md
+
+Plans:
+- [x] 16-01-PLAN.md — Salience scoring (MemoryKind enum, SalienceScorer, TocNode/Grip fields)
+- [x] 16-02-PLAN.md — Usage counters (CF_USAGE_COUNTERS, UsageTracker, cache-first reads)
+- [x] 16-03-PLAN.md — Novelty threshold (NoveltyChecker, opt-in, fail-open behavior)
+- [x] 16-04-PLAN.md — Vector pruning automation (FR-08, per-level retention, scheduler job)
+- [x] 16-05-PLAN.md — BM25 lifecycle (FR-09, disabled by default, post-prune optimize)
+
+### Phase 17: Agent Retrieval Policy
+**Goal**: Implement the retrieval "brainstem" - decision algorithm for layer selection, intent classification, fallback chains, and skill contracts
+**Depends on**: Phase 16 (uses ranking signals), Phase 14 (Topics), Phase 12 (Vector), Phase 11 (BM25), Phase 10.5 (Agentic TOC)
+**Requirements**: RETR-01 through RETR-19 (from PRD FR-01 to FR-19)
+**Success Criteria** (what must be TRUE):
+  1. Combined status check pattern detects all layer availability in single call
+  2. Tier detection algorithm maps availability to capability tiers (1-5)
+  3. Query intent classification (Explore/Answer/Locate/Time-boxed) routes correctly
+  4. Fallback chains skip disabled layers automatically
+  5. Stop conditions (max_depth, max_nodes, timeout) enforced per intent
+  6. Execution modes (Sequential/Parallel/Hybrid) work with bounded fan-out
+  7. Skills receive explainability payload (tier used, method, why)
+**Plans**: 6 plans in 4 waves
+
+**Documentation:**
+- PRD: docs/prds/agent-retrieval-policy-prd.md
+
+Plans:
+- [x] 17-01-PLAN.md — Core retrieval types (QueryIntent, CapabilityTier, StopConditions, ExecutionMode)
+- [x] 17-02-PLAN.md — Intent classification (IntentClassifier with keyword heuristics, time constraint extraction)
+- [x] 17-03-PLAN.md — Tier detection (TierDetector, CombinedStatus, GetRetrievalCapabilities proto)
+- [x] 17-04-PLAN.md — Execution engine (FallbackChain, RetrievalExecutor, parallel/hybrid modes)
+- [x] 17-05-PLAN.md — Skill contracts (ExplainabilityPayload, SkillContract validation, SKILL.md generation)
+- [x] 17-06-PLAN.md — CLI/RPC integration (RetrievalHandler, retrieval status/classify/route commands)
+
+## Infrastructure (Non-Phase Work)
+
+| Work | Status | Documentation |
+|------|--------|---------------|
+| QA Agent & CI/CD Setup | Complete | docs/plans/qa-agent-release-skill-ci-setup.md |
+| BM25 PRD Revision | Complete | docs/plans/bm25-prd-revision-plan.md |
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 10.5 -> 11 -> 12 -> 13 -> 14 -> 15
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 10.5 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -419,7 +480,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 12. Vector Teleport (HNSW) | 5/5 | Complete | 2026-02-02 |
 | 13. Outbox Index Ingestion | 4/4 | Complete | 2026-02-02 |
 | 14. Topic Graph Memory | 6/6 | Complete | 2026-02-02 |
-| 15. Configuration Wizard Skills | 0/5 | Planned | - |
+| 15. Configuration Wizard Skills | 5/5 | Complete | 2026-02-05 |
+| 16. Memory Ranking Enhancements | 5/5 | Complete | 2026-02-05 |
+| 17. Agent Retrieval Policy | 6/6 | Complete | 2026-02-06 |
 
 ---
 *Roadmap created: 2026-01-29*
@@ -441,3 +504,10 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 *Phase 12 completed: 2026-02-02 (Vector Teleport - 5 plans)*
 *Phase 13 completed: 2026-02-02 (Outbox Index Ingestion - 4 plans)*
 *Phase 14 completed: 2026-02-02 (Topic Graph Memory - 6 plans)*
+*Phase 16 added: 2026-02-05 (Memory Ranking Enhancements - salience, usage tracking, lifecycle)*
+*Phase 16 plans created: 2026-02-05 (5 plans: salience, usage, novelty, vector lifecycle, BM25 lifecycle)*
+*Phase 17 added: 2026-02-05 (Agent Retrieval Policy - intent routing, tier detection, fallbacks)*
+*Phase 15 completed: 2026-02-05 (Configuration Wizard Skills - 5 plans: memory-storage, memory-llm, memory-agents, reference docs, plugin integration)*
+*Phase 16 completed: 2026-02-05 (Memory Ranking Enhancements - 5 plans: salience, usage, novelty, vector lifecycle, BM25 lifecycle)*
+*Phase 17 core implementation: 2026-02-05 (Plans 17-01 through 17-05: memory-retrieval crate with types, classifier, tier detector, executor, contracts)*
+*Phase 17 completed: 2026-02-06 (Plan 17-06: CLI/RPC integration with RetrievalHandler, retrieval status/classify/route commands)*

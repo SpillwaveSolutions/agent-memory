@@ -5,17 +5,20 @@
     "email": "rick@spillwave.com"
   },
   "metadata": {
-    "description": "Setup, configure, and troubleshoot agent-memory installation",
-    "version": "1.0.0"
+    "description": "Setup, configure, and troubleshoot agent-memory installation with specialized wizards for storage, LLM, and multi-agent configuration",
+    "version": "1.1.0"
   },
   "plugins": [
     {
       "name": "memory-setup",
-      "description": "Setup, configure, and troubleshoot agent-memory installation. Use when asked to 'install agent-memory', 'setup memory', 'check memory status', 'configure memory', 'fix memory daemon', or 'troubleshoot memory'. Provides /memory-setup (interactive wizard), /memory-status (health check), /memory-config (configuration management).",
+      "description": "Setup, configure, and troubleshoot agent-memory installation. Use when asked to 'install agent-memory', 'setup memory', 'check memory status', 'configure memory', 'fix memory daemon', or 'troubleshoot memory'. Provides /memory-setup (interactive wizard), /memory-status (health check), /memory-config (configuration management). For advanced configuration, use /memory-storage, /memory-llm, or /memory-agents.",
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/memory-setup"
+        "./skills/memory-setup",
+        "./skills/memory-storage",
+        "./skills/memory-llm",
+        "./skills/memory-agents"
       ],
       "commands": [
         "./commands/memory-setup.md",

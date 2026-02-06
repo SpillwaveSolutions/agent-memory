@@ -14,6 +14,7 @@ members = [
     "crates/memory-vector",
     "crates/memory-indexing",
     "crates/memory-topics",
+    "crates/memory-retrieval",
 ]
 
 [workspace.package]
@@ -35,6 +36,7 @@ memory-embeddings = { path = "crates/memory-embeddings" }
 memory-vector = { path = "crates/memory-vector" }
 memory-indexing = { path = "crates/memory-indexing" }
 memory-topics = { path = "crates/memory-topics" }
+memory-retrieval = { path = "crates/memory-retrieval" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }
@@ -116,3 +118,6 @@ usearch = "2"
 
 # Clustering
 hdbscan = "0.12"
+
+# Futures utilities
+futures = "0.3"

@@ -52,9 +52,13 @@ pub use config::SchedulerConfig;
 pub use error::SchedulerError;
 pub use jitter::{with_jitter, JitterConfig, TimeoutConfig};
 pub use overlap::{OverlapGuard, OverlapPolicy, RunGuard};
-pub use registry::{JobRegistry, JobResult, JobStatus};
+pub use registry::{JobOutput, JobRegistry, JobResult, JobStatus};
 pub use scheduler::{validate_cron_expression, SchedulerService};
 
+#[cfg(feature = "jobs")]
+pub use jobs::bm25_prune::{
+    create_bm25_prune_job, register_bm25_prune_job, Bm25PruneJob, Bm25PruneJobConfig,
+};
 #[cfg(feature = "jobs")]
 pub use jobs::compaction::{create_compaction_job, CompactionJobConfig};
 #[cfg(feature = "jobs")]
@@ -63,3 +67,7 @@ pub use jobs::indexing::{create_indexing_job, IndexingJobConfig};
 pub use jobs::rollup::{create_rollup_jobs, RollupJobConfig};
 #[cfg(feature = "jobs")]
 pub use jobs::search::{create_index_commit_job, IndexCommitJobConfig};
+#[cfg(feature = "jobs")]
+pub use jobs::vector_prune::{
+    create_vector_prune_job, register_vector_prune_job, VectorPruneJob, VectorPruneJobConfig,
+};

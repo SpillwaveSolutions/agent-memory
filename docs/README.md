@@ -530,6 +530,17 @@ echo '{"hook_event_name":"SessionStart","session_id":"test-123"}' | ./target/rel
 - Check hooks.yaml syntax with a YAML validator
 - Ensure CCH is properly installed and configured
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Configuration Reference](references/configuration-reference.md) | Complete configuration options with defaults |
+| [Lifecycle Telemetry](references/lifecycle-telemetry.md) | Metrics and monitoring for index lifecycle |
+| [UPGRADING](UPGRADING.md) | Version upgrade instructions and migration notes |
+| [API Reference](API.md) | gRPC service documentation |
+| [Architecture](ARCHITECTURE.md) | Component structure |
+| [Design Docs](design/README.md) | Detailed architecture and design documentation |
+
 ## Related Projects
 
 - **code_agent_context_hooks** - Hook handlers for Claude Code that feed events into this memory system

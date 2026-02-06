@@ -37,6 +37,10 @@ pub const CF_TOPIC_LINKS: &str = "topic_links";
 /// Column family for topic relationships
 pub const CF_TOPIC_RELS: &str = "topic_rels";
 
+/// Column family for usage counters (access count, last accessed)
+/// Per Phase 16 Plan 02: Track access patterns WITHOUT mutating immutable nodes.
+pub const CF_USAGE_COUNTERS: &str = "usage_counters";
+
 /// All column family names
 pub const ALL_CF_NAMES: &[&str] = &[
     CF_EVENTS,
@@ -48,6 +52,7 @@ pub const ALL_CF_NAMES: &[&str] = &[
     CF_TOPICS,
     CF_TOPIC_LINKS,
     CF_TOPIC_RELS,
+    CF_USAGE_COUNTERS,
 ];
 
 /// Create column family options for events (append-only, compressed)
@@ -80,5 +85,6 @@ pub fn build_cf_descriptors() -> Vec<ColumnFamilyDescriptor> {
         ColumnFamilyDescriptor::new(CF_TOPICS, Options::default()),
         ColumnFamilyDescriptor::new(CF_TOPIC_LINKS, Options::default()),
         ColumnFamilyDescriptor::new(CF_TOPIC_RELS, Options::default()),
+        ColumnFamilyDescriptor::new(CF_USAGE_COUNTERS, Options::default()),
     ]
 }
