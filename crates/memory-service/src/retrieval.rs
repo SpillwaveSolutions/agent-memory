@@ -13,13 +13,11 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use tonic::{Request, Response, Status};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use memory_retrieval::{
     classifier::IntentClassifier,
-    contracts::ExplainabilityPayload,
     executor::{FallbackChain, LayerExecutor, RetrievalExecutor, SearchResult},
-    tier::{LayerStatusProvider, MockLayerStatusProvider, TierDetector},
     types::{
         CapabilityTier as CrateTier, CombinedStatus, ExecutionMode as CrateExecMode,
         LayerStatus as CrateLayerStatus, QueryIntent as CrateIntent, RetrievalLayer as CrateLayer,
@@ -167,7 +165,7 @@ impl RetrievalHandler {
         }
 
         // Build stop conditions for classification
-        let stop_conditions = if let Some(timeout_ms) = req.timeout_ms {
+        let _stop_conditions = if let Some(timeout_ms) = req.timeout_ms {
             CrateStopConditions::with_timeout(Duration::from_millis(timeout_ms))
         } else {
             CrateStopConditions::default()
@@ -430,7 +428,7 @@ impl RetrievalHandler {
 
 /// Simple layer executor that delegates to available services.
 struct SimpleLayerExecutor {
-    storage: Arc<Storage>,
+    _storage: Arc<Storage>,
     bm25_searcher: Option<Arc<TeleportSearcher>>,
     vector_handler: Option<Arc<VectorTeleportHandler>>,
     topic_handler: Option<Arc<TopicGraphHandler>>,
@@ -444,7 +442,7 @@ impl SimpleLayerExecutor {
         topic_handler: Option<Arc<TopicGraphHandler>>,
     ) -> Self {
         Self {
-            storage,
+            _storage: storage,
             bm25_searcher,
             vector_handler,
             topic_handler,
@@ -579,7 +577,7 @@ fn layer_status_from_proto(proto: &ProtoLayerStatus) -> CrateLayerStatus {
         Ok(ProtoLayer::Vector) => CrateLayer::Vector,
         Ok(ProtoLayer::Topics) => CrateLayer::Topics,
         Ok(ProtoLayer::Hybrid) => CrateLayer::Hybrid,
-        Ok(ProtoLayer::Agentic) | _ => CrateLayer::Agentic,
+        Ok(ProtoLayer::Agentic) | Ok(ProtoLayer::Unspecified) | Err(_) => CrateLayer::Agentic,
     };
 
     if !proto.enabled {

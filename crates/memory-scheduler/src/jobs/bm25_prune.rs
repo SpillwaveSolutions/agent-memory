@@ -27,7 +27,7 @@ pub type Bm25PruneFn = Arc<
 >;
 
 /// Configuration for BM25 prune job.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Bm25PruneJobConfig {
     /// Lifecycle config (includes enabled flag).
     pub lifecycle: Bm25LifecycleConfig,
@@ -44,16 +44,6 @@ impl std::fmt::Debug for Bm25PruneJobConfig {
             .field("maintenance", &self.maintenance)
             .field("prune_fn", &self.prune_fn.is_some())
             .finish()
-    }
-}
-
-impl Default for Bm25PruneJobConfig {
-    fn default() -> Self {
-        Self {
-            lifecycle: Bm25LifecycleConfig::default(), // enabled: false by default
-            maintenance: Bm25MaintenanceConfig::default(),
-            prune_fn: None,
-        }
     }
 }
 

@@ -42,7 +42,7 @@ struct UsageUpdate {
     stats: UsageStats,
     /// If true, we've merged with CF data and can write directly.
     /// If false, we should try to load existing CF data before final write.
-    merged: bool,
+    _merged: bool,
 }
 
 /// Usage tracking service with cache-first design.
@@ -114,7 +114,7 @@ impl UsageTracker {
                 stats.record_access();
                 UsageUpdate {
                     stats,
-                    merged: false,
+                    _merged: false,
                 }
             });
     }
@@ -205,9 +205,9 @@ impl UsageTracker {
             }
 
             // Serialize and add to batch
-            let bytes = stats
-                .to_bytes()
-                .map_err(|e| crate::StorageError::Serialization(format!("Failed to serialize UsageStats: {e}")))?;
+            let bytes = stats.to_bytes().map_err(|e| {
+                crate::StorageError::Serialization(format!("Failed to serialize UsageStats: {e}"))
+            })?;
             batch.put_cf(&cf, doc_id.as_bytes(), &bytes);
             written += 1;
         }
