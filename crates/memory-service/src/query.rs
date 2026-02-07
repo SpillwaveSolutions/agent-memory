@@ -16,8 +16,8 @@ use crate::pb::{
     BrowseTocRequest, BrowseTocResponse, Event as ProtoEvent, EventRole as ProtoEventRole,
     EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, GetEventsRequest,
     GetEventsResponse, GetNodeRequest, GetNodeResponse, GetTocRootRequest, GetTocRootResponse,
-    Grip as ProtoGrip, TocBullet as ProtoTocBullet, TocLevel as ProtoTocLevel,
-    TocNode as ProtoTocNode,
+    Grip as ProtoGrip, MemoryKind as ProtoMemoryKind, TocBullet as ProtoTocBullet,
+    TocLevel as ProtoTocLevel, TocNode as ProtoTocNode,
 };
 
 /// Get root TOC nodes (year level).
@@ -263,6 +263,10 @@ pub async fn expand_grip(
         event_id_end: grip.event_id_end,
         timestamp_ms: grip.timestamp.timestamp_millis(),
         source: grip.source,
+        // Phase 16 fields - defaults for now
+        salience_score: 0.5,
+        memory_kind: ProtoMemoryKind::Observation as i32,
+        is_pinned: false,
     };
 
     Ok(Response::new(ExpandGripResponse {
@@ -317,6 +321,10 @@ fn domain_to_proto_node(node: DomainTocNode) -> ProtoTocNode {
         start_time_ms: node.start_time.timestamp_millis(),
         end_time_ms: node.end_time.timestamp_millis(),
         version: node.version as i32,
+        // Phase 16 fields - defaults for now
+        salience_score: 0.5,
+        memory_kind: ProtoMemoryKind::Observation as i32,
+        is_pinned: false,
     }
 }
 

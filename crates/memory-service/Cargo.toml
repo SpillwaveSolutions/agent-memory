@@ -13,6 +13,7 @@ memory-toc = { workspace = true }
 memory-embeddings = { workspace = true }
 memory-vector = { workspace = true }
 memory-topics = { workspace = true }
+memory-retrieval = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 tonic-health = { workspace = true }
@@ -24,6 +25,7 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
 ulid = { workspace = true }
+async-trait = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -494,6 +494,72 @@ Maximum tokens per segment: [4000]
 Time gap threshold (minutes): [30]
 ```
 
+### Advanced Step 3d: Server Timeout
+
+**Condition:** `--advanced` flag
+
+```
+Configure gRPC request timeout:
+
+1. 30 seconds (Default) - Standard timeout
+2. 60 seconds - For slow networks
+3. 120 seconds - For very slow connections
+4. Custom - Specify seconds
+```
+
+Config: `[server] timeout_secs = <value>`
+
+### Advanced Step 3e: Segment Overlap
+
+**Condition:** `--advanced` flag
+
+```
+Configure segment overlap for context continuity:
+
+1. Standard (Recommended) - 500 tokens, 5 minutes overlap
+2. Minimal - 100 tokens, 1 minute overlap
+3. Maximum - 1000 tokens, 10 minutes overlap
+4. Custom - Specify overlap_tokens and overlap_minutes
+```
+
+Config:
+```toml
+[toc]
+overlap_tokens = 500
+overlap_minutes = 5
+```
+
+### Advanced Step 3f: Logging
+
+**Condition:** `--advanced` flag
+
+```
+Configure logging output:
+
+1. Info to stderr (Default) - Standard logging
+2. Debug to stderr - Verbose for troubleshooting
+3. Info to file - Log to ~/.memory-daemon.log
+4. Debug to file - Verbose logging to file
+5. Custom - Specify level, format, and file
+```
+
+Options:
+
+| Option | level | format | file |
+|--------|-------|--------|------|
+| Info stderr | info | pretty | (empty) |
+| Debug stderr | debug | pretty | (empty) |
+| Info file | info | json | ~/.memory-daemon.log |
+| Debug file | debug | json | ~/.memory-daemon.log |
+
+Config:
+```toml
+[logging]
+level = "info"    # trace, debug, info, warn, error
+format = "pretty" # pretty, json, compact
+file = ""         # empty = stderr only
+```
+
 ## Fresh Mode (`--fresh`)
 
 When `--fresh` flag is set:
@@ -509,3 +575,35 @@ Existing config will be backed up to config.toml.bak
 
 Continue? [y/N]
 ```
+
+## Configuration Coverage Verification
+
+All 29 configuration options are now covered by the wizard skills:
+
+| Section | Options | Covered By |
+|---------|---------|------------|
+| `[storage]` | path | memory-setup, memory-storage |
+| `[storage]` | write_buffer_size_mb, max_background_jobs | memory-storage |
+| `[server]` | host, port | memory-setup |
+| `[server]` | timeout_secs | memory-setup --advanced |
+| `[summarizer]` | provider, model | memory-setup, memory-llm |
+| `[summarizer]` | api_key, api_endpoint | memory-llm |
+| `[summarizer]` | max_tokens, temperature | memory-llm --advanced |
+| `[toc]` | segment_min_tokens, segment_max_tokens | memory-setup --advanced |
+| `[toc]` | time_gap_minutes | memory-setup --advanced |
+| `[toc]` | overlap_tokens, overlap_minutes | memory-setup --advanced |
+| `[rollup]` | min_age_hours, schedule | memory-storage |
+| `[logging]` | level, format, file | memory-setup --advanced |
+| `[agents]` | mode, storage_strategy | memory-agents |
+| `[agents]` | agent_id, query_scope | memory-agents |
+| `[retention]` | policy, cleanup_schedule | memory-storage |
+| `[retention]` | archive_strategy, gdpr_mode | memory-storage |
+| `[team]` | name, storage_path, shared | memory-agents --team |
+
+## Related Skills
+
+For specialized configuration beyond the basic setup wizard:
+
+- `/memory-storage` - Storage paths, retention policies, cleanup, GDPR, performance
+- `/memory-llm` - LLM provider, model discovery, API testing, cost estimation
+- `/memory-agents` - Multi-agent mode, agent identifiers, team settings

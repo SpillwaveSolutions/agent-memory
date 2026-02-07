@@ -5,7 +5,11 @@
 
 use std::sync::{Arc, Mutex};
 
-use tantivy::{IndexWriter, Term};
+use chrono::Utc;
+use tantivy::collector::DocSetCollector;
+use tantivy::query::AllQuery;
+use tantivy::schema::Value;
+use tantivy::{IndexReader, IndexWriter, ReloadPolicy, Term};
 use tracing::{debug, info, warn};
 
 use memory_types::{Grip, TocNode};
@@ -13,6 +17,7 @@ use memory_types::{Grip, TocNode};
 use crate::document::{grip_to_doc, toc_node_to_doc};
 use crate::error::SearchError;
 use crate::index::SearchIndex;
+use crate::lifecycle::Bm25PruneStats;
 use crate::schema::SearchSchema;
 
 /// Manages document indexing operations.
@@ -21,6 +26,7 @@ use crate::schema::SearchSchema;
 /// Commit batches documents for visibility.
 pub struct SearchIndexer {
     writer: Arc<Mutex<IndexWriter>>,
+    reader: IndexReader,
     schema: SearchSchema,
 }
 
@@ -28,18 +34,25 @@ impl SearchIndexer {
     /// Create a new indexer from a SearchIndex.
     pub fn new(index: &SearchIndex) -> Result<Self, SearchError> {
         let writer = index.writer()?;
+        let reader = index
+            .index()
+            .reader_builder()
+            .reload_policy(ReloadPolicy::OnCommitWithDelay)
+            .try_into()?;
         let schema = index.schema().clone();
 
         Ok(Self {
             writer: Arc::new(Mutex::new(writer)),
+            reader,
             schema,
         })
     }
 
     /// Create from an existing writer (for testing or shared use).
-    pub fn from_writer(writer: IndexWriter, schema: SearchSchema) -> Self {
+    pub fn from_writer(writer: IndexWriter, reader: IndexReader, schema: SearchSchema) -> Self {
         Self {
             writer: Arc::new(Mutex::new(writer)),
+            reader,
             schema,
         }
     }
@@ -189,6 +202,164 @@ impl SearchIndexer {
             .map_err(|e| SearchError::IndexLocked(e.to_string()))?;
 
         Ok(writer.commit_opstamp())
+    }
+
+    /// Reload the reader to see recent commits.
+    pub fn reload_reader(&self) -> Result<(), SearchError> {
+        self.reader.reload()?;
+        debug!("Reloaded indexer reader");
+        Ok(())
+    }
+
+    /// Prune documents older than the specified age.
+    ///
+    /// Scans all documents and deletes those with timestamp_ms older than
+    /// (now - age_days). Does NOT commit - caller must commit() after pruning.
+    ///
+    /// # Arguments
+    /// * `age_days` - Documents older than this many days will be deleted
+    /// * `level_filter` - Optional level filter (e.g., "segment", "grip", "day")
+    /// * `dry_run` - If true, counts but doesn't delete
+    ///
+    /// Returns statistics about pruned documents.
+    pub fn prune(
+        &self,
+        age_days: u64,
+        level_filter: Option<&str>,
+        dry_run: bool,
+    ) -> Result<Bm25PruneStats, SearchError> {
+        let cutoff_ms = Utc::now().timestamp_millis() - (age_days as i64 * 24 * 60 * 60 * 1000);
+
+        info!(
+            age_days = age_days,
+            cutoff_ms = cutoff_ms,
+            level = ?level_filter,
+            dry_run = dry_run,
+            "Starting BM25 prune"
+        );
+
+        // Reload reader to see latest commits
+        self.reader.reload()?;
+
+        let searcher = self.reader.searcher();
+        let mut stats = Bm25PruneStats::new();
+        let mut docs_to_delete: Vec<String> = Vec::new();
+
+        // Collect all documents using AllQuery
+        let all_docs = searcher.search(&AllQuery, &DocSetCollector)?;
+
+        debug!(
+            all_docs_count = all_docs.len(),
+            "Found documents to scan for pruning"
+        );
+
+        for doc_address in all_docs {
+            let doc: tantivy::TantivyDocument = searcher.doc(doc_address)?;
+
+            // Get timestamp
+            let timestamp_ms = doc
+                .get_first(self.schema.timestamp_ms)
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse::<i64>().ok())
+                .unwrap_or(i64::MAX); // Don't delete if timestamp missing
+
+            // Get level for filtering and stats
+            let level = doc
+                .get_first(self.schema.level)
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            // Get doc type for grips (which have empty level)
+            let doc_type = doc
+                .get_first(self.schema.doc_type)
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            // Apply level filter if specified
+            let effective_level = if level.is_empty() && doc_type == "grip" {
+                "grip"
+            } else {
+                level
+            };
+
+            if let Some(filter) = level_filter {
+                if effective_level != filter {
+                    continue;
+                }
+            }
+
+            // Check if older than cutoff
+            if timestamp_ms < cutoff_ms {
+                let doc_id = doc
+                    .get_first(self.schema.doc_id)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                // Update stats by level
+                stats.add(effective_level, 1);
+
+                debug!(
+                    doc_id = %doc_id,
+                    level = effective_level,
+                    timestamp_ms = timestamp_ms,
+                    "Document marked for pruning"
+                );
+
+                if !dry_run {
+                    docs_to_delete.push(doc_id);
+                }
+            }
+        }
+
+        // Delete documents if not dry run
+        if !dry_run && !docs_to_delete.is_empty() {
+            let writer = self
+                .writer
+                .lock()
+                .map_err(|e| SearchError::IndexLocked(e.to_string()))?;
+
+            for doc_id in &docs_to_delete {
+                let term = Term::from_field_text(self.schema.doc_id, doc_id);
+                writer.delete_term(term);
+            }
+
+            info!(
+                count = docs_to_delete.len(),
+                dry_run = dry_run,
+                "Deleted documents (uncommitted)"
+            );
+        }
+
+        info!(
+            total = stats.total(),
+            segments = stats.segments_pruned,
+            grips = stats.grips_pruned,
+            days = stats.days_pruned,
+            weeks = stats.weeks_pruned,
+            dry_run = dry_run,
+            "BM25 prune complete"
+        );
+
+        Ok(stats)
+    }
+
+    /// Prune and commit in one operation.
+    ///
+    /// Convenience method that calls prune() followed by commit().
+    pub fn prune_and_commit(
+        &self,
+        age_days: u64,
+        level_filter: Option<&str>,
+        dry_run: bool,
+    ) -> Result<Bm25PruneStats, SearchError> {
+        let stats = self.prune(age_days, level_filter, dry_run)?;
+
+        if !dry_run && stats.total() > 0 {
+            self.commit()?;
+        }
+
+        Ok(stats)
     }
 }
 
@@ -401,5 +572,179 @@ mod tests {
         let opstamp = indexer.pending_ops().unwrap();
         // Initial opstamp should be 0
         assert_eq!(opstamp, 0);
+    }
+
+    fn sample_old_toc_node(id: &str, days_old: i64) -> TocNode {
+        use chrono::Duration;
+        let old_time = Utc::now() - Duration::days(days_old);
+        let mut node = TocNode::new(
+            id.to_string(),
+            TocLevel::Day,
+            format!("Old Node {}", id),
+            old_time,
+            old_time,
+        );
+        node.bullets = vec![TocBullet::new("Old content")];
+        node.keywords = vec!["old".to_string()];
+        node
+    }
+
+    fn sample_old_grip(id: &str, days_old: i64) -> Grip {
+        use chrono::Duration;
+        let old_time = Utc::now() - Duration::days(days_old);
+        Grip::new(
+            id.to_string(),
+            "Old excerpt content".to_string(),
+            "event-001".to_string(),
+            "event-002".to_string(),
+            old_time,
+            "test".to_string(),
+        )
+    }
+
+    #[test]
+    fn test_prune_empty_index() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SearchIndexConfig::new(temp_dir.path());
+        let index = SearchIndex::open_or_create(config).unwrap();
+        let indexer = SearchIndexer::new(&index).unwrap();
+
+        // Prune empty index should succeed with zero pruned
+        let stats = indexer.prune(30, None, false).unwrap();
+        assert_eq!(stats.total(), 0);
+    }
+
+    #[test]
+    fn test_prune_dry_run() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SearchIndexConfig::new(temp_dir.path());
+        let index = SearchIndex::open_or_create(config).unwrap();
+        let indexer = SearchIndexer::new(&index).unwrap();
+
+        // Add old documents
+        let old_node = sample_old_toc_node("old-node-1", 60);
+        indexer.index_toc_node(&old_node).unwrap();
+        indexer.commit().unwrap();
+
+        // Dry run should report but not delete
+        let stats = indexer.prune(30, None, true).unwrap();
+        assert_eq!(stats.total(), 1);
+
+        // Verify document still exists
+        indexer.reload_reader().unwrap();
+        let reader = index.reader().unwrap();
+        let searcher = reader.searcher();
+        let num_docs: u64 = searcher
+            .segment_readers()
+            .iter()
+            .map(|r| r.num_docs() as u64)
+            .sum();
+        assert_eq!(num_docs, 1);
+    }
+
+    #[test]
+    fn test_prune_deletes_old_documents() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SearchIndexConfig::new(temp_dir.path());
+        let index = SearchIndex::open_or_create(config).unwrap();
+        let indexer = SearchIndexer::new(&index).unwrap();
+
+        // Add old and new documents
+        let old_node = sample_old_toc_node("old-node-1", 60);
+        let new_node = sample_toc_node("new-node-1");
+
+        indexer.index_toc_node(&old_node).unwrap();
+        indexer.index_toc_node(&new_node).unwrap();
+        indexer.commit().unwrap();
+
+        // Prune documents older than 30 days
+        let stats = indexer.prune_and_commit(30, None, false).unwrap();
+        assert_eq!(stats.total(), 1);
+        assert_eq!(stats.days_pruned, 1); // TocLevel::Day
+
+        // Verify only new document remains
+        let reader = index.reader().unwrap();
+        let searcher = reader.searcher();
+        let num_docs: u64 = searcher
+            .segment_readers()
+            .iter()
+            .map(|r| r.num_docs() as u64)
+            .sum();
+        assert_eq!(num_docs, 1);
+    }
+
+    #[test]
+    fn test_prune_with_level_filter() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SearchIndexConfig::new(temp_dir.path());
+        let index = SearchIndex::open_or_create(config).unwrap();
+        let indexer = SearchIndexer::new(&index).unwrap();
+
+        // Add old TOC node and old grip
+        let old_node = sample_old_toc_node("old-node-1", 60);
+        let old_grip = sample_old_grip("old-grip-1", 60);
+
+        indexer.index_toc_node(&old_node).unwrap();
+        indexer.index_grip(&old_grip).unwrap();
+        indexer.commit().unwrap();
+
+        // Prune only grips
+        let stats = indexer.prune_and_commit(30, Some("grip"), false).unwrap();
+        assert_eq!(stats.total(), 1);
+        assert_eq!(stats.grips_pruned, 1);
+        assert_eq!(stats.days_pruned, 0); // TOC node should not be pruned
+
+        // Verify TOC node still exists
+        let reader = index.reader().unwrap();
+        let searcher = reader.searcher();
+        let num_docs: u64 = searcher
+            .segment_readers()
+            .iter()
+            .map(|r| r.num_docs() as u64)
+            .sum();
+        assert_eq!(num_docs, 1);
+    }
+
+    #[test]
+    fn test_prune_keeps_recent_documents() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SearchIndexConfig::new(temp_dir.path());
+        let index = SearchIndex::open_or_create(config).unwrap();
+        let indexer = SearchIndexer::new(&index).unwrap();
+
+        // Add only recent documents
+        let new_node1 = sample_toc_node("new-node-1");
+        let new_node2 = sample_toc_node("new-node-2");
+        let new_grip = sample_grip("new-grip-1");
+
+        indexer.index_toc_node(&new_node1).unwrap();
+        indexer.index_toc_node(&new_node2).unwrap();
+        indexer.index_grip(&new_grip).unwrap();
+        indexer.commit().unwrap();
+
+        // Prune documents older than 30 days - should prune nothing
+        let stats = indexer.prune_and_commit(30, None, false).unwrap();
+        assert_eq!(stats.total(), 0);
+
+        // Verify all documents still exist
+        let reader = index.reader().unwrap();
+        let searcher = reader.searcher();
+        let num_docs: u64 = searcher
+            .segment_readers()
+            .iter()
+            .map(|r| r.num_docs() as u64)
+            .sum();
+        assert_eq!(num_docs, 3);
+    }
+
+    #[test]
+    fn test_reload_reader() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SearchIndexConfig::new(temp_dir.path());
+        let index = SearchIndex::open_or_create(config).unwrap();
+        let indexer = SearchIndexer::new(&index).unwrap();
+
+        // Reload should succeed
+        indexer.reload_reader().unwrap();
     }
 }

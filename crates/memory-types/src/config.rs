@@ -11,6 +11,69 @@ use std::path::PathBuf;
 
 use crate::error::MemoryError;
 
+/// Configuration for novelty detection (opt-in, disabled by default).
+///
+/// Per Phase 16 Plan 03: Novelty check is DISABLED by default.
+/// When disabled, all events are stored without similarity check.
+/// This respects the append-only model.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoveltyConfig {
+    /// MUST be explicitly set to true to enable (default: false).
+    /// When false, all events are stored without similarity check.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Similarity threshold - events above this are considered duplicates.
+    /// Range: 0.0-1.0, higher = stricter (more duplicates detected).
+    #[serde(default = "default_novelty_threshold")]
+    pub threshold: f32,
+
+    /// Maximum time for novelty check (ms).
+    /// If exceeded, event is stored anyway (fail-open).
+    #[serde(default = "default_novelty_timeout")]
+    pub timeout_ms: u64,
+
+    /// Minimum event text length to check (skip very short events).
+    #[serde(default = "default_min_text_length")]
+    pub min_text_length: usize,
+}
+
+fn default_novelty_threshold() -> f32 {
+    0.82
+}
+
+fn default_novelty_timeout() -> u64 {
+    50
+}
+
+fn default_min_text_length() -> usize {
+    50
+}
+
+impl Default for NoveltyConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false, // DISABLED by default - explicit opt-in required
+            threshold: default_novelty_threshold(),
+            timeout_ms: default_novelty_timeout(),
+            min_text_length: default_min_text_length(),
+        }
+    }
+}
+
+impl NoveltyConfig {
+    /// Validate configuration values.
+    pub fn validate(&self) -> Result<(), String> {
+        if !(0.0..=1.0).contains(&self.threshold) {
+            return Err(format!("threshold must be 0.0-1.0, got {}", self.threshold));
+        }
+        if self.timeout_ms == 0 {
+            return Err("timeout_ms must be > 0".to_string());
+        }
+        Ok(())
+    }
+}
+
 /// Summarizer configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SummarizerSettings {
@@ -271,5 +334,36 @@ mod tests {
     fn test_multi_agent_mode_default() {
         let settings = Settings::default();
         assert_eq!(settings.multi_agent_mode, MultiAgentMode::Separate);
+    }
+
+    #[test]
+    fn test_novelty_config_disabled_by_default() {
+        let config = NoveltyConfig::default();
+        assert!(!config.enabled);
+        assert!((config.threshold - 0.82).abs() < f32::EPSILON);
+        assert_eq!(config.timeout_ms, 50);
+        assert_eq!(config.min_text_length, 50);
+    }
+
+    #[test]
+    fn test_novelty_config_validation() {
+        let mut config = NoveltyConfig::default();
+        assert!(config.validate().is_ok());
+
+        config.threshold = 1.5;
+        assert!(config.validate().is_err());
+
+        config.threshold = 0.5;
+        config.timeout_ms = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_novelty_config_serialization() {
+        let config = NoveltyConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: NoveltyConfig = serde_json::from_str(&json).unwrap();
+        assert!(!decoded.enabled);
+        assert!((decoded.threshold - 0.82).abs() < f32::EPSILON);
     }
 }

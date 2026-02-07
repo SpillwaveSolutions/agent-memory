@@ -1,0 +1,53 @@
+version: '3'
+
+vars:
+  SDK_ENV: "./env.sh"
+
+tasks:
+  build:
+    desc: "Build workspace with C++ headers set"
+    cmds:
+      - source {{.SDK_ENV}} && cargo build --workspace
+
+  test:
+    desc: "Test workspace with C++ headers set"
+    cmds:
+      - source {{.SDK_ENV}} && cargo test --workspace
+
+  clippy:
+    desc: "Run clippy with all features"
+    cmds:
+      - source {{.SDK_ENV}} && cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  fmt:
+    desc: "Check formatting"
+    cmds:
+      - cargo fmt --all -- --check
+
+  fmt-fix:
+    desc: "Fix formatting"
+    cmds:
+      - cargo fmt --all
+
+  doc:
+    desc: "Build documentation"
+    cmds:
+      - source {{.SDK_ENV}} && RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --all-features
+
+  check:
+    desc: "Full QA check (format + clippy + test + doc)"
+    cmds:
+      - task: fmt
+      - task: clippy
+      - task: test
+      - task: doc
+
+  clean:
+    desc: "Clean build artifacts"
+    cmds:
+      - cargo clean
+
+  release:
+    desc: "Build release binaries"
+    cmds:
+      - source {{.SDK_ENV}} && cargo build --workspace --release

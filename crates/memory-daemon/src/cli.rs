@@ -85,6 +85,10 @@ pub enum Commands {
     /// Topic graph management commands
     #[command(subcommand)]
     Topics(TopicsCommand),
+
+    /// Retrieval policy commands
+    #[command(subcommand)]
+    Retrieval(RetrievalCommand),
 }
 
 /// Query subcommands
@@ -437,6 +441,57 @@ pub enum TopicsCommand {
         /// Database path (default from config)
         #[arg(long)]
         db_path: Option<String>,
+    },
+}
+
+/// Retrieval policy commands
+#[derive(Subcommand, Debug, Clone)]
+pub enum RetrievalCommand {
+    /// Show retrieval tier and layer availability
+    Status {
+        /// gRPC server address
+        #[arg(long, default_value = "http://[::1]:50051")]
+        addr: String,
+    },
+
+    /// Classify query intent
+    Classify {
+        /// Query to classify
+        query: String,
+
+        /// Optional timeout in milliseconds (forces TIME_BOXED intent)
+        #[arg(long)]
+        timeout_ms: Option<u64>,
+
+        /// gRPC server address
+        #[arg(long, default_value = "http://[::1]:50051")]
+        addr: String,
+    },
+
+    /// Route query through optimal layers
+    Route {
+        /// Query to route
+        query: String,
+
+        /// Override intent classification (explore, answer, locate, time-boxed)
+        #[arg(long)]
+        intent: Option<String>,
+
+        /// Maximum results to return
+        #[arg(long, short = 'n', default_value = "10")]
+        limit: u32,
+
+        /// Execution mode (sequential, parallel, hybrid)
+        #[arg(long)]
+        mode: Option<String>,
+
+        /// Timeout in milliseconds
+        #[arg(long)]
+        timeout_ms: Option<u64>,
+
+        /// gRPC server address
+        #[arg(long, default_value = "http://[::1]:50051")]
+        addr: String,
     },
 }
 

@@ -18,19 +18,24 @@ use memory_types::{Event, EventRole, EventType, OutboxEntry};
 
 use crate::hybrid::HybridSearchHandler;
 use crate::pb::{
-    memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse, Event as ProtoEvent,
+    memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
+    ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, Event as ProtoEvent,
     EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
     ExpandGripResponse, GetEventsRequest, GetEventsResponse, GetNodeRequest, GetNodeResponse,
-    GetRelatedTopicsRequest, GetRelatedTopicsResponse, GetSchedulerStatusRequest,
-    GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest,
-    GetTopTopicsResponse, GetTopicGraphStatusRequest, GetTopicGraphStatusResponse,
-    GetTopicsByQueryRequest, GetTopicsByQueryResponse, GetVectorIndexStatusRequest,
-    HybridSearchRequest, HybridSearchResponse, IngestEventRequest, IngestEventResponse,
-    PauseJobRequest, PauseJobResponse, ResumeJobRequest, ResumeJobResponse, SearchChildrenRequest,
+    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
+    GetRelatedTopicsResponse, GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse,
+    GetSchedulerStatusRequest, GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse,
+    GetTopTopicsRequest, GetTopTopicsResponse, GetTopicGraphStatusRequest,
+    GetTopicGraphStatusResponse, GetTopicsByQueryRequest, GetTopicsByQueryResponse,
+    GetVectorIndexStatusRequest, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
+    IngestEventResponse, PauseJobRequest, PauseJobResponse, PruneBm25IndexRequest,
+    PruneBm25IndexResponse, PruneVectorIndexRequest, PruneVectorIndexResponse, ResumeJobRequest,
+    ResumeJobResponse, RouteQueryRequest, RouteQueryResponse, SearchChildrenRequest,
     SearchChildrenResponse, SearchNodeRequest, SearchNodeResponse, TeleportSearchRequest,
     TeleportSearchResponse, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use crate::query;
+use crate::retrieval::RetrievalHandler;
 use crate::scheduler_service::SchedulerGrpcService;
 use crate::search_service;
 use crate::teleport_service;
@@ -45,11 +50,13 @@ pub struct MemoryServiceImpl {
     vector_service: Option<Arc<VectorTeleportHandler>>,
     hybrid_service: Option<Arc<HybridSearchHandler>>,
     topic_service: Option<Arc<TopicGraphHandler>>,
+    retrieval_service: Option<Arc<RetrievalHandler>>,
 }
 
 impl MemoryServiceImpl {
     /// Create a new MemoryServiceImpl with the given storage.
     pub fn new(storage: Arc<Storage>) -> Self {
+        let retrieval = Arc::new(RetrievalHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -57,6 +64,7 @@ impl MemoryServiceImpl {
             vector_service: None,
             hybrid_service: None,
             topic_service: None,
+            retrieval_service: Some(retrieval),
         }
     }
 
@@ -65,6 +73,7 @@ impl MemoryServiceImpl {
     /// When scheduler is provided, the scheduler-related RPCs
     /// (GetSchedulerStatus, PauseJob, ResumeJob) will be functional.
     pub fn with_scheduler(storage: Arc<Storage>, scheduler: Arc<SchedulerService>) -> Self {
+        let retrieval = Arc::new(RetrievalHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -72,6 +81,7 @@ impl MemoryServiceImpl {
             vector_service: None,
             hybrid_service: None,
             topic_service: None,
+            retrieval_service: Some(retrieval),
         }
     }
 
@@ -83,6 +93,12 @@ impl MemoryServiceImpl {
         scheduler: Arc<SchedulerService>,
         searcher: Arc<TeleportSearcher>,
     ) -> Self {
+        let retrieval = Arc::new(RetrievalHandler::with_services(
+            storage.clone(),
+            Some(searcher.clone()),
+            None,
+            None,
+        ));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -90,11 +106,18 @@ impl MemoryServiceImpl {
             vector_service: None,
             hybrid_service: None,
             topic_service: None,
+            retrieval_service: Some(retrieval),
         }
     }
 
     /// Create a new MemoryServiceImpl with storage and teleport searcher (no scheduler).
     pub fn with_search(storage: Arc<Storage>, searcher: Arc<TeleportSearcher>) -> Self {
+        let retrieval = Arc::new(RetrievalHandler::with_services(
+            storage.clone(),
+            Some(searcher.clone()),
+            None,
+            None,
+        ));
         Self {
             storage,
             scheduler_service: None,
@@ -102,6 +125,7 @@ impl MemoryServiceImpl {
             vector_service: None,
             hybrid_service: None,
             topic_service: None,
+            retrieval_service: Some(retrieval),
         }
     }
 
@@ -110,6 +134,12 @@ impl MemoryServiceImpl {
     /// When vector service is provided, VectorTeleport and HybridSearch RPCs will be functional.
     pub fn with_vector(storage: Arc<Storage>, vector_handler: Arc<VectorTeleportHandler>) -> Self {
         let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let retrieval = Arc::new(RetrievalHandler::with_services(
+            storage.clone(),
+            None,
+            Some(vector_handler.clone()),
+            None,
+        ));
         Self {
             storage,
             scheduler_service: None,
@@ -117,6 +147,7 @@ impl MemoryServiceImpl {
             vector_service: Some(vector_handler),
             hybrid_service: Some(hybrid_handler),
             topic_service: None,
+            retrieval_service: Some(retrieval),
         }
     }
 
@@ -124,6 +155,12 @@ impl MemoryServiceImpl {
     ///
     /// When topic service is provided, the topic graph RPCs will be functional.
     pub fn with_topics(storage: Arc<Storage>, topic_handler: Arc<TopicGraphHandler>) -> Self {
+        let retrieval = Arc::new(RetrievalHandler::with_services(
+            storage.clone(),
+            None,
+            None,
+            Some(topic_handler.clone()),
+        ));
         Self {
             storage,
             scheduler_service: None,
@@ -131,6 +168,7 @@ impl MemoryServiceImpl {
             vector_service: None,
             hybrid_service: None,
             topic_service: Some(topic_handler),
+            retrieval_service: Some(retrieval),
         }
     }
 
@@ -142,6 +180,12 @@ impl MemoryServiceImpl {
         vector_handler: Arc<VectorTeleportHandler>,
     ) -> Self {
         let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let retrieval = Arc::new(RetrievalHandler::with_services(
+            storage.clone(),
+            Some(searcher.clone()),
+            Some(vector_handler.clone()),
+            None,
+        ));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -149,6 +193,7 @@ impl MemoryServiceImpl {
             vector_service: Some(vector_handler),
             hybrid_service: Some(hybrid_handler),
             topic_service: None,
+            retrieval_service: Some(retrieval),
         }
     }
 
@@ -161,6 +206,12 @@ impl MemoryServiceImpl {
         topic_handler: Arc<TopicGraphHandler>,
     ) -> Self {
         let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let retrieval = Arc::new(RetrievalHandler::with_services(
+            storage.clone(),
+            Some(searcher.clone()),
+            Some(vector_handler.clone()),
+            Some(topic_handler.clone()),
+        ));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -168,6 +219,7 @@ impl MemoryServiceImpl {
             vector_service: Some(vector_handler),
             hybrid_service: Some(hybrid_handler),
             topic_service: Some(topic_handler),
+            retrieval_service: Some(retrieval),
         }
     }
 
@@ -514,6 +566,100 @@ impl MemoryService for MemoryServiceImpl {
             Some(svc) => svc.get_top_topics(request).await,
             None => Err(Status::unavailable("Topic graph not enabled")),
         }
+    }
+
+    /// Get retrieval capabilities.
+    ///
+    /// Per RETR-01: Combined status check pattern.
+    async fn get_retrieval_capabilities(
+        &self,
+        request: Request<GetRetrievalCapabilitiesRequest>,
+    ) -> Result<Response<GetRetrievalCapabilitiesResponse>, Status> {
+        match &self.retrieval_service {
+            Some(svc) => svc.get_retrieval_capabilities(request).await,
+            None => Err(Status::unavailable("Retrieval service not configured")),
+        }
+    }
+
+    /// Classify query intent.
+    ///
+    /// Per RETR-04: Intent classification with keyword heuristics.
+    async fn classify_query_intent(
+        &self,
+        request: Request<ClassifyQueryIntentRequest>,
+    ) -> Result<Response<ClassifyQueryIntentResponse>, Status> {
+        match &self.retrieval_service {
+            Some(svc) => svc.classify_query_intent(request).await,
+            None => Err(Status::unavailable("Retrieval service not configured")),
+        }
+    }
+
+    /// Route a query through optimal layers.
+    ///
+    /// Per RETR-05: Fallback chains with explainability.
+    async fn route_query(
+        &self,
+        request: Request<RouteQueryRequest>,
+    ) -> Result<Response<RouteQueryResponse>, Status> {
+        match &self.retrieval_service {
+            Some(svc) => svc.route_query(request).await,
+            None => Err(Status::unavailable("Retrieval service not configured")),
+        }
+    }
+
+    /// Prune old vectors per lifecycle policy (FR-08).
+    async fn prune_vector_index(
+        &self,
+        _request: Request<PruneVectorIndexRequest>,
+    ) -> Result<Response<PruneVectorIndexResponse>, Status> {
+        // TODO: Implement vector lifecycle pruning
+        Ok(Response::new(PruneVectorIndexResponse {
+            success: true,
+            segments_pruned: 0,
+            grips_pruned: 0,
+            days_pruned: 0,
+            weeks_pruned: 0,
+            message: "Vector pruning not yet implemented".to_string(),
+        }))
+    }
+
+    /// Prune old BM25 documents per lifecycle policy (FR-09).
+    async fn prune_bm25_index(
+        &self,
+        _request: Request<PruneBm25IndexRequest>,
+    ) -> Result<Response<PruneBm25IndexResponse>, Status> {
+        // TODO: Implement BM25 lifecycle pruning
+        Ok(Response::new(PruneBm25IndexResponse {
+            success: true,
+            segments_pruned: 0,
+            grips_pruned: 0,
+            days_pruned: 0,
+            weeks_pruned: 0,
+            optimized: false,
+            message: "BM25 pruning not yet implemented".to_string(),
+        }))
+    }
+
+    /// Get ranking and novelty status.
+    async fn get_ranking_status(
+        &self,
+        _request: Request<GetRankingStatusRequest>,
+    ) -> Result<Response<GetRankingStatusResponse>, Status> {
+        // TODO: Implement ranking status reporting
+        Ok(Response::new(GetRankingStatusResponse {
+            salience_enabled: false,
+            usage_decay_enabled: false,
+            novelty_enabled: false,
+            novelty_checked_total: 0,
+            novelty_rejected_total: 0,
+            novelty_skipped_total: 0,
+            vector_lifecycle_enabled: false,
+            vector_last_prune_timestamp: 0,
+            vector_last_prune_count: 0,
+            bm25_lifecycle_enabled: false,
+            bm25_last_prune_timestamp: 0,
+            bm25_last_prune_count: 0,
+        }))
     }
 }
 

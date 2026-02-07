@@ -1,8 +1,8 @@
 # Agent Memory Cognitive Architecture
 
-**Version:** 2.0
-**Date:** 2026-02-02
-**Status:** All cognitive layers (0-5) fully implemented
+**Version:** 2.1
+**Date:** 2026-02-05
+**Status:** All cognitive layers (0-5) implemented with ranking policy and retrieval brainstem
 
 ---
 
@@ -22,14 +22,36 @@ Agent Memory implements a 6-layer cognitive hierarchy, where each layer provides
 |-------|------------|----------------|------|---------|
 | **0** | Raw Events | RocksDB CF_EVENTS | Always present | Immutable truth |
 | **1** | TOC Hierarchy | RocksDB CF_TOC_NODES | Always present | Time-based navigation |
-| **2** | Agentic TOC Search | SearchNode/SearchChildren ✓ | Always works | Index-free term matching |
-| **3** | Lexical Teleport | BM25/Tantivy ✓ | Configurable | Keyword grounding |
-| **4** | Semantic Teleport | Vector/HNSW ✓ | Configurable | Embedding similarity |
-| **5** | Conceptual Discovery | Topic Graph ✓ | Optional | Pattern and concept enrichment |
+| **2** | Agentic TOC Search | SearchNode/SearchChildren | Always works | Index-free term matching |
+| **3** | Lexical Teleport | BM25/Tantivy | Configurable | Keyword grounding |
+| **4** | Semantic Teleport | Vector/HNSW | Configurable | Embedding similarity |
+| **5** | Conceptual Discovery | Topic Graph | Optional | Pattern and concept enrichment |
+| **6** | Ranking Policy | Salience/Usage/Novelty | Optional | Memory importance scoring |
+| **Brainstem** | Retrieval Policy | TierDetector/IntentClassifier | Always present | Decision routing |
 
 **Hybrid Mode** (not a layer): Score fusion of layers 3+4 when both are enabled.
 
 **Escalation Procedure** (not a layer): Agent-based Scanning - token-intensive last resort when recall > efficiency.
+
+### Ranking Policy (Layer 6)
+
+The ranking policy layer enhances retrieval quality through:
+
+| Signal | Weight | Description |
+|--------|--------|-------------|
+| **Salience** | 0.3 | Memory importance (Procedure > Constraint > Definition > Preference > Observation) |
+| **Recency** | 0.3 | Time-decayed scoring with configurable half-life |
+| **Relevance** | 0.3 | BM25/Vector match score |
+| **Usage** | 0.1 | Access frequency with decay (opt-in) |
+
+### Retrieval Brainstem
+
+The retrieval policy acts as the "brainstem" - automatic decision-making for:
+
+- **Tier Detection**: Maps available layers to capability tiers (1-5)
+- **Intent Classification**: Routes Explore/Answer/Locate/Time-boxed queries
+- **Fallback Chains**: Automatic graceful degradation
+- **Explainability**: Every result includes tier used and why
 
 ---
 
@@ -66,7 +88,55 @@ This separation keeps the core system **reliable and deterministic** while allow
 |-------|-----------|----------|
 | **Data Plane** | Events, TOC nodes, grips | agent-memory core (RocksDB) |
 | **Capability Plane** | BM25, Vector, Topics RPCs | memory-service (gRPC) |
-| **Control Plane** | Skills + retrieval policy | skill ecosystem |
+| **Ranking Plane** | Salience, usage, novelty | memory-retrieval (Phase 16) |
+| **Control Plane** | Tier detection, intent routing | memory-retrieval (Phase 17) |
+| **Skill Plane** | Agent skills + fallback chains | skill ecosystem |
+
+---
+
+## Capability Tiers
+
+The system detects available layers and maps to capability tiers:
+
+| Tier | Name | Layers Available | Best For |
+|------|------|------------------|----------|
+| 1 | **Full** | Topics + Hybrid + Agentic | Semantic exploration, topic discovery |
+| 2 | **Hybrid** | BM25 + Vector + Agentic | Balanced keyword + semantic |
+| 3 | **Semantic** | Vector + Agentic | Conceptual similarity search |
+| 4 | **Keyword** | BM25 + Agentic | Exact term matching |
+| 5 | **Agentic** | TOC navigation only | Always works (no indices) |
+
+### Tier Detection
+
+```bash
+memory-daemon retrieval status
+```
+
+Output:
+```
+Retrieval Capabilities
+----------------------------------------
+Current Tier:    2 (Hybrid)
+Available Layers:
+  - bm25:    healthy (2847 docs)
+  - vector:  healthy (2103 vectors)
+  - agentic: healthy (TOC available)
+Unavailable:
+  - topics:  disabled (topics.enabled = false)
+```
+
+---
+
+## Query Intent Classification
+
+Queries are classified into four intents for optimal routing:
+
+| Intent | Triggers | Optimal Strategy | Stop Conditions |
+|--------|----------|------------------|-----------------|
+| **Explore** | "browse", "discover", "what topics" | Topics-first, broad fan-out | max_nodes: 100, beam_width: 5 |
+| **Answer** | "what did", "how did", "find" | Hybrid, precision-focused | max_nodes: 50, min_confidence: 0.6 |
+| **Locate** | Identifiers, exact phrases | BM25-first, exact match | max_nodes: 20, first_match: true |
+| **Time-boxed** | "yesterday", "last week", dates | Time-filtered, sequential | max_depth: 2, time_constraint: set |
 
 ---
 
@@ -212,18 +282,29 @@ Skills that interact with Agent Memory must follow the **Agent Retrieval Policy*
 
 | PRD | Layer | Purpose |
 |-----|-------|---------|
-| [Agent Retrieval Policy](prds/agent-retrieval-policy-prd.md) | Control Plane | How agents choose retrieval layers |
+| [Agent Retrieval Policy](prds/agent-retrieval-policy-prd.md) | Brainstem | Tier detection, intent routing, fallbacks |
 | [Agentic TOC Search](prds/agentic-toc-search-prd.md) | Layer 2 | Index-free search |
 | [BM25 Teleport](prds/bm25-teleport-prd.md) | Layer 3 | Keyword acceleration |
 | [Hierarchical Vector Indexing](prds/hierarchical-vector-indexing-prd.md) | Layer 4 | Semantic acceleration |
 | [Topic Graph Memory](prds/topic-graph-memory-prd.md) | Layer 5 | Conceptual enrichment |
 
+### Technical Plans
+
+| Plan | Phase | Purpose |
+|------|-------|---------|
+| [Memory Ranking Enhancements RFC](plans/memory-ranking-enhancements-rfc.md) | 16 | Salience, usage, novelty, lifecycle |
+| [Phase 16 Memory Ranking Plan](plans/phase-16-memory-ranking-plan.md) | 16 | Implementation details |
+| [Configuration Wizard Skills](plans/configuration-wizard-skills-plan.md) | 15 | Interactive configuration |
+| [Topic Graph Memory](plans/topic-graph-memory.md) | 14 | Topic extraction and relationships |
+
 ### Planning Documents
 
 - [PROJECT.md](../.planning/PROJECT.md) - Requirements and key decisions
 - [ROADMAP.md](../.planning/ROADMAP.md) - Phase execution order
+- [STATE.md](../.planning/STATE.md) - Current development state
 
 ---
 
 *Manifesto Created: 2026-02-01*
+*Updated: 2026-02-05 (Phase 16-17 ranking and retrieval policy)*
 *Author: Agent Memory Team*

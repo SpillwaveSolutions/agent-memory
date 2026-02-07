@@ -90,6 +90,7 @@ impl SchedulerGrpcService {
                     error_count: s.error_count,
                     is_running: s.is_running,
                     is_paused: s.is_paused,
+                    last_run_metadata: s.last_run_metadata,
                 }
             })
             .collect();

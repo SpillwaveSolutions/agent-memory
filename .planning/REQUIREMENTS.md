@@ -112,6 +112,41 @@ Phase 7 (CCH Integration) and future enhancements.
 - **SCAN-02**: Range-limited by TOC bounds (month/week)
 - **SCAN-03**: Produces grips as outputs
 
+### Memory Ranking Enhancements (Phase 16)
+
+- **RANK-01**: Salience scoring at write time for TOC nodes and Grips
+- **RANK-02**: Usage tracking in separate CF (CF_USAGE_COUNTERS)
+- **RANK-03**: Cache-first usage reads with LRU cache
+- **RANK-04**: Novelty filtering (opt-in, disabled by default)
+- **RANK-05**: Vector lifecycle automation per FR-08 retention rules
+- **RANK-06**: BM25 lifecycle automation per FR-09 (disabled by default)
+- **RANK-07**: Feature flags for all ranking enhancements
+- **RANK-08**: Backward compatibility with v2.0.0 data
+- **RANK-09**: Staged rollout support with master switch
+- **RANK-10**: Config validation on startup
+
+### Agent Retrieval Policy (Phase 17)
+
+- **RETR-01**: Combined status check for all layer availability
+- **RETR-02**: Tier detection algorithm (maps availability to tiers 1-5)
+- **RETR-03**: Capability advertisement to skills
+- **RETR-04**: Query intent classification (Explore/Answer/Locate/Time-boxed)
+- **RETR-05**: Intent-aware routing to appropriate layers
+- **RETR-06**: Time constraint extraction from queries
+- **RETR-07**: Configuration-aware search (respects enabled layers)
+- **RETR-08**: Graceful degradation on layer failure
+- **RETR-09**: Partial result return on timeout
+- **RETR-10**: Stop condition enforcement (max_depth, max_nodes, timeout)
+- **RETR-11**: Timeout handling per intent type
+- **RETR-12**: Scanning trigger conditions
+- **RETR-13**: Tier/method reporting in results
+- **RETR-14**: Fallback explanation in results
+- **RETR-15**: Execution mode selection (Sequential/Parallel/Hybrid)
+- **RETR-16**: Bounded fan-out for parallel execution
+- **RETR-17**: Early stopping on sufficient results
+- **RETR-18**: Rank merge across multiple layers
+- **RETR-19**: Explainable arbitration for skill contracts
+
 ### Additional Hooks
 
 - **HOOK-04**: OpenCode hook adapter
@@ -190,23 +225,56 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKILL-02 | Phase 7 | Pending |
 | SKILL-03 | Phase 7 | Pending |
 
-| TELE-01 | Phase 11 | Planned |
-| TELE-04 | Phase 11 | Planned |
-| TELE-05 | Phase 11 | Planned |
-| TELE-06 | Phase 11 | Planned |
-| TELE-07 | Phase 11 | Planned |
-| TELE-02 | Phase 12 | Planned |
-| TELE-03 | Phase 13 | Planned |
+| TELE-01 | Phase 11 | ✅ Complete |
+| TELE-04 | Phase 11 | ✅ Complete |
+| TELE-05 | Phase 11 | ✅ Complete |
+| TELE-06 | Phase 11 | ✅ Complete |
+| TELE-07 | Phase 11 | ✅ Complete |
+| TELE-02 | Phase 12 | ✅ Complete |
+| TELE-03 | Phase 13 | ✅ Complete |
+| RANK-01 | Phase 16 | ✅ Complete |
+| RANK-02 | Phase 16 | ✅ Complete |
+| RANK-03 | Phase 16 | ✅ Complete |
+| RANK-04 | Phase 16 | ✅ Complete |
+| RANK-05 | Phase 16 | ✅ Complete |
+| RANK-06 | Phase 16 | ✅ Complete |
+| RANK-07 | Phase 16 | ✅ Complete |
+| RANK-08 | Phase 16 | ✅ Complete |
+| RANK-09 | Phase 16 | ✅ Complete |
+| RANK-10 | Phase 16 | ✅ Complete |
+| RETR-01 | Phase 17 | ✅ Complete |
+| RETR-02 | Phase 17 | ✅ Complete |
+| RETR-03 | Phase 17 | ✅ Complete |
+| RETR-04 | Phase 17 | ✅ Complete |
+| RETR-05 | Phase 17 | ✅ Complete |
+| RETR-06 | Phase 17 | ✅ Complete |
+| RETR-07 | Phase 17 | ✅ Complete |
+| RETR-08 | Phase 17 | ✅ Complete |
+| RETR-09 | Phase 17 | ✅ Complete |
+| RETR-10 | Phase 17 | ✅ Complete |
+| RETR-11 | Phase 17 | ✅ Complete |
+| RETR-12 | Phase 17 | ✅ Complete |
+| RETR-13 | Phase 17 | ✅ Complete |
+| RETR-14 | Phase 17 | ✅ Complete |
+| RETR-15 | Phase 17 | ✅ Complete |
+| RETR-16 | Phase 17 | ✅ Complete |
+| RETR-17 | Phase 17 | ✅ Complete |
+| RETR-18 | Phase 17 | ✅ Complete |
+| RETR-19 | Phase 17 | ✅ Complete |
 
 **Coverage:**
 - v1 requirements: 42 total (all complete)
 - v2 requirements: 6 new (Phase 7)
-- Teleport requirements: 7 (Phases 11-13)
+- Teleport requirements: 7 (Phases 11-13) - all complete
+- Ranking requirements: 10 (Phase 16) - all complete
+- Retrieval requirements: 19 (Phase 17) - all complete
 - External (HOOK-01): 1 (complete)
-- Total: 55
+- Total: 84 (77 complete, 7 pending Phase 7/CCH)
 
 ---
 *Requirements defined: 2026-01-29*
 *v1 milestone completed: 2026-01-30*
 *Phase 7 requirements added: 2026-01-30*
 *Phase 11-13 teleport requirements traced: 2026-02-01*
+*Phase 16 (RANK-*) and Phase 17 (RETR-*) requirements added: 2026-02-05*
+*Phase 11-17 requirements completed: 2026-02-05*

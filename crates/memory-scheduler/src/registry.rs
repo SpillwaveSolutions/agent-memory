@@ -20,6 +20,39 @@ pub enum JobResult {
     Skipped(String),
 }
 
+/// Extended job output with optional metadata.
+///
+/// Use this when your job needs to report stats back to the registry
+/// (e.g., prune count, items processed).
+#[derive(Debug, Clone, Default)]
+pub struct JobOutput {
+    /// Arbitrary key-value metadata from the job run.
+    pub metadata: HashMap<String, String>,
+}
+
+impl JobOutput {
+    /// Create a new empty job output.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a metadata entry.
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+
+    /// Add prune count metadata (convenience method for prune jobs).
+    pub fn with_prune_count(self, count: u32) -> Self {
+        self.with_metadata("prune_count", count.to_string())
+    }
+
+    /// Add items processed metadata (convenience method).
+    pub fn with_items_processed(self, count: usize) -> Self {
+        self.with_metadata("items_processed", count.to_string())
+    }
+}
+
 /// Status of a registered job.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobStatus {
@@ -43,6 +76,10 @@ pub struct JobStatus {
     pub is_running: bool,
     /// Whether the job is paused
     pub is_paused: bool,
+    /// Optional metadata from last run (e.g., prune count, items processed)
+    /// Maps arbitrary keys to string values for extensibility.
+    #[serde(default)]
+    pub last_run_metadata: HashMap<String, String>,
 }
 
 impl JobStatus {
@@ -59,6 +96,7 @@ impl JobStatus {
             error_count: 0,
             is_running: false,
             is_paused: false,
+            last_run_metadata: HashMap::new(),
         }
     }
 }
@@ -120,6 +158,20 @@ impl JobRegistry {
     ///
     /// Updates the last run time, duration, result, and run/error counts.
     pub fn record_complete(&self, job_name: &str, result: JobResult, duration_ms: u64) {
+        self.record_complete_with_metadata(job_name, result, duration_ms, HashMap::new());
+    }
+
+    /// Record that a job has completed with optional metadata.
+    ///
+    /// Updates the last run time, duration, result, run/error counts, and metadata.
+    /// Metadata can include job-specific stats like prune count, items processed, etc.
+    pub fn record_complete_with_metadata(
+        &self,
+        job_name: &str,
+        result: JobResult,
+        duration_ms: u64,
+        metadata: HashMap<String, String>,
+    ) {
         let mut jobs = self.jobs.write().unwrap();
         if let Some(status) = jobs.get_mut(job_name) {
             status.is_running = false;
@@ -130,6 +182,7 @@ impl JobRegistry {
                 status.error_count += 1;
             }
             status.last_result = Some(result);
+            status.last_run_metadata = metadata;
         }
     }
 

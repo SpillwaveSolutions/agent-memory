@@ -548,6 +548,65 @@ Something wrong?
         └── Still stuck → Say "troubleshoot memory"
 ```
 
+## Advanced Configuration Options
+
+These options are available in `--advanced` mode:
+
+### Server Timeout
+
+In --advanced mode, after server configuration, ask:
+
+```
+Configure server timeout?
+
+1. 30 seconds (Default)
+2. 60 seconds (for slow connections)
+3. Custom
+```
+
+Config: `[server] timeout_secs = 30`
+
+### TOC Overlap Settings
+
+In --advanced mode, after segmentation tuning, ask:
+
+```
+Configure segment overlap for context continuity?
+
+1. Standard (500 tokens, 5 minutes) - Recommended
+2. Minimal (100 tokens, 1 minute) - Less context
+3. Maximum (1000 tokens, 10 minutes) - More context
+4. Custom
+```
+
+Config:
+```toml
+[toc]
+overlap_tokens = 500
+overlap_minutes = 5
+```
+
+### Logging Configuration
+
+In --advanced mode, add logging step:
+
+```
+Configure logging output?
+
+1. Info to stderr (Default)
+2. Debug to stderr (verbose)
+3. Debug to file
+4. Custom
+```
+
+Config:
+```toml
+[logging]
+level = "info"    # trace, debug, info, warn, error
+format = "pretty" # pretty, json, compact
+file = ""         # empty = stderr, or path like ~/.memory-daemon.log
+```
+
 ## Reference Files
 
 For detailed information, see:
@@ -557,3 +616,12 @@ For detailed information, see:
 - [Troubleshooting Guide](references/troubleshooting-guide.md) - Common issues and solutions
 - [Platform Specifics](references/platform-specifics.md) - macOS, Linux, Windows details
 - [Wizard Questions](references/wizard-questions.md) - Complete interactive wizard question flow
+- [Advanced Options](references/advanced-options.md) - Server, TOC, and logging options
+
+## Related Skills
+
+For specialized configuration:
+
+- `/memory-storage` - Storage paths, retention, cleanup, GDPR
+- `/memory-llm` - LLM provider, model discovery, cost estimation
+- `/memory-agents` - Multi-agent mode, team settings

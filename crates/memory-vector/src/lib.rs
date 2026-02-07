@@ -19,12 +19,14 @@
 pub mod error;
 pub mod hnsw;
 pub mod index;
+pub mod lifecycle;
 pub mod metadata;
 pub mod pipeline;
 
 pub use error::VectorError;
 pub use hnsw::{HnswConfig, HnswIndex};
 pub use index::{IndexStats, SearchResult, VectorIndex};
+pub use lifecycle::{is_protected_level, PruneStats, VectorLifecycleConfig};
 pub use metadata::{DocType, VectorEntry, VectorMetadata, CF_VECTOR_META};
 pub use pipeline::{
     IndexableItem, IndexingStats, PipelineConfig, VectorIndexPipeline, VECTOR_INDEX_CHECKPOINT,
