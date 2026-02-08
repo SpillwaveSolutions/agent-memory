@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-08 — Milestone v2.1 started
+Phase: 18 — Agent Tagging Infrastructure
+Plan: Ready for planning
+Status: Requirements and roadmap defined
+Last activity: 2026-02-08 — Requirements and roadmap created
 
-Progress v2.1: [░░░░░░░░░░░░░░░░░░░░] 0% (0/? plans)
+Progress v2.1: [░░░░░░░░░░░░░░░░░░░░] 0% (0/6 phases)
 
 ## Milestone History
 
@@ -38,21 +38,52 @@ Full decision log in PROJECT.md Key Decisions table.
 
 ### v2.1 Context
 
-- OpenCode uses plugins (not hooks) — different integration pattern than Claude Code
-- Gemini CLI and Copilot CLI have hooks similar to Claude Code
-- Cross-agent sharing via agent-tagged events in unified store
-- Full Claude parity is the target for all adapters
+**Research findings (2026-02-08):**
+
+1. **Claude Code Plugin Format:**
+   - `.claude-plugin/marketplace.json` — Plugin manifest
+   - `commands/*.md` — YAML frontmatter with name, description, parameters, skills
+   - `skills/{name}/SKILL.md` — Skill with YAML frontmatter + references/
+   - `agents/*.md` — Agent with triggers and skill dependencies
+
+2. **OpenCode Plugin Format:**
+   - `.opencode/command/*.md` — Commands with `$ARGUMENTS` substitution
+   - `.opencode/skill/{name}/SKILL.md` — Same skill format as Claude
+   - `.opencode/agent/*.md` — Agent definitions (not hooks)
+   - Skills are portable: same SKILL.md works in both
+
+3. **Hook System Comparison:**
+   - Claude Code: `.claude/hooks.yaml` via CCH binary
+   - OpenCode: Uses plugins (commands/skills), not hooks for behavior
+   - Gemini/Copilot: Hook systems similar to Claude (TBD research)
+
+4. **Cross-Agent Strategy:**
+   - Add `agent` field to Event proto
+   - Auto-detect agent on ingest
+   - Default queries return all agents
+   - `--agent <name>` filter for single-agent queries
 
 ### Technical Debt (Accepted)
 
 - 3 stub RPCs: GetRankingStatus, PruneVectorIndex, PruneBm25Index (admin features)
 - Missing SUMMARY.md files for some phases
 
+## v2.1 Phase Summary
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 18 | Agent Tagging Infrastructure | Ready |
+| 19 | OpenCode Commands and Skills | Blocked by 18 |
+| 20 | OpenCode Event Capture + Unified Queries | Blocked by 19 |
+| 21 | Gemini CLI Adapter | Blocked by 18 |
+| 22 | Copilot CLI Adapter | Blocked by 18 |
+| 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
+
 ## Next Steps
 
-1. Research agent ecosystems (OpenCode plugin API, Gemini/Copilot hook formats)
-2. Define requirements
-3. Create roadmap
+1. `/gsd:plan-phase 18` — Plan agent tagging infrastructure
+2. Execute Phase 18
+3. Phases 19-22 can run in parallel after 18
 
 ---
-*Updated: 2026-02-08 after v2.1 milestone initialization*
+*Updated: 2026-02-08 after requirements and roadmap creation*
