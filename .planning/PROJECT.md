@@ -1,5 +1,20 @@
 # Agent Memory
 
+## Current State
+
+**Version:** v2.0.0 (Shipped 2026-02-07)
+**Status:** Full cognitive architecture complete
+
+The system now implements a complete 6-layer cognitive stack with control plane:
+- Layer 0: Raw Events (RocksDB)
+- Layer 1: TOC Hierarchy (time-based navigation)
+- Layer 2: Agentic TOC Search (index-free, always works)
+- Layer 3: Lexical Teleport (BM25/Tantivy)
+- Layer 4: Semantic Teleport (Vector/HNSW)
+- Layer 5: Conceptual Discovery (Topic Graph)
+- Layer 6: Ranking Policy (salience, usage, novelty, lifecycle)
+- Control: Retrieval Policy (intent routing, tier detection, fallbacks)
+
 ## What This Is
 
 **Agent Memory is a cognitive architecture for agents** — not just a memory system.
@@ -47,6 +62,8 @@ Agent Memory implements a layered cognitive architecture:
 | 3 | Lexical Teleport | BM25 keyword acceleration |
 | 4 | Semantic Teleport | Vector embedding similarity |
 | 5 | Conceptual Discovery | Topic graph enrichment |
+| 6 | Ranking Policy | Salience, usage decay, novelty |
+| Control | Retrieval Policy | Intent routing, tier detection, fallbacks |
 
 **Key Principle:** Indexes are accelerators, not dependencies. If any index fails, the system degrades gracefully.
 
@@ -58,7 +75,26 @@ Agent Memory implements a layered cognitive architecture:
 
 ## Requirements
 
-### Validated (v1.0.0 - Shipped 2026-01-30)
+### Validated (v2.0.0 - Shipped 2026-02-07)
+
+**Cognitive Layers (v2.0)**
+- [x] Background scheduler with Tokio cron, timezone handling, overlap policy — v2.0
+- [x] Index-free agentic TOC search (Layer 2, always works) — v2.0
+- [x] BM25 teleport via Tantivy (Layer 3) — v2.0
+- [x] Vector teleport via usearch HNSW with local embeddings (Layer 4) — v2.0
+- [x] Outbox-driven index ingestion (rebuildable) — v2.0
+- [x] Topic graph memory with HDBSCAN clustering (Layer 5) — v2.0
+- [x] Salience scoring at write time — v2.0
+- [x] Usage tracking with cache-first reads — v2.0
+- [x] Novelty filtering (opt-in) — v2.0
+- [x] Index lifecycle automation — v2.0
+- [x] Intent classification (Explore/Answer/Locate/TimeBoxed) — v2.0
+- [x] Tier detection (5 capability tiers) — v2.0
+- [x] Fallback chains with graceful degradation — v2.0
+- [x] Explainability payload for skill contracts — v2.0
+
+<details>
+<summary>v1.0.0 Validated (Shipped 2026-01-30)</summary>
 
 **Storage & Foundation**
 - [x] Append-only event storage in RocksDB with time-prefixed keys
@@ -100,22 +136,19 @@ Agent Memory implements a layered cognitive architecture:
 - [x] Query CLI for manual TOC navigation
 - [x] Admin CLI for rebuild-toc, compact, status
 
-### Active (v2.0 Planning)
+</details>
 
-**Teleport (Indexes as Accelerators)**
-- [ ] BM25 teleport via Tantivy (embedded)
-- [ ] Vector teleport via local HNSW
-- [ ] Outbox-driven index ingestion (rebuildable)
-- [ ] Teleports return TOC node IDs or grip pointers, never content
+### Active (v2.1 Planning)
 
 **Additional Hook Adapters**
 - [ ] OpenCode hook adapter
 - [ ] Gemini CLI hook adapter
+- [ ] GitHub Copilot CLI hook adapter
 
 **Production Hardening**
 - [ ] Automated E2E tests in CI
-- [ ] RebuildToc admin command full implementation
 - [ ] Performance benchmarks
+- [ ] External CCH integration
 
 ### Out of Scope
 
@@ -123,7 +156,6 @@ Agent Memory implements a layered cognitive architecture:
 - Multi-tenant concerns — single agent, local deployment
 - Deletes / mutable history — append-only truth
 - "Search everything all the time" — agentic navigation, not brute-force
-- Premature optimization — teleports come in Phase 2
 - HTTP server — gRPC only
 - MCP integration — hooks are passive listeners, no token overhead
 
@@ -151,7 +183,9 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 - `get_node(node_id)` — drill into specific period
 - `get_events(time_range)` — raw events (last resort)
 - `expand_grip(grip_id)` — context around excerpt
-- `teleport_query(query)` — Phase 2+ index jump
+- `teleport_query(query)` — BM25/vector index jump
+- `classify_intent(query)` — intent classification
+- `route_query(query)` — full retrieval with fallbacks
 
 **Related Work**
 
@@ -173,14 +207,17 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| TOC as primary navigation | Agentic search beats brute-force; indexes are disposable | ✓ Validated in v1.0 |
-| Append-only storage | Immutable truth, no deletion complexity | ✓ Validated in v1.0 |
-| Hooks for ingestion | Zero token overhead, works across agents | ✓ Validated in v1.0 |
-| Per-project stores first | Simpler mental model, namespace for unified later | ✓ Validated in v1.0 |
-| Time-only TOC for MVP | Topics deferred to Phase 4, time is sufficient for v1 | ✓ Validated in v1.0 |
-| gRPC only (no HTTP) | Clean contract, no framework churn | ✓ Validated in v1.0 |
-| Pluggable summarizer | Start with API, swap to local later | ✓ Validated in v1.0 |
-| Fail-open CCH integration | Never block Claude if memory is down | ✓ Validated in v1.0 |
+| TOC as primary navigation | Agentic search beats brute-force; indexes are disposable | ✓ Validated v1.0, v2.0 |
+| Append-only storage | Immutable truth, no deletion complexity | ✓ Validated v1.0 |
+| Hooks for ingestion | Zero token overhead, works across agents | ✓ Validated v1.0 |
+| Per-project stores first | Simpler mental model, namespace for unified later | ✓ Validated v1.0 |
+| gRPC only (no HTTP) | Clean contract, no framework churn | ✓ Validated v1.0, v2.0 |
+| Pluggable summarizer | Start with API, swap to local later | ✓ Validated v1.0 |
+| Fail-open CCH integration | Never block Claude if memory is down | ✓ Validated v1.0 |
+| Indexes as accelerators | BM25/Vector are optional; TOC always works | ✓ Validated v2.0 |
+| Local embeddings | all-MiniLM-L6-v2 via Candle; no API dependency | ✓ Validated v2.0 |
+| Graceful degradation | Tier detection enables fallback chains | ✓ Validated v2.0 |
+| Skills as control plane | Skills decide how to use layers; layers are passive | ✓ Validated v2.0 |
 
 ---
-*Last updated: 2026-01-30 after v1.0.0 milestone completion*
+*Last updated: 2026-02-07 after v2.0.0 milestone completion*
