@@ -1,0 +1,18 @@
+[package]
+name = "memory-adapters"
+version = "0.1.0"
+edition = "2021"
+description = "Agent adapter SDK for multi-agent memory integration"
+license = "MIT"
+
+[dependencies]
+async-trait = "0.1"
+memory-types = { path = "../memory-types" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+serde_json = "1.0"

@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 18 — Agent Tagging Infrastructure
-Plan: Ready for planning
-Status: Requirements and roadmap defined
-Last activity: 2026-02-08 — Requirements and roadmap created
+Phase: 18 — Agent Tagging Infrastructure — COMPLETE
+Plan: All 4 plans executed
+Status: Phase 18 complete, ready for Phase 19-22 (parallel)
+Last activity: 2026-02-08 — Phase 18 executed (4 plans, 3 waves)
 
-Progress v2.1: [░░░░░░░░░░░░░░░░░░░░] 0% (0/6 phases)
+Progress v2.1: [███░░░░░░░░░░░░░░░░░] 17% (1/6 phases)
 
 ## Milestone History
 
@@ -72,18 +72,33 @@ Full decision log in PROJECT.md Key Decisions table.
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 18 | Agent Tagging Infrastructure | Ready |
-| 19 | OpenCode Commands and Skills | Blocked by 18 |
+| 18 | Agent Tagging Infrastructure | ✓ Complete |
+| 19 | OpenCode Commands and Skills | Ready |
 | 20 | OpenCode Event Capture + Unified Queries | Blocked by 19 |
-| 21 | Gemini CLI Adapter | Blocked by 18 |
-| 22 | Copilot CLI Adapter | Blocked by 18 |
+| 21 | Gemini CLI Adapter | Ready |
+| 22 | Copilot CLI Adapter | Ready |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
 
 ## Next Steps
 
-1. `/gsd:plan-phase 18` — Plan agent tagging infrastructure
-2. Execute Phase 18
-3. Phases 19-22 can run in parallel after 18
+1. `/gsd:plan-phase 19` — Plan OpenCode commands and skills
+2. `/gsd:plan-phase 21` — Plan Gemini CLI adapter (can run parallel with 19)
+3. `/gsd:plan-phase 22` — Plan Copilot CLI adapter (can run parallel with 19)
+
+## Phase 18 Summary
+
+**Completed:** 2026-02-08
+
+**Artifacts created:**
+- `proto/memory.proto` — Event.agent field, query request agent_filter fields
+- `crates/memory-types/src/event.rs` — Event.agent with serde(default)
+- `crates/memory-types/src/toc.rs` — TocNode.contributing_agents
+- `crates/memory-adapters/` — New crate with AgentAdapter trait, AdapterConfig, AdapterError
+- `crates/memory-daemon/src/cli.rs` — --agent filter on teleport and retrieval commands
+- `crates/memory-retrieval/src/types.rs` — StopConditions.agent_filter
+- `crates/memory-service/src/ingest.rs` — Agent extraction from proto Event
+
+**Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-08 after requirements and roadmap creation*
+*Updated: 2026-02-08 after Phase 18 execution*

@@ -277,6 +277,11 @@ impl MemoryServiceImpl {
             event = event.with_metadata(proto.metadata);
         }
 
+        // Phase 18: Extract agent, normalize to lowercase, treat empty as None
+        if let Some(agent) = proto.agent.filter(|s| !s.is_empty()) {
+            event = event.with_agent(agent.to_lowercase());
+        }
+
         Ok(event)
     }
 }
@@ -689,6 +694,7 @@ mod tests {
                 role: ProtoEventRole::User as i32,
                 text: "Hello, world!".to_string(),
                 metadata: HashMap::new(),
+                agent: None,
             }),
         });
 
@@ -712,6 +718,7 @@ mod tests {
             role: ProtoEventRole::User as i32,
             text: "Hello, world!".to_string(),
             metadata: HashMap::new(),
+            agent: None,
         };
 
         // First ingestion
@@ -756,6 +763,7 @@ mod tests {
                 role: ProtoEventRole::User as i32,
                 text: "Hello, world!".to_string(),
                 metadata: HashMap::new(),
+                agent: None,
             }),
         });
 
@@ -778,6 +786,7 @@ mod tests {
                 role: ProtoEventRole::User as i32,
                 text: "Hello, world!".to_string(),
                 metadata: HashMap::new(),
+                agent: None,
             }),
         });
 
@@ -804,6 +813,7 @@ mod tests {
                 role: ProtoEventRole::Tool as i32,
                 text: "File contents here".to_string(),
                 metadata,
+                agent: None,
             }),
         });
 
@@ -811,5 +821,59 @@ mod tests {
         let resp = response.into_inner();
 
         assert!(resp.created);
+    }
+
+    #[test]
+    fn test_convert_event_with_agent() {
+        // Test with agent present
+        let proto = ProtoEvent {
+            event_id: "test-123".to_string(),
+            session_id: "session-1".to_string(),
+            timestamp_ms: 1704067200000,
+            event_type: ProtoEventType::UserMessage as i32,
+            role: ProtoEventRole::User as i32,
+            text: "Hello".to_string(),
+            metadata: HashMap::new(),
+            agent: Some("Claude".to_string()),
+        };
+
+        let event = MemoryServiceImpl::convert_event(proto).unwrap();
+        assert_eq!(event.agent, Some("claude".to_string())); // Normalized to lowercase
+    }
+
+    #[test]
+    fn test_convert_event_without_agent() {
+        // Test without agent (None)
+        let proto = ProtoEvent {
+            event_id: "test-456".to_string(),
+            session_id: "session-1".to_string(),
+            timestamp_ms: 1704067200000,
+            event_type: ProtoEventType::UserMessage as i32,
+            role: ProtoEventRole::User as i32,
+            text: "Hello".to_string(),
+            metadata: HashMap::new(),
+            agent: None,
+        };
+
+        let event = MemoryServiceImpl::convert_event(proto).unwrap();
+        assert!(event.agent.is_none());
+    }
+
+    #[test]
+    fn test_convert_event_with_empty_agent() {
+        // Test with empty agent string (treated as None)
+        let proto = ProtoEvent {
+            event_id: "test-789".to_string(),
+            session_id: "session-1".to_string(),
+            timestamp_ms: 1704067200000,
+            event_type: ProtoEventType::UserMessage as i32,
+            role: ProtoEventRole::User as i32,
+            text: "Hello".to_string(),
+            metadata: HashMap::new(),
+            agent: Some("".to_string()),
+        };
+
+        let event = MemoryServiceImpl::convert_event(proto).unwrap();
+        assert!(event.agent.is_none()); // Empty string treated as None
     }
 }

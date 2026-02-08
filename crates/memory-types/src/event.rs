@@ -86,6 +86,13 @@ pub struct Event {
     /// Additional metadata (tool names, file paths, etc.)
     #[serde(default)]
     pub metadata: HashMap<String, String>,
+
+    /// Agent that produced this event.
+    ///
+    /// Common values: "claude", "opencode", "gemini", "copilot".
+    /// Default: None for pre-phase-18 events (backward compatible).
+    #[serde(default)]
+    pub agent: Option<String>,
 }
 
 impl Event {
@@ -106,12 +113,19 @@ impl Event {
             role,
             text,
             metadata: HashMap::new(),
+            agent: None,
         }
     }
 
     /// Create a new event with metadata
     pub fn with_metadata(mut self, metadata: HashMap<String, String>) -> Self {
         self.metadata = metadata;
+        self
+    }
+
+    /// Set the agent identifier for this event.
+    pub fn with_agent(mut self, agent: impl Into<String>) -> Self {
+        self.agent = Some(agent.into());
         self
     }
 
@@ -171,5 +185,40 @@ mod tests {
         .with_metadata(metadata);
 
         assert_eq!(event.metadata.get("tool_name"), Some(&"Read".to_string()));
+    }
+
+    #[test]
+    fn test_event_backward_compat_no_agent() {
+        // Simulate pre-phase-18 serialized event (no agent field)
+        let v200_json = r#"{
+            "event_id": "01HN4QXKN6YWXVKZ3JMHP4BCDE",
+            "session_id": "session-123",
+            "timestamp": 1704067200000,
+            "event_type": "user_message",
+            "role": "user",
+            "text": "Hello, world!"
+        }"#;
+
+        let event: Event = serde_json::from_str(v200_json).unwrap();
+
+        // Verify default agent is None
+        assert!(event.agent.is_none());
+        // Verify other fields loaded correctly
+        assert_eq!(event.event_id, "01HN4QXKN6YWXVKZ3JMHP4BCDE");
+    }
+
+    #[test]
+    fn test_event_with_agent() {
+        let event = Event::new(
+            "01HN4QXKN6YWXVKZ3JMHP4BCDE".to_string(),
+            "session-123".to_string(),
+            Utc::now(),
+            EventType::UserMessage,
+            EventRole::User,
+            "Hello, world!".to_string(),
+        )
+        .with_agent("claude");
+
+        assert_eq!(event.agent, Some("claude".to_string()));
     }
 }
