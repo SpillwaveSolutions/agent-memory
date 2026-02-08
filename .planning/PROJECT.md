@@ -15,6 +15,16 @@ The system now implements a complete 6-layer cognitive stack with control plane:
 - Layer 6: Ranking Policy (salience, usage, novelty, lifecycle)
 - Control: Retrieval Policy (intent routing, tier detection, fallbacks)
 
+## Current Milestone: v2.1 Multi-Agent Ecosystem
+
+**Goal:** Extend Agent Memory to work across the AI agent ecosystem with full Claude parity.
+
+**Target features:**
+- OpenCode plugin (query commands, event capture, navigator agent)
+- Gemini CLI hook adapter (event capture + plugin equivalent)
+- GitHub Copilot CLI hook adapter (event capture + plugin equivalent)
+- Cross-agent memory sharing (agent-tagged events, unified queries, filter-by-agent)
+
 ## What This Is
 
 **Agent Memory is a cognitive architecture for agents** — not just a memory system.
@@ -138,17 +148,31 @@ Agent Memory implements a layered cognitive architecture:
 
 </details>
 
-### Active (v2.1 Planning)
+### Active (v2.1 Multi-Agent Ecosystem)
 
-**Additional Hook Adapters**
-- [ ] OpenCode hook adapter
-- [ ] Gemini CLI hook adapter
-- [ ] GitHub Copilot CLI hook adapter
+**OpenCode Plugin**
+- [ ] Query commands (/memory-search, /memory-recent, /memory-context)
+- [ ] Event capture (conversation events to daemon)
+- [ ] Navigator agent for complex queries
 
-**Production Hardening**
-- [ ] Automated E2E tests in CI
-- [ ] Performance benchmarks
-- [ ] External CCH integration
+**Gemini CLI Adapter**
+- [ ] Hook handler for Gemini CLI events
+- [ ] Event capture to daemon
+- [ ] Plugin/skill equivalent for queries
+
+**GitHub Copilot CLI Adapter**
+- [ ] Hook handler for Copilot CLI events
+- [ ] Event capture to daemon
+- [ ] Plugin/skill equivalent for queries
+
+**Cross-Agent Memory Sharing**
+- [ ] Agent-tagged events (source agent in metadata)
+- [ ] Unified query (see all agents by default)
+- [ ] Filter-by-agent option for scoped queries
+
+**Deferred (v2.2+)**
+- Automated E2E tests in CI
+- Performance benchmarks
 
 ### Out of Scope
 
@@ -220,4 +244,4 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Skills as control plane | Skills decide how to use layers; layers are passive | ✓ Validated v2.0 |
 
 ---
-*Last updated: 2026-02-07 after v2.0.0 milestone completion*
+*Last updated: 2026-02-08 after v2.1 milestone initialization*

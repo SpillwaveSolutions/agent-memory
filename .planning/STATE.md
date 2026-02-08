@@ -2,20 +2,20 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-07)
+See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.0 SHIPPED — Ready for v2.1 planning or next milestone
+**Current focus:** v2.1 Multi-Agent Ecosystem — OpenCode plugin, Gemini/Copilot adapters, cross-agent sharing
 
 ## Current Position
 
-Milestone: v2.0 Scheduler+Teleport (SHIPPED 2026-02-07)
-Phase: All complete (Phases 10-17)
-Plan: N/A (milestone complete)
-Status: Ready to plan next milestone
-Last activity: 2026-02-07 — v2.0 milestone archived
+Milestone: v2.1 Multi-Agent Ecosystem
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-08 — Milestone v2.1 started
 
-Progress v2.0: [====================] 100% (42/42 plans, 9 phases)
+Progress v2.1: [░░░░░░░░░░░░░░░░░░░░] 0% (0/? plans)
 
 ## Milestone History
 
@@ -26,7 +26,7 @@ See: .planning/MILESTONES.md for complete history
 
 ## Accumulated Context
 
-### Key Decisions (v2.0)
+### Key Decisions (from v2.0)
 
 Full decision log in PROJECT.md Key Decisions table.
 
@@ -36,32 +36,23 @@ Full decision log in PROJECT.md Key Decisions table.
 - Tier detection enables fallback chains
 - Index lifecycle automation via scheduler
 
+### v2.1 Context
+
+- OpenCode uses plugins (not hooks) — different integration pattern than Claude Code
+- Gemini CLI and Copilot CLI have hooks similar to Claude Code
+- Cross-agent sharing via agent-tagged events in unified store
+- Full Claude parity is the target for all adapters
+
 ### Technical Debt (Accepted)
 
 - 3 stub RPCs: GetRankingStatus, PruneVectorIndex, PruneBm25Index (admin features)
 - Missing SUMMARY.md files for some phases
 
-### Deferred to v2.1+
-
-- OpenCode hook adapter
-- Gemini CLI hook adapter
-- GitHub Copilot CLI hook adapter
-- External CCH integration updates
-
 ## Next Steps
 
-Start next milestone with fresh context:
-
-```
-/clear
-/gsd:new-milestone
-```
-
-This will:
-1. Question-driven context gathering
-2. Domain research
-3. Requirements definition
-4. Roadmap creation
+1. Research agent ecosystems (OpenCode plugin API, Gemini/Copilot hook formats)
+2. Define requirements
+3. Create roadmap
 
 ---
-*Updated: 2026-02-07 after v2.0 milestone completion*
+*Updated: 2026-02-08 after v2.1 milestone initialization*
