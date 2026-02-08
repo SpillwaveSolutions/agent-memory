@@ -2280,6 +2280,7 @@ async fn retrieval_route(
             stop_conditions,
             mode_override,
             limit: limit as i32,
+            agent_filter: None,
         })
         .await
         .context("Failed to route query")?

@@ -134,6 +134,7 @@ mod tests {
             query: "memory".to_string(),
             doc_type: TeleportDocType::Unspecified as i32,
             limit: 10,
+            agent_filter: None,
         });
 
         let response = handle_teleport_search(searcher, request).await.unwrap();
@@ -152,6 +153,7 @@ mod tests {
             query: "memory".to_string(),
             doc_type: TeleportDocType::TocNode as i32,
             limit: 10,
+            agent_filter: None,
         });
 
         let response = handle_teleport_search(searcher, request).await.unwrap();
@@ -170,6 +172,7 @@ mod tests {
             query: "memory".to_string(),
             doc_type: TeleportDocType::Grip as i32,
             limit: 10,
+            agent_filter: None,
         });
 
         let response = handle_teleport_search(searcher, request).await.unwrap();
@@ -188,6 +191,7 @@ mod tests {
             query: "memory".to_string(),
             doc_type: TeleportDocType::Unspecified as i32,
             limit: 1,
+            agent_filter: None,
         });
 
         let response = handle_teleport_search(searcher, request).await.unwrap();
@@ -205,6 +209,7 @@ mod tests {
             query: "".to_string(),
             doc_type: TeleportDocType::Unspecified as i32,
             limit: 10,
+            agent_filter: None,
         });
 
         let response = handle_teleport_search(searcher, request).await.unwrap();
@@ -222,6 +227,7 @@ mod tests {
             query: "nonexistentterm12345".to_string(),
             doc_type: TeleportDocType::Unspecified as i32,
             limit: 10,
+            agent_filter: None,
         });
 
         let response = handle_teleport_search(searcher, request).await.unwrap();
@@ -238,6 +244,7 @@ mod tests {
             query: "memory".to_string(),
             doc_type: TeleportDocType::Unspecified as i32,
             limit: 0, // Should default to 10
+            agent_filter: None,
         });
 
         let response = handle_teleport_search(searcher, request).await.unwrap();

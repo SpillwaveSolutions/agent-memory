@@ -278,6 +278,7 @@ impl RetrievalHandler {
                 text_preview: r.text_preview.clone(),
                 source_layer: layer_to_proto(r.source_layer) as i32,
                 metadata: r.metadata.clone(),
+                agent: None, // Phase 18: Agent populated when available
             })
             .collect();
 
@@ -768,6 +769,7 @@ mod tests {
                 stop_conditions: None,
                 mode_override: None,
                 limit: 10,
+                agent_filter: None,
             }))
             .await
             .unwrap();
@@ -792,6 +794,7 @@ mod tests {
                 stop_conditions: None,
                 mode_override: None,
                 limit: 10,
+                agent_filter: None,
             }))
             .await;
 
