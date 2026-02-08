@@ -21,10 +21,30 @@ git checkout -b feature/my-feature
 git add <files>
 git commit -m "type(scope): message"
 
+# CRITICAL: Run pr-precheck BEFORE pushing
+task pr-precheck
+
 # Push and create PR
 git push -u origin feature/my-feature
 gh pr create --title "..." --body "..."
 ```
+
+## PR Pre-Push Validation
+
+**CRITICAL: Always run `task pr-precheck` before pushing a PR.**
+
+```bash
+# Run BEFORE git push for PRs
+task pr-precheck
+```
+
+This validates:
+1. Code formatting (`cargo fmt --check`)
+2. Clippy lints (`cargo clippy -- -D warnings`)
+3. All tests pass (`cargo test`)
+4. Documentation builds (`cargo doc`)
+
+**Never push a PR without passing pr-precheck first.** CI will fail if these checks don't pass.
 
 ## Commit Message Format
 

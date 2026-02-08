@@ -217,8 +217,8 @@ mod tests {
         }
 
         fn normalize(&self, raw: RawEvent) -> Result<Event, AdapterError> {
-            let timestamp = chrono::DateTime::from_timestamp_millis(raw.timestamp_ms)
-                .unwrap_or_else(Utc::now);
+            let timestamp =
+                chrono::DateTime::from_timestamp_millis(raw.timestamp_ms).unwrap_or_else(Utc::now);
 
             Ok(Event::new(
                 raw.id,
@@ -256,8 +256,8 @@ mod tests {
     #[test]
     fn test_mock_adapter_normalize() {
         let adapter = MockAdapter;
-        let raw = RawEvent::new("evt-1", 1704067200000, "Test message")
-            .with_session_id("session-123");
+        let raw =
+            RawEvent::new("evt-1", 1704067200000, "Test message").with_session_id("session-123");
 
         let event = adapter.normalize(raw).unwrap();
 
