@@ -11,6 +11,14 @@
 
 **Goal:** Add agent identifier to events and build adapter SDK foundation.
 
+**Plans:** 4 plans in 3 waves
+
+Plans:
+- [x] 18-01-PLAN.md — Add agent field to Event proto and Rust types
+- [x] 18-02-PLAN.md — Create memory-adapters crate with AgentAdapter trait
+- [x] 18-03-PLAN.md — Add contributing_agents to TocNode, --agent CLI filter
+- [x] 18-04-PLAN.md — Wire agent through ingest and query paths
+
 **Scope:**
 - Add `agent` field to Event proto and storage layer
 - Create adapter trait defining common interface
@@ -22,16 +30,17 @@
 
 **Files to modify:**
 - `proto/memory.proto` — Event message, query filters
-- `crates/memory-core/src/models/` — Event model
-- `crates/memory-storage/src/` — Storage layer agent support
+- `crates/memory-types/src/` — Event and TocNode models
 - `crates/memory-daemon/src/` — CLI filter support
+- `crates/memory-service/src/` — Ingest handler
+- `crates/memory-retrieval/src/` — Query filtering types
 - New: `crates/memory-adapters/` — Adapter SDK crate
 
 **Definition of done:**
-- [ ] Events can be ingested with agent identifier
-- [ ] Queries filter by agent when `--agent` specified
-- [ ] Default queries return all agents
-- [ ] Adapter trait compiles and documents interface
+- [x] Events can be ingested with agent identifier
+- [x] Queries filter by agent when `--agent` specified
+- [x] Default queries return all agents
+- [x] Adapter trait compiles and documents interface
 
 ---
 

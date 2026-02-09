@@ -280,6 +280,7 @@ mod tests {
             role: EventRole::User,
             text: text.to_string(),
             metadata: Default::default(),
+            agent: None,
         }
     }
 

@@ -11,6 +11,28 @@ Project-specific instructions for Claude Code when working in this repository.
 - Create PRs for all changes
 - Merge to main only through approved PRs
 
+## PR Pre-Push Validation
+
+**CRITICAL: Always run `task pr-precheck` before pushing a PR.**
+
+This validates format, clippy, tests, and docs match CI expectations:
+
+```bash
+# Run BEFORE git push for PRs
+task pr-precheck
+```
+
+If `task` is not available, run manually:
+
+```bash
+cargo fmt --all -- --check && \
+cargo clippy --workspace --all-targets --all-features -- -D warnings && \
+cargo test --workspace --all-features && \
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --all-features
+```
+
+**Never push a PR without passing pr-precheck first.**
+
 ## Project Structure
 
 This is an agent-memory system built in Rust with:

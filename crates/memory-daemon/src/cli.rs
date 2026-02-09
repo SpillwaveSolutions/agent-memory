@@ -283,6 +283,10 @@ pub enum TeleportCommand {
         #[arg(long, short = 'n', default_value = "10")]
         limit: usize,
 
+        /// Filter results to a specific agent (e.g., "claude", "opencode")
+        #[arg(long, short = 'a')]
+        agent: Option<String>,
+
         /// gRPC server address
         #[arg(long, default_value = "http://[::1]:50051")]
         addr: String,
@@ -305,6 +309,10 @@ pub enum TeleportCommand {
         /// Filter by target type: all, toc, grip
         #[arg(long, default_value = "all")]
         target: String,
+
+        /// Filter results to a specific agent (e.g., "claude", "opencode")
+        #[arg(long, short = 'a')]
+        agent: Option<String>,
 
         /// gRPC server address
         #[arg(long, default_value = "http://[::1]:50051")]
@@ -336,6 +344,10 @@ pub enum TeleportCommand {
         /// Filter by target type: all, toc, grip
         #[arg(long, default_value = "all")]
         target: String,
+
+        /// Filter results to a specific agent (e.g., "claude", "opencode")
+        #[arg(long, short = 'a')]
+        agent: Option<String>,
 
         /// gRPC server address
         #[arg(long, default_value = "http://[::1]:50051")]
@@ -488,6 +500,10 @@ pub enum RetrievalCommand {
         /// Timeout in milliseconds
         #[arg(long)]
         timeout_ms: Option<u64>,
+
+        /// Filter results to a specific agent (e.g., "claude", "opencode")
+        #[arg(long, short = 'a')]
+        agent: Option<String>,
 
         /// gRPC server address
         #[arg(long, default_value = "http://[::1]:50051")]
@@ -651,6 +667,7 @@ mod tests {
                 doc_type,
                 limit,
                 addr,
+                ..
             }) => {
                 assert_eq!(query, "rust memory");
                 assert_eq!(doc_type, "toc");
@@ -739,6 +756,7 @@ mod tests {
                 min_score,
                 target,
                 addr,
+                ..
             }) => {
                 assert_eq!(query, "rust patterns");
                 assert_eq!(top_k, 5);
@@ -1236,6 +1254,123 @@ mod tests {
                 assert_eq!(db_path, Some("/custom/db".to_string()));
             }
             _ => panic!("Expected Topics Prune command"),
+        }
+    }
+
+    // === Phase 18: Agent Filter Tests ===
+
+    #[test]
+    fn test_cli_teleport_search_with_agent() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "teleport",
+            "search",
+            "rust memory",
+            "--agent",
+            "claude",
+        ]);
+        match cli.command {
+            Commands::Teleport(TeleportCommand::Search { query, agent, .. }) => {
+                assert_eq!(query, "rust memory");
+                assert_eq!(agent, Some("claude".to_string()));
+            }
+            _ => panic!("Expected Teleport Search command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_teleport_search_agent_short() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "teleport",
+            "search",
+            "authentication",
+            "-a",
+            "opencode",
+        ]);
+        match cli.command {
+            Commands::Teleport(TeleportCommand::Search { agent, .. }) => {
+                assert_eq!(agent, Some("opencode".to_string()));
+            }
+            _ => panic!("Expected Teleport Search command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_teleport_vector_search_with_agent() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "teleport",
+            "vector-search",
+            "-q",
+            "memory patterns",
+            "--agent",
+            "gemini",
+        ]);
+        match cli.command {
+            Commands::Teleport(TeleportCommand::VectorSearch { query, agent, .. }) => {
+                assert_eq!(query, "memory patterns");
+                assert_eq!(agent, Some("gemini".to_string()));
+            }
+            _ => panic!("Expected Teleport VectorSearch command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_teleport_hybrid_search_with_agent() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "teleport",
+            "hybrid-search",
+            "-q",
+            "debugging",
+            "-a",
+            "claude",
+        ]);
+        match cli.command {
+            Commands::Teleport(TeleportCommand::HybridSearch { query, agent, .. }) => {
+                assert_eq!(query, "debugging");
+                assert_eq!(agent, Some("claude".to_string()));
+            }
+            _ => panic!("Expected Teleport HybridSearch command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_retrieval_route_with_agent() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "retrieval",
+            "route",
+            "test query",
+            "--agent",
+            "gemini",
+        ]);
+        match cli.command {
+            Commands::Retrieval(RetrievalCommand::Route { query, agent, .. }) => {
+                assert_eq!(query, "test query");
+                assert_eq!(agent, Some("gemini".to_string()));
+            }
+            _ => panic!("Expected Retrieval Route command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_retrieval_route_agent_short() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "retrieval",
+            "route",
+            "find patterns",
+            "-a",
+            "opencode",
+        ]);
+        match cli.command {
+            Commands::Retrieval(RetrievalCommand::Route { query, agent, .. }) => {
+                assert_eq!(query, "find patterns");
+                assert_eq!(agent, Some("opencode".to_string()));
+            }
+            _ => panic!("Expected Retrieval Route command"),
         }
     }
 }

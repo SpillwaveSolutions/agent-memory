@@ -170,6 +170,11 @@ message Event {
 
     // Additional metadata (tool names, file paths, etc.)
     map<string, string> metadata = 7;
+
+    // Phase 18: Agent identifier for multi-agent memory
+    // Common values: "claude", "opencode", "gemini", "copilot"
+    // Empty/absent means legacy event or unknown source
+    optional string agent = 8;
 }
 
 // Request to ingest an event
@@ -508,6 +513,8 @@ message TeleportSearchRequest {
     TeleportDocType doc_type = 2;
     // Maximum results to return (default: 10)
     int32 limit = 3;
+    // Phase 18: Filter results by agent
+    optional string agent_filter = 4;
 }
 
 // A single teleport search result
@@ -562,6 +569,8 @@ message VectorTeleportRequest {
     optional TimeRange time_filter = 4;
     // Target type filter
     VectorTargetType target = 5;
+    // Phase 18: Filter results by agent
+    optional string agent_filter = 6;
 }
 
 // A vector search match
@@ -610,6 +619,8 @@ message HybridSearchRequest {
     optional TimeRange time_filter = 6;
     // Target type filter
     VectorTargetType target = 7;
+    // Phase 18: Filter results by agent
+    optional string agent_filter = 8;
 }
 
 // Response from hybrid search
@@ -913,6 +924,9 @@ message RouteQueryRequest {
     optional ExecutionMode mode_override = 4;
     // Maximum results to return
     int32 limit = 5;
+    // Phase 18: Filter results by agent (e.g., "claude", "opencode")
+    // Empty/absent means return all agents
+    optional string agent_filter = 6;
 }
 
 // A single retrieval result
@@ -923,6 +937,8 @@ message RetrievalResult {
     string text_preview = 4;
     RetrievalLayer source_layer = 5;
     map<string, string> metadata = 6;
+    // Phase 18: Source agent that produced this result
+    optional string agent = 7;
 }
 
 // Explainability payload for retrieval decisions

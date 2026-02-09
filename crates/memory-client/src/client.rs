@@ -207,6 +207,7 @@ impl MemoryClient {
             query: query.to_string(),
             doc_type,
             limit,
+            agent_filter: None,
         });
         let response = self.inner.teleport_search(request).await?;
         Ok(response.into_inner())
@@ -238,6 +239,7 @@ impl MemoryClient {
             min_score,
             time_filter: None,
             target,
+            agent_filter: None,
         });
         let response = self.inner.vector_teleport(request).await?;
         Ok(response.into_inner())
@@ -273,6 +275,7 @@ impl MemoryClient {
             vector_weight,
             time_filter: None,
             target,
+            agent_filter: None,
         });
         let response = self.inner.hybrid_search(request).await?;
         Ok(response.into_inner())
@@ -441,6 +444,7 @@ fn event_to_proto(event: Event) -> ProtoEvent {
         role: role as i32,
         text: event.text,
         metadata: event.metadata,
+        agent: event.agent,
     }
 }
 

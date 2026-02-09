@@ -225,6 +225,11 @@ pub struct StopConditions {
 
     /// Minimum confidence score to accept results (default: 0.0)
     pub min_confidence: f32,
+
+    /// Filter results to a specific agent (Phase 18).
+    /// None means return all agents.
+    #[serde(default)]
+    pub agent_filter: Option<String>,
 }
 
 impl Default for StopConditions {
@@ -237,6 +242,7 @@ impl Default for StopConditions {
             timeout_ms: 5000,
             beam_width: 1,
             min_confidence: 0.0,
+            agent_filter: None,
         }
     }
 }
@@ -258,6 +264,7 @@ impl StopConditions {
             max_nodes: 50,
             max_rpc_calls: 10,
             beam_width: 1,
+            agent_filter: None,
             ..Default::default()
         }
     }
@@ -272,6 +279,7 @@ impl StopConditions {
             timeout_ms: 10000,
             beam_width: 3,
             min_confidence: 0.0,
+            agent_filter: None,
         }
     }
 
@@ -296,6 +304,14 @@ impl StopConditions {
     /// Builder: set minimum confidence
     pub fn with_min_confidence(mut self, confidence: f32) -> Self {
         self.min_confidence = confidence.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Builder: set agent filter (Phase 18).
+    ///
+    /// Normalizes the agent name to lowercase.
+    pub fn with_agent_filter(mut self, agent: impl Into<String>) -> Self {
+        self.agent_filter = Some(agent.into().to_lowercase());
         self
     }
 
@@ -666,5 +682,20 @@ mod tests {
         assert_eq!(RetrievalLayer::BM25.as_str(), "bm25");
         assert_eq!(RetrievalLayer::Agentic.as_str(), "agentic");
         assert_eq!(format!("{}", RetrievalLayer::Hybrid), "hybrid");
+    }
+
+    #[test]
+    fn test_stop_conditions_agent_filter() {
+        // Default has no agent filter
+        let sc = StopConditions::default();
+        assert!(sc.agent_filter.is_none());
+
+        // Builder sets and normalizes to lowercase
+        let sc = StopConditions::default().with_agent_filter("Claude");
+        assert_eq!(sc.agent_filter, Some("claude".to_string()));
+
+        // Works with String
+        let sc = StopConditions::default().with_agent_filter("OpenCode".to_string());
+        assert_eq!(sc.agent_filter, Some("opencode".to_string()));
     }
 }

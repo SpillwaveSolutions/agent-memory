@@ -157,6 +157,15 @@ pub struct TocNode {
     /// Default: false for existing v2.0.0 data.
     #[serde(default)]
     pub is_pinned: bool,
+
+    // === Phase 18: Multi-Agent Tracking ===
+    /// Agents that contributed events to this time period.
+    ///
+    /// Populated during TOC building when events from multiple
+    /// agents fall within the same time window.
+    /// Default: empty Vec for pre-phase-18 nodes.
+    #[serde(default)]
+    pub contributing_agents: Vec<String>,
 }
 
 impl TocNode {
@@ -183,6 +192,8 @@ impl TocNode {
             salience_score: default_salience(),
             memory_kind: MemoryKind::default(),
             is_pinned: false,
+            // Phase 18: Multi-agent tracking
+            contributing_agents: Vec::new(),
         }
     }
 
@@ -211,6 +222,24 @@ impl TocNode {
     /// Set the pinned status.
     pub fn with_pinned(mut self, pinned: bool) -> Self {
         self.is_pinned = pinned;
+        self
+    }
+
+    /// Add a contributing agent.
+    pub fn with_contributing_agent(mut self, agent: impl Into<String>) -> Self {
+        let agent_id = agent.into().to_lowercase();
+        if !self.contributing_agents.contains(&agent_id) {
+            self.contributing_agents.push(agent_id);
+        }
+        self
+    }
+
+    /// Set all contributing agents.
+    pub fn with_contributing_agents(mut self, agents: Vec<String>) -> Self {
+        self.contributing_agents = agents.into_iter().map(|a| a.to_lowercase()).collect();
+        // Deduplicate
+        self.contributing_agents.sort();
+        self.contributing_agents.dedup();
         self
     }
 
@@ -353,5 +382,72 @@ mod tests {
         // Verify other fields loaded correctly
         assert_eq!(node.node_id, "toc:day:2026-01-01");
         assert_eq!(node.level, TocLevel::Day);
+    }
+
+    // === Phase 18: Multi-Agent Tracking Tests ===
+
+    #[test]
+    fn test_toc_node_backward_compat_no_agents() {
+        // Simulate pre-phase-18 serialized node (no contributing_agents field)
+        let v200_json = r#"{
+            "node_id": "toc:day:2026-01-01",
+            "level": "day",
+            "title": "January 1, 2026",
+            "start_time": 1735689600000,
+            "end_time": 1735776000000,
+            "bullets": [],
+            "keywords": [],
+            "child_node_ids": [],
+            "version": 1,
+            "created_at": 1735689600000,
+            "salience_score": 0.5,
+            "memory_kind": "observation",
+            "is_pinned": false
+        }"#;
+
+        let node: TocNode = serde_json::from_str(v200_json).unwrap();
+
+        // Verify default contributing_agents is empty
+        assert!(node.contributing_agents.is_empty());
+        // Verify other fields loaded correctly
+        assert_eq!(node.node_id, "toc:day:2026-01-01");
+    }
+
+    #[test]
+    fn test_toc_node_with_contributing_agents() {
+        let node = TocNode::new(
+            "node-123".to_string(),
+            TocLevel::Day,
+            "Test Node".to_string(),
+            Utc::now(),
+            Utc::now(),
+        )
+        .with_contributing_agent("claude")
+        .with_contributing_agent("opencode")
+        .with_contributing_agent("Claude"); // Should dedupe to "claude"
+
+        assert_eq!(node.contributing_agents.len(), 2);
+        assert!(node.contributing_agents.contains(&"claude".to_string()));
+        assert!(node.contributing_agents.contains(&"opencode".to_string()));
+    }
+
+    #[test]
+    fn test_toc_node_with_contributing_agents_bulk() {
+        let node = TocNode::new(
+            "node-123".to_string(),
+            TocLevel::Day,
+            "Test Node".to_string(),
+            Utc::now(),
+            Utc::now(),
+        )
+        .with_contributing_agents(vec![
+            "Claude".to_string(),
+            "OpenCode".to_string(),
+            "claude".to_string(), // Duplicate after lowercase
+        ]);
+
+        assert_eq!(node.contributing_agents.len(), 2);
+        assert!(node.contributing_agents.contains(&"claude".to_string()));
+        assert!(node.contributing_agents.contains(&"opencode".to_string()));
     }
 }

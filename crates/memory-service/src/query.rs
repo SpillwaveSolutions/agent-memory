@@ -355,6 +355,7 @@ fn domain_to_proto_event(event: Event) -> ProtoEvent {
         role: role as i32,
         text: event.text,
         metadata: event.metadata,
+        agent: event.agent,
     }
 }
 

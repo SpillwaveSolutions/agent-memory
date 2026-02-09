@@ -116,6 +116,7 @@ impl HybridSearchHandler {
             min_score: 0.0,
             time_filter: req.time_filter,
             target: req.target,
+            agent_filter: req.agent_filter.clone(),
         };
         let response = self
             .vector_handler

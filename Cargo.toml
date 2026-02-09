@@ -1,20 +1,21 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/memory-types",
-    "crates/memory-storage",
-    "crates/memory-service",
-    "crates/memory-daemon",
-    "crates/memory-toc",
+    "crates/memory-adapters",
     "crates/memory-client",
+    "crates/memory-daemon",
+    "crates/memory-embeddings",
+    "crates/memory-indexing",
     "crates/memory-ingest",
+    "crates/memory-retrieval",
     "crates/memory-scheduler",
     "crates/memory-search",
-    "crates/memory-embeddings",
-    "crates/memory-vector",
-    "crates/memory-indexing",
+    "crates/memory-service",
+    "crates/memory-storage",
+    "crates/memory-toc",
     "crates/memory-topics",
-    "crates/memory-retrieval",
+    "crates/memory-types",
+    "crates/memory-vector",
 ]
 
 [workspace.package]
@@ -25,18 +26,19 @@ repository = "https://github.com/spillwave/agent-memory"
 
 [workspace.dependencies]
 # Internal crates
-memory-types = { path = "crates/memory-types" }
-memory-storage = { path = "crates/memory-storage" }
-memory-service = { path = "crates/memory-service" }
+memory-adapters = { path = "crates/memory-adapters" }
 memory-client = { path = "crates/memory-client" }
-memory-toc = { path = "crates/memory-toc" }
+memory-embeddings = { path = "crates/memory-embeddings" }
+memory-indexing = { path = "crates/memory-indexing" }
+memory-retrieval = { path = "crates/memory-retrieval" }
 memory-scheduler = { path = "crates/memory-scheduler" }
 memory-search = { path = "crates/memory-search" }
-memory-embeddings = { path = "crates/memory-embeddings" }
-memory-vector = { path = "crates/memory-vector" }
-memory-indexing = { path = "crates/memory-indexing" }
+memory-service = { path = "crates/memory-service" }
+memory-storage = { path = "crates/memory-storage" }
+memory-toc = { path = "crates/memory-toc" }
 memory-topics = { path = "crates/memory-topics" }
-memory-retrieval = { path = "crates/memory-retrieval" }
+memory-types = { path = "crates/memory-types" }
+memory-vector = { path = "crates/memory-vector" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }
