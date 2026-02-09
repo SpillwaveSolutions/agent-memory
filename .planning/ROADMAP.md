@@ -93,9 +93,9 @@ Plans:
 **Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 20-01-PLAN.md — Wire agent field through ingest-to-retrieval pipeline
-- [ ] 20-02-PLAN.md — Create OpenCode TypeScript event capture plugin
-- [ ] 20-03-PLAN.md — Add agent display to CLI output and update plugin docs
+- [x] 20-01-PLAN.md — Wire agent field through ingest-to-retrieval pipeline
+- [x] 20-02-PLAN.md — Create OpenCode TypeScript event capture plugin
+- [x] 20-03-PLAN.md — Add agent display to CLI output and update plugin docs
 
 **Scope:**
 - Implement session lifecycle hooks for OpenCode
@@ -114,10 +114,12 @@ Plans:
 - `plugins/memory-opencode-plugin/README.md` — Event capture documentation
 
 **Definition of done:**
-- [ ] OpenCode sessions auto-ingest with agent tag
-- [ ] `memory-daemon query search` returns multi-agent results
-- [ ] Results show source agent in output
-- [ ] Ranking considers agent affinity (optional)
+- [x] OpenCode sessions auto-ingest with agent tag
+- [x] `memory-daemon query search` returns multi-agent results
+- [x] Results show source agent in output
+- [x] Ranking considers agent affinity (optional — deferred per research)
+
+**Completed:** 2026-02-09
 
 ---
 

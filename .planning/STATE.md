@@ -96,6 +96,21 @@ Full decision log in PROJECT.md Key Decisions table.
 2. `/gsd:plan-phase 22` — Plan Copilot CLI adapter
 3. `/gsd:plan-phase 23` — Plan Cross-Agent Discovery + Documentation (after 21 & 22)
 
+## Phase 20 Summary
+
+**Completed:** 2026-02-09
+
+**Artifacts created/modified:**
+- `crates/memory-ingest/src/main.rs` — CchEvent.agent field with serde(default)
+- `crates/memory-client/src/hook_mapping.rs` — HookEvent.agent with with_agent() builder
+- `crates/memory-service/src/retrieval.rs` — RetrievalResult.agent from metadata
+- `crates/memory-daemon/src/commands.rs` — --agent filter wiring + agent display
+- `plugins/memory-opencode-plugin/.opencode/plugin/memory-capture.ts` — Event capture plugin
+- `plugins/memory-opencode-plugin/README.md` — Event capture documentation
+
+**Tests:** 126 tests passing (13 memory-client + 14 memory-ingest + 64 memory-service + 35 memory-daemon)
+**Verification:** 11/11 must-haves passed, 6/7 requirements satisfied (R4.2.3 deferred)
+
 ## Phase 19 Summary
 
 **Completed:** 2026-02-09
