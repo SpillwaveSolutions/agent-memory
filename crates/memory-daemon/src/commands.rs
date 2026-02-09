@@ -1474,6 +1474,7 @@ pub async fn handle_teleport_command(cmd: TeleportCommand) -> Result<()> {
             doc_type,
             limit,
             addr,
+            ..
         } => teleport_search(&query, &doc_type, limit, &addr).await,
         TeleportCommand::VectorSearch {
             query,
@@ -1481,6 +1482,7 @@ pub async fn handle_teleport_command(cmd: TeleportCommand) -> Result<()> {
             min_score,
             target,
             addr,
+            ..
         } => vector_search(&query, top_k, min_score, &target, &addr).await,
         TeleportCommand::HybridSearch {
             query,
@@ -1490,6 +1492,7 @@ pub async fn handle_teleport_command(cmd: TeleportCommand) -> Result<()> {
             vector_weight,
             target,
             addr,
+            ..
         } => {
             hybrid_search(
                 &query,
@@ -2075,6 +2078,7 @@ pub async fn handle_retrieval_command(cmd: RetrievalCommand) -> Result<()> {
             mode,
             timeout_ms,
             addr,
+            ..
         } => {
             retrieval_route(
                 &query,
