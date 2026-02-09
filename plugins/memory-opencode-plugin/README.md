@@ -204,6 +204,53 @@ plugins/memory-opencode-plugin/
 └── .gitignore
 ```
 
+## Event Capture
+
+The plugin includes an automatic event capture system that records your OpenCode sessions into agent-memory. This enables cross-agent memory sharing -- conversations from OpenCode become searchable alongside Claude Code sessions.
+
+### How It Works
+
+The event capture plugin (`.opencode/plugin/memory-capture.ts`) hooks into OpenCode lifecycle events:
+
+| Event | Hook | What's Captured |
+|-------|------|----------------|
+| Session start | `session.created` | New session with project directory |
+| Session end | `session.idle` | Session checkpoint/completion |
+| User messages | `message.updated` | User prompts |
+| Assistant responses | `message.updated` | AI responses |
+| Tool executions | `tool.execute.after` | Tool name and arguments |
+
+All events are automatically tagged with `agent:opencode` and include the project directory for context.
+
+### Prerequisites
+
+- `memory-ingest` binary in PATH (installed with agent-memory)
+- `memory-daemon` running (events are silently dropped if daemon is unavailable)
+
+### Behavior
+
+- **Fail-open**: Event capture never blocks OpenCode. If `memory-ingest` is not available or the daemon is down, events are silently dropped.
+- **Automatic**: No configuration needed. The plugin activates when OpenCode loads the plugin directory.
+- **Cross-agent queries**: Once events are captured, use `memory-daemon retrieval route "query"` to search across both Claude Code and OpenCode sessions. Use `--agent opencode` to filter to OpenCode-only results.
+
+### Configuration
+
+| Environment Variable | Default | Purpose |
+|---------------------|---------|---------|
+| `MEMORY_INGEST_PATH` | `memory-ingest` | Override path to memory-ingest binary |
+
+### Verifying Capture
+
+After an OpenCode session, verify events were captured:
+
+```bash
+# Search for recent events
+memory-daemon query events --from $(date -v-1H +%s000) --to $(date +%s000) --limit 5
+
+# Search with agent filter
+memory-daemon retrieval route "your query" --agent opencode
+```
+
 ## Troubleshooting
 
 ### Daemon not running
