@@ -42,6 +42,8 @@ pub struct HookEvent {
     pub tool_name: Option<String>,
     /// Optional metadata
     pub metadata: Option<std::collections::HashMap<String, String>>,
+    /// Optional agent identifier (e.g., "opencode", "claude", "gemini")
+    pub agent: Option<String>,
 }
 
 impl HookEvent {
@@ -58,6 +60,7 @@ impl HookEvent {
             timestamp: None,
             tool_name: None,
             metadata: None,
+            agent: None,
         }
     }
 
@@ -76,6 +79,12 @@ impl HookEvent {
     /// Set metadata.
     pub fn with_metadata(mut self, metadata: std::collections::HashMap<String, String>) -> Self {
         self.metadata = Some(metadata);
+        self
+    }
+
+    /// Set the agent identifier.
+    pub fn with_agent(mut self, agent: impl Into<String>) -> Self {
+        self.agent = Some(agent.into());
         self
     }
 }
@@ -122,6 +131,11 @@ pub fn map_hook_event(hook: HookEvent) -> Event {
         event = event.with_metadata(metadata);
     } else if let Some(metadata) = hook.metadata {
         event = event.with_metadata(metadata);
+    }
+
+    // Propagate agent identifier
+    if let Some(agent) = hook.agent {
+        event = event.with_agent(agent);
     }
 
     event
@@ -201,5 +215,20 @@ mod tests {
         let event = map_hook_event(hook);
 
         assert_eq!(event.metadata.get("key"), Some(&"value".to_string()));
+    }
+
+    #[test]
+    fn test_map_with_agent() {
+        let hook = HookEvent::new("session-1", HookEventType::UserPromptSubmit, "Test")
+            .with_agent("opencode");
+        let event = map_hook_event(hook);
+        assert_eq!(event.agent, Some("opencode".to_string()));
+    }
+
+    #[test]
+    fn test_map_without_agent() {
+        let hook = HookEvent::new("session-1", HookEventType::UserPromptSubmit, "Test");
+        let event = map_hook_event(hook);
+        assert!(event.agent.is_none());
     }
 }
