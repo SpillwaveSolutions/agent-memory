@@ -10,10 +10,10 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 18 — Agent Tagging Infrastructure — COMPLETE
-Plan: All 4 plans executed
-Status: Phase 18 complete, ready for Phase 19-22 (parallel)
-Last activity: 2026-02-08 — Phase 18 executed (4 plans, 3 waves)
+Phase: 19 — OpenCode Commands and Skills — IN PROGRESS
+Plan: 2 of 5 complete
+Status: Executing Phase 19 plans
+Last activity: 2026-02-09 — Phase 19 Plan 02 executed (3 tasks, port core skills)
 
 Progress v2.1: [███░░░░░░░░░░░░░░░░░] 17% (1/6 phases)
 
@@ -73,7 +73,7 @@ Full decision log in PROJECT.md Key Decisions table.
 | Phase | Name | Status |
 |-------|------|--------|
 | 18 | Agent Tagging Infrastructure | ✓ Complete |
-| 19 | OpenCode Commands and Skills | Ready |
+| 19 | OpenCode Commands and Skills | In Progress (2/5 plans) |
 | 20 | OpenCode Event Capture + Unified Queries | Blocked by 19 |
 | 21 | Gemini CLI Adapter | Ready |
 | 22 | Copilot CLI Adapter | Ready |
@@ -101,4 +101,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-08 after Phase 18 execution*
+*Updated: 2026-02-09 after Phase 19 Plan 02 execution*
