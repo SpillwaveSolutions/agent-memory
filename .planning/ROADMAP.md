@@ -51,11 +51,11 @@ Plans:
 **Plans:** 5 plans in 2 waves
 
 Plans:
-- [ ] 19-01-PLAN.md — Port commands (memory-search, memory-recent, memory-context) with $ARGUMENTS
-- [ ] 19-02-PLAN.md — Port core skills (memory-query, retrieval-policy, topic-graph)
-- [ ] 19-03-PLAN.md — Port teleport skills (bm25-search, vector-search)
-- [ ] 19-04-PLAN.md — Create memory-navigator agent with OpenCode format
-- [ ] 19-05-PLAN.md — Create plugin README and documentation
+- [x] 19-01-PLAN.md — Port commands (memory-search, memory-recent, memory-context) with $ARGUMENTS
+- [x] 19-02-PLAN.md — Port core skills (memory-query, retrieval-policy, topic-graph)
+- [x] 19-03-PLAN.md — Port teleport skills (bm25-search, vector-search)
+- [x] 19-04-PLAN.md — Create memory-navigator agent with OpenCode format
+- [x] 19-05-PLAN.md — Create plugin README and documentation
 
 **Scope:**
 - Port `/memory-search`, `/memory-recent`, `/memory-context` to OpenCode format
@@ -77,10 +77,12 @@ Plans:
 - `plugins/memory-opencode-plugin/.opencode/agents/memory-navigator.md`
 
 **Definition of done:**
-- [ ] Commands work in OpenCode with `$ARGUMENTS` substitution
-- [ ] Skills load with YAML frontmatter
-- [ ] Agent activates on trigger patterns
-- [ ] Plugin README documents installation
+- [x] Commands work in OpenCode with `$ARGUMENTS` substitution
+- [x] Skills load with YAML frontmatter
+- [x] Agent activates on trigger patterns
+- [x] Plugin README documents installation
+
+**Completed:** 2026-02-09
 
 ---
 
