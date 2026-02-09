@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 20 — OpenCode Event Capture + Unified Queries — IN PROGRESS
-Plan: 2 of 3 complete
-Status: Phase 20 Plan 02 complete, ready for Plan 03
-Last activity: 2026-02-09 — Phase 20 Plan 02 executed (1 task, OpenCode event capture plugin)
+Phase: 20 — OpenCode Event Capture + Unified Queries — COMPLETE
+Plan: 3 of 3 complete
+Status: Phase 20 complete, ready for Phase 21
+Last activity: 2026-02-09 — Phase 20 Plan 03 executed (2 tasks, CLI agent display + plugin docs)
 
-Progress v2.1: [█████████░░░░░░░░░░░] 43% (2.6/6 phases)
+Progress v2.1: [██████████░░░░░░░░░░] 50% (3/6 phases)
 
 ## Milestone History
 
@@ -71,6 +71,8 @@ Full decision log in PROJECT.md Key Decisions table.
 - OpenCode plugin uses Bun $ shell API to pipe JSON to memory-ingest (no gRPC in TypeScript)
 - Hardcoded agent:opencode in payload (plugin IS OpenCode, no detection needed)
 - session.idle mapped to Stop hook event for R1.4.1/R1.4.2 (session end + checkpoint)
+- Only RetrievalResult has agent field in proto; TeleportResult/VectorTeleportMatch lack it (future index metadata work)
+- CLI agent display uses if-let conditional for backward compatibility
 
 ### Technical Debt (Accepted)
 
@@ -83,16 +85,16 @@ Full decision log in PROJECT.md Key Decisions table.
 |-------|------|--------|
 | 18 | Agent Tagging Infrastructure | ✓ Complete |
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
-| 20 | OpenCode Event Capture + Unified Queries | In Progress (2/3 plans) |
+| 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
 | 21 | Gemini CLI Adapter | Ready |
 | 22 | Copilot CLI Adapter | Ready |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
 
 ## Next Steps
 
-1. `/gsd:execute-phase 20` — Continue with Plan 03 (unified query CLI enhancements)
-2. `/gsd:plan-phase 21` — Plan Gemini CLI adapter (can run parallel with 20)
-3. `/gsd:plan-phase 22` — Plan Copilot CLI adapter (can run parallel with 20)
+1. `/gsd:plan-phase 21` — Plan Gemini CLI adapter
+2. `/gsd:plan-phase 22` — Plan Copilot CLI adapter
+3. `/gsd:plan-phase 23` — Plan Cross-Agent Discovery + Documentation (after 21 & 22)
 
 ## Phase 19 Summary
 
@@ -128,4 +130,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-09 after Phase 20 Plan 02 execution (OpenCode event capture plugin)*
+*Updated: 2026-02-09 after Phase 20 Plan 03 execution (CLI agent display + plugin docs)*
