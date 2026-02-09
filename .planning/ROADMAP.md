@@ -48,6 +48,15 @@ Plans:
 
 **Goal:** Create OpenCode plugin with commands, skills, and agent definition.
 
+**Plans:** 5 plans in 2 waves
+
+Plans:
+- [ ] 19-01-PLAN.md — Port commands (memory-search, memory-recent, memory-context) with $ARGUMENTS
+- [ ] 19-02-PLAN.md — Port core skills (memory-query, retrieval-policy, topic-graph)
+- [ ] 19-03-PLAN.md — Port teleport skills (bm25-search, vector-search)
+- [ ] 19-04-PLAN.md — Create memory-navigator agent with OpenCode format
+- [ ] 19-05-PLAN.md — Create plugin README and documentation
+
 **Scope:**
 - Port `/memory-search`, `/memory-recent`, `/memory-context` to OpenCode format
 - Port memory-query, retrieval-policy, topic-graph, bm25-search, vector-search skills
@@ -65,7 +74,7 @@ Plans:
 - `plugins/memory-opencode-plugin/.opencode/skill/topic-graph/SKILL.md`
 - `plugins/memory-opencode-plugin/.opencode/skill/bm25-search/SKILL.md`
 - `plugins/memory-opencode-plugin/.opencode/skill/vector-search/SKILL.md`
-- `plugins/memory-opencode-plugin/.opencode/agent/memory-navigator.md`
+- `plugins/memory-opencode-plugin/.opencode/agents/memory-navigator.md`
 
 **Definition of done:**
 - [ ] Commands work in OpenCode with `$ARGUMENTS` substitution
