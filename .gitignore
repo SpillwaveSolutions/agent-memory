@@ -44,5 +44,11 @@ coverage/
 !CLAUDE.md
 !AGENTS.md
 
+# Override global gitignore for OpenCode plugin files
+!.opencode
+!.opencode/
+!**/.opencode
+!**/.opencode/
+
 # Local Cargo configuration (platform-specific)
 .cargo/
