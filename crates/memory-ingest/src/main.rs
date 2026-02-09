@@ -334,7 +334,8 @@ mod tests {
 
     #[test]
     fn test_parse_with_agent() {
-        let json = r#"{"hook_event_name":"SessionStart","session_id":"test-123","agent":"opencode"}"#;
+        let json =
+            r#"{"hook_event_name":"SessionStart","session_id":"test-123","agent":"opencode"}"#;
         let cch: CchEvent = serde_json::from_str(json).unwrap();
         assert_eq!(cch.agent, Some("opencode".to_string()));
     }
