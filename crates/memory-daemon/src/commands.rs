@@ -2077,8 +2077,8 @@ pub async fn handle_retrieval_command(cmd: RetrievalCommand) -> Result<()> {
             limit,
             mode,
             timeout_ms,
+            agent,
             addr,
-            ..
         } => {
             retrieval_route(
                 &query,
@@ -2086,6 +2086,7 @@ pub async fn handle_retrieval_command(cmd: RetrievalCommand) -> Result<()> {
                 limit,
                 mode.as_deref(),
                 timeout_ms,
+                agent.as_deref(),
                 &addr,
             )
             .await
@@ -2237,6 +2238,7 @@ async fn retrieval_route(
     limit: u32,
     mode_override: Option<&str>,
     timeout_ms: Option<u64>,
+    agent_filter: Option<&str>,
     addr: &str,
 ) -> Result<()> {
     use memory_service::pb::memory_service_client::MemoryServiceClient;
@@ -2284,7 +2286,7 @@ async fn retrieval_route(
             stop_conditions,
             mode_override,
             limit: limit as i32,
-            agent_filter: None,
+            agent_filter: agent_filter.map(|s| s.to_string()),
         })
         .await
         .context("Failed to route query")?
@@ -2375,6 +2377,9 @@ async fn retrieval_route(
             }
 
             println!("   Type: {}", result.doc_type);
+            if let Some(ref agent) = result.agent {
+                println!("   Agent: {}", agent);
+            }
             println!();
         }
     }
