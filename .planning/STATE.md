@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 19 — OpenCode Commands and Skills — IN PROGRESS
-Plan: 4 of 5 complete
-Status: Executing Phase 19 plans
-Last activity: 2026-02-09 — Phase 19 Plan 04 executed (1 task, memory-navigator agent for OpenCode)
+Phase: 19 — OpenCode Commands and Skills — COMPLETE
+Plan: 5 of 5 complete
+Status: Phase 19 complete, ready for Phase 20
+Last activity: 2026-02-09 — Phase 19 Plan 05 executed (2 tasks, plugin README and .gitignore)
 
-Progress v2.1: [███░░░░░░░░░░░░░░░░░] 17% (1/6 phases)
+Progress v2.1: [███████░░░░░░░░░░░░░] 33% (2/6 phases)
 
 ## Milestone History
 
@@ -73,17 +73,17 @@ Full decision log in PROJECT.md Key Decisions table.
 | Phase | Name | Status |
 |-------|------|--------|
 | 18 | Agent Tagging Infrastructure | ✓ Complete |
-| 19 | OpenCode Commands and Skills | In Progress (4/5 plans) |
-| 20 | OpenCode Event Capture + Unified Queries | Blocked by 19 |
+| 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
+| 20 | OpenCode Event Capture + Unified Queries | Ready |
 | 21 | Gemini CLI Adapter | Ready |
 | 22 | Copilot CLI Adapter | Ready |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
 
 ## Next Steps
 
-1. `/gsd:plan-phase 19` — Plan OpenCode commands and skills
-2. `/gsd:plan-phase 21` — Plan Gemini CLI adapter (can run parallel with 19)
-3. `/gsd:plan-phase 22` — Plan Copilot CLI adapter (can run parallel with 19)
+1. `/gsd:plan-phase 20` — Plan OpenCode Event Capture + Unified Queries
+2. `/gsd:plan-phase 21` — Plan Gemini CLI adapter (can run parallel with 20)
+3. `/gsd:plan-phase 22` — Plan Copilot CLI adapter (can run parallel with 20)
 
 ## Phase 18 Summary
 
@@ -101,4 +101,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-09 after Phase 19 Plan 04 execution*
+*Updated: 2026-02-09 after Phase 19 Plan 05 execution (Phase 19 complete)*
