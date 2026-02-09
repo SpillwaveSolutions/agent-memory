@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 19 — OpenCode Commands and Skills — COMPLETE
-Plan: 5 of 5 complete
-Status: Phase 19 complete, ready for Phase 20
-Last activity: 2026-02-09 — Phase 19 Plan 05 executed (2 tasks, plugin README and .gitignore)
+Phase: 20 — OpenCode Event Capture + Unified Queries — IN PROGRESS
+Plan: 1 of 3 complete
+Status: Phase 20 Plan 01 complete, ready for Plan 02
+Last activity: 2026-02-09 — Phase 20 Plan 01 executed (2 tasks, agent pipeline wiring)
 
-Progress v2.1: [███████░░░░░░░░░░░░░] 33% (2/6 phases)
+Progress v2.1: [████████░░░░░░░░░░░░] 40% (2.3/6 phases)
 
 ## Milestone History
 
@@ -63,6 +63,12 @@ Full decision log in PROJECT.md Key Decisions table.
    - Default queries return all agents
    - `--agent <name>` filter for single-agent queries
 
+### Phase 20 Decisions
+
+- Agent field uses serde(default) for backward-compatible JSON parsing
+- HookEvent.with_agent() follows existing builder pattern from Phase 18
+- RetrievalResult.agent reads from metadata HashMap (forward-compatible with index rebuilds)
+
 ### Technical Debt (Accepted)
 
 - 3 stub RPCs: GetRankingStatus, PruneVectorIndex, PruneBm25Index (admin features)
@@ -74,14 +80,14 @@ Full decision log in PROJECT.md Key Decisions table.
 |-------|------|--------|
 | 18 | Agent Tagging Infrastructure | ✓ Complete |
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
-| 20 | OpenCode Event Capture + Unified Queries | Ready |
+| 20 | OpenCode Event Capture + Unified Queries | In Progress (1/3 plans) |
 | 21 | Gemini CLI Adapter | Ready |
 | 22 | Copilot CLI Adapter | Ready |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
 
 ## Next Steps
 
-1. `/gsd:plan-phase 20` — Plan OpenCode Event Capture + Unified Queries
+1. `/gsd:execute-phase 20` — Continue with Plan 02 (OpenCode event capture integration)
 2. `/gsd:plan-phase 21` — Plan Gemini CLI adapter (can run parallel with 20)
 3. `/gsd:plan-phase 22` — Plan Copilot CLI adapter (can run parallel with 20)
 
@@ -119,4 +125,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-09 after Phase 19 Plan 05 execution (Phase 19 complete)*
+*Updated: 2026-02-09 after Phase 20 Plan 01 execution (agent pipeline wiring)*
