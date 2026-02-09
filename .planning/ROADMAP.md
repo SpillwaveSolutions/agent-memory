@@ -90,6 +90,13 @@ Plans:
 
 **Goal:** Capture OpenCode sessions and enable cross-agent queries.
 
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 20-01-PLAN.md — Wire agent field through ingest-to-retrieval pipeline
+- [ ] 20-02-PLAN.md — Create OpenCode TypeScript event capture plugin
+- [ ] 20-03-PLAN.md — Add agent display to CLI output and update plugin docs
+
 **Scope:**
 - Implement session lifecycle hooks for OpenCode
 - Automatic `agent:opencode` tagging on ingest
@@ -99,9 +106,12 @@ Plans:
 **Requirements:** R1.4.1-R1.4.4, R4.2.1, R4.2.3
 
 **Files to modify/create:**
-- `plugins/memory-opencode-plugin/.opencode/hooks/` — Lifecycle hooks
-- `crates/memory-daemon/src/retrieval/` — Unified query support
-- `crates/memory-daemon/src/ingest/` — Agent detection
+- `crates/memory-ingest/src/main.rs` — Agent field on CchEvent
+- `crates/memory-client/src/hook_mapping.rs` — Agent propagation in HookEvent
+- `crates/memory-service/src/retrieval.rs` — Populate RetrievalResult.agent
+- `crates/memory-daemon/src/commands.rs` — Agent display in CLI output
+- `plugins/memory-opencode-plugin/.opencode/plugin/memory-capture.ts` — Event capture plugin
+- `plugins/memory-opencode-plugin/README.md` — Event capture documentation
 
 **Definition of done:**
 - [ ] OpenCode sessions auto-ingest with agent tag
