@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 22 — Copilot CLI Adapter — In Progress
-Plan: 2 of 3 complete
-Status: Phase 22 Plans 01-02 executed; Plan 03 pending (install skill + README)
-Last activity: 2026-02-10 — Phase 22 Plan 02 executed (skills, navigator agent, plugin manifest)
+Phase: 22 — Copilot CLI Adapter — Complete
+Plan: 3 of 3 complete
+Status: Phase 22 complete (3/3 plans, 6 tasks, 17 files); Phase 23 ready
+Last activity: 2026-02-10 — Phase 22 Plan 03 executed (install skill, README, .gitignore)
 
-Progress v2.1: [█████████████░░░░░░░] 67% (4/6 phases) — execution pending for Phases 22–23
+Progress v2.1: [████████████████░░░░] 83% (5/6 phases) — Phase 23 pending
 
 ## Milestone History
 
@@ -87,8 +87,8 @@ Full decision log in PROJECT.md Key Decisions table.
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
 | 21 | Gemini CLI Adapter | Complete (4/4 plans, incl. gap closure) |
-| 22 | Copilot CLI Adapter | In Progress (2/3 plans) |
-| 23 | Cross-Agent Discovery + Documentation | Blocked by 22 |
+| 22 | Copilot CLI Adapter | Complete (3/3 plans) |
+| 23 | Cross-Agent Discovery + Documentation | Ready |
 
 ### Phase 21 Decisions
 
@@ -123,12 +123,16 @@ Full decision log in PROJECT.md Key Decisions table.
 - Command-equivalent instructions embedded in memory-query skill for search/recent/context
 - Agent uses tools: execute, read, search (Copilot CLI tool names)
 - plugin.json uses minimal fields (name, version, description, author, repository)
+- Install skill copies hook config directly (no settings.json merge -- Copilot uses standalone .github/hooks/*.json)
+- Three installation paths: plugin install, install skill, manual per-project
+- Install skill excludes itself from target project deployment
+- README documents all Copilot-specific gaps: AssistantResponse, SubagentStart/Stop, Bug #991 per-prompt
+- Adapter comparison table covers Copilot vs Gemini vs Claude Code across 11 dimensions
 
 ## Next Steps
 
-1. Execute Phase 22 Plan 03 (install skill and README)
-3. Execute Phase 23 (Cross-Agent Discovery + Documentation) after Phase 22
-4. Complete v2.1 milestone
+1. Execute Phase 23 (Cross-Agent Discovery + Documentation)
+2. Complete v2.1 milestone
 
 ## Phase 21 Summary
 
@@ -202,5 +206,26 @@ Full decision log in PROJECT.md Key Decisions table.
 
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
+## Phase 22 Summary
+
+**Completed:** 2026-02-10
+
+**Artifacts created:**
+- `plugins/memory-copilot-adapter/.github/hooks/scripts/memory-capture.sh` -- Shell hook handler (238 lines)
+- `plugins/memory-copilot-adapter/.github/hooks/memory-hooks.json` -- Hook configuration (45 lines)
+- `plugins/memory-copilot-adapter/.github/skills/memory-query/SKILL.md` -- Core query + commands (474 lines)
+- `plugins/memory-copilot-adapter/.github/skills/retrieval-policy/SKILL.md` -- Tier detection
+- `plugins/memory-copilot-adapter/.github/skills/topic-graph/SKILL.md` -- Topic exploration
+- `plugins/memory-copilot-adapter/.github/skills/bm25-search/SKILL.md` -- Keyword search
+- `plugins/memory-copilot-adapter/.github/skills/vector-search/SKILL.md` -- Semantic search
+- `plugins/memory-copilot-adapter/.github/agents/memory-navigator.agent.md` -- Navigator agent (249 lines)
+- `plugins/memory-copilot-adapter/.github/skills/memory-copilot-install/SKILL.md` -- Install skill (414 lines)
+- `plugins/memory-copilot-adapter/README.md` -- Complete documentation (448 lines)
+- `plugins/memory-copilot-adapter/plugin.json` -- Plugin manifest
+- `plugins/memory-copilot-adapter/.gitignore` -- OS/editor ignores
+
+**Plans:** 3 plans, 6 tasks, 17 files
+**Verification:** All must-haves passed across all 3 plans
+
 ---
-*Updated: 2026-02-10 after Phase 22 Plan 02 execution (skills, navigator agent, plugin manifest)*
+*Updated: 2026-02-10 after Phase 22 Plan 03 execution (install skill, README, .gitignore)*
