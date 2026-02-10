@@ -89,6 +89,10 @@ pub enum Commands {
     /// Retrieval policy commands
     #[command(subcommand)]
     Retrieval(RetrievalCommand),
+
+    /// Agent discovery commands
+    #[command(subcommand)]
+    Agents(AgentsCommand),
 }
 
 /// Query subcommands
@@ -505,6 +509,35 @@ pub enum RetrievalCommand {
         #[arg(long, short = 'a')]
         agent: Option<String>,
 
+        /// gRPC server address
+        #[arg(long, default_value = "http://[::1]:50051")]
+        addr: String,
+    },
+}
+
+/// Agent discovery commands
+#[derive(Subcommand, Debug, Clone)]
+pub enum AgentsCommand {
+    /// List all contributing agents with summary stats
+    List {
+        /// gRPC server address
+        #[arg(long, default_value = "http://[::1]:50051")]
+        addr: String,
+    },
+    /// Show agent activity timeline
+    Activity {
+        /// Agent ID to show activity for (all agents if omitted)
+        #[arg(long, short = 'a')]
+        agent: Option<String>,
+        /// Start time (YYYY-MM-DD or Unix ms)
+        #[arg(long)]
+        from: Option<String>,
+        /// End time (YYYY-MM-DD or Unix ms)
+        #[arg(long)]
+        to: Option<String>,
+        /// Bucket granularity: day, week
+        #[arg(long, default_value = "day")]
+        bucket: String,
         /// gRPC server address
         #[arg(long, default_value = "http://[::1]:50051")]
         addr: String,
@@ -1371,6 +1404,109 @@ mod tests {
                 assert_eq!(agent, Some("opencode".to_string()));
             }
             _ => panic!("Expected Retrieval Route command"),
+        }
+    }
+
+    // === Phase 23: Agent Discovery Tests ===
+
+    #[test]
+    fn test_cli_agents_list() {
+        let cli = Cli::parse_from(["memory-daemon", "agents", "list"]);
+        match cli.command {
+            Commands::Agents(AgentsCommand::List { addr }) => {
+                assert_eq!(addr, "http://[::1]:50051");
+            }
+            _ => panic!("Expected Agents List command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_agents_list_with_addr() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "agents",
+            "list",
+            "--addr",
+            "http://localhost:9999",
+        ]);
+        match cli.command {
+            Commands::Agents(AgentsCommand::List { addr }) => {
+                assert_eq!(addr, "http://localhost:9999");
+            }
+            _ => panic!("Expected Agents List command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_agents_activity_defaults() {
+        let cli = Cli::parse_from(["memory-daemon", "agents", "activity"]);
+        match cli.command {
+            Commands::Agents(AgentsCommand::Activity {
+                agent,
+                from,
+                to,
+                bucket,
+                addr,
+            }) => {
+                assert!(agent.is_none());
+                assert!(from.is_none());
+                assert!(to.is_none());
+                assert_eq!(bucket, "day");
+                assert_eq!(addr, "http://[::1]:50051");
+            }
+            _ => panic!("Expected Agents Activity command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_agents_activity_with_all_options() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "agents",
+            "activity",
+            "--agent",
+            "claude",
+            "--from",
+            "2026-02-01",
+            "--to",
+            "2026-02-10",
+            "--bucket",
+            "week",
+            "--addr",
+            "http://localhost:9999",
+        ]);
+        match cli.command {
+            Commands::Agents(AgentsCommand::Activity {
+                agent,
+                from,
+                to,
+                bucket,
+                addr,
+            }) => {
+                assert_eq!(agent, Some("claude".to_string()));
+                assert_eq!(from, Some("2026-02-01".to_string()));
+                assert_eq!(to, Some("2026-02-10".to_string()));
+                assert_eq!(bucket, "week");
+                assert_eq!(addr, "http://localhost:9999");
+            }
+            _ => panic!("Expected Agents Activity command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_agents_activity_short_agent() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "agents",
+            "activity",
+            "-a",
+            "opencode",
+        ]);
+        match cli.command {
+            Commands::Agents(AgentsCommand::Activity { agent, .. }) => {
+                assert_eq!(agent, Some("opencode".to_string()));
+            }
+            _ => panic!("Expected Agents Activity command"),
         }
     }
 }

@@ -33,8 +33,8 @@ use memory_toc::summarizer::MockSummarizer;
 use memory_types::Settings;
 
 use crate::cli::{
-    AdminCommands, QueryCommands, RetrievalCommand, SchedulerCommands, TeleportCommand,
-    TopicsCommand,
+    AdminCommands, AgentsCommand, QueryCommands, RetrievalCommand, SchedulerCommands,
+    TeleportCommand, TopicsCommand,
 };
 
 /// Get the PID file path
@@ -2404,6 +2404,150 @@ async fn retrieval_route(
     Ok(())
 }
 
+/// Handle agent discovery commands.
+///
+/// Per Phase 23: Cross-agent discovery.
+pub async fn handle_agents_command(cmd: AgentsCommand) -> Result<()> {
+    match cmd {
+        AgentsCommand::List { addr } => agents_list(&addr).await,
+        AgentsCommand::Activity {
+            agent,
+            from,
+            to,
+            bucket,
+            addr,
+        } => {
+            agents_activity(
+                agent.as_deref(),
+                from.as_deref(),
+                to.as_deref(),
+                &bucket,
+                &addr,
+            )
+            .await
+        }
+    }
+}
+
+/// List all contributing agents with summary statistics.
+async fn agents_list(addr: &str) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+    use memory_service::pb::ListAgentsRequest;
+
+    let mut client = MemoryServiceClient::connect(addr.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    let response = client
+        .list_agents(ListAgentsRequest {})
+        .await
+        .context("ListAgents RPC failed")?
+        .into_inner();
+
+    if response.agents.is_empty() {
+        println!("No contributing agents found.");
+        return Ok(());
+    }
+
+    println!("Contributing Agents:");
+    println!(
+        "  {:<16} {:<24} {:<24} {:>6}",
+        "AGENT", "FIRST SEEN", "LAST SEEN", "NODES"
+    );
+
+    for agent in &response.agents {
+        let first_seen = format_utc_timestamp(agent.first_seen_ms);
+        let last_seen = format_utc_timestamp(agent.last_seen_ms);
+
+        println!(
+            "  {:<16} {:<24} {:<24} {:>6}",
+            agent.agent_id, first_seen, last_seen, agent.event_count
+        );
+    }
+
+    Ok(())
+}
+
+/// Show agent activity timeline.
+async fn agents_activity(
+    agent: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+    bucket: &str,
+    addr: &str,
+) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+    use memory_service::pb::GetAgentActivityRequest;
+
+    let mut client = MemoryServiceClient::connect(addr.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Parse --from/--to: if matches YYYY-MM-DD, convert to epoch ms; if numeric, use as-is
+    let from_ms = from.map(parse_time_arg).transpose()?;
+    let to_ms = to.map(parse_time_arg).transpose()?;
+
+    let response = client
+        .get_agent_activity(GetAgentActivityRequest {
+            agent_id: agent.map(|s| s.to_string()),
+            from_ms,
+            to_ms,
+            bucket: bucket.to_string(),
+        })
+        .await
+        .context("GetAgentActivity RPC failed")?
+        .into_inner();
+
+    if response.buckets.is_empty() {
+        println!("No agent activity found.");
+        return Ok(());
+    }
+
+    println!("Agent Activity ({} buckets):", bucket);
+    println!(
+        "  {:<14} {:<16} {:>8}",
+        "DATE", "AGENT", "EVENTS"
+    );
+
+    for b in &response.buckets {
+        let date_str = format_utc_date(b.start_ms);
+        println!(
+            "  {:<14} {:<16} {:>8}",
+            date_str, b.agent_id, b.event_count
+        );
+    }
+
+    Ok(())
+}
+
+/// Parse a time argument that can be either YYYY-MM-DD or Unix epoch milliseconds.
+fn parse_time_arg(s: &str) -> Result<i64> {
+    // Try parsing as integer (epoch ms) first
+    if let Ok(ms) = s.parse::<i64>() {
+        return Ok(ms);
+    }
+
+    // Try parsing as YYYY-MM-DD
+    let date = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+        .context(format!("Invalid time format: {}. Use YYYY-MM-DD or epoch ms", s))?;
+    let datetime = date.and_hms_opt(0, 0, 0).unwrap();
+    Ok(chrono::Utc.from_utc_datetime(&datetime).timestamp_millis())
+}
+
+/// Format a Unix timestamp in milliseconds as a human-readable UTC string.
+fn format_utc_timestamp(ms: i64) -> String {
+    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+        .map(|t| t.format("%Y-%m-%d %H:%M UTC").to_string())
+        .unwrap_or_else(|| "Invalid".to_string())
+}
+
+/// Format a Unix timestamp in milliseconds as a date-only UTC string.
+fn format_utc_date(ms: i64) -> String {
+    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+        .map(|t| t.format("%Y-%m-%d").to_string())
+        .unwrap_or_else(|| "Invalid".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2437,5 +2581,34 @@ mod tests {
     fn test_truncate_text() {
         assert_eq!(truncate_text("hello", 10), "hello");
         assert_eq!(truncate_text("hello world!", 5), "hello...");
+    }
+
+    #[test]
+    fn test_parse_time_arg_epoch_ms() {
+        assert_eq!(parse_time_arg("1707350400000").unwrap(), 1707350400000);
+    }
+
+    #[test]
+    fn test_parse_time_arg_date() {
+        let ms = parse_time_arg("2024-02-08").unwrap();
+        // 2024-02-08 00:00:00 UTC = 1707350400000
+        assert_eq!(ms, 1707350400000);
+    }
+
+    #[test]
+    fn test_parse_time_arg_invalid() {
+        assert!(parse_time_arg("not-a-date").is_err());
+    }
+
+    #[test]
+    fn test_format_utc_timestamp() {
+        let s = format_utc_timestamp(1707350400000);
+        assert_eq!(s, "2024-02-08 00:00 UTC");
+    }
+
+    #[test]
+    fn test_format_utc_date() {
+        let s = format_utc_date(1707350400000);
+        assert_eq!(s, "2024-02-08");
     }
 }
