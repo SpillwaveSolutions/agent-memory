@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 21 — Gemini CLI Adapter — COMPLETE (including gap closure)
-Plan: 4 of 4 complete (3 core + 1 gap closure)
-Status: All plans complete including UAT gap closure (jq compat, ANSI stripping, per-project paths)
-Last activity: 2026-02-10 — Phase 21 Plan 04 executed (2 tasks, gap closure for 3 UAT findings)
+Phase: 22 — Copilot CLI Adapter — In Progress
+Plan: 1 of 3 complete
+Status: Phase 22 Plan 01 executed (event capture infrastructure); Plans 02-03 pending
+Last activity: 2026-02-10 — Phase 22 Plan 01 executed (hook handler + hooks config)
 
-Progress v2.1: [█████████████░░░░░░░] 67% (4/6 phases)
+Progress v2.1: [█████████████░░░░░░░] 67% (4/6 phases) — execution pending for Phases 22–23
 
 ## Milestone History
 
@@ -87,7 +87,7 @@ Full decision log in PROJECT.md Key Decisions table.
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
 | 21 | Gemini CLI Adapter | Complete (4/4 plans, incl. gap closure) |
-| 22 | Copilot CLI Adapter | Ready |
+| 22 | Copilot CLI Adapter | In Progress (1/3 plans) |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 22 |
 
 ### Phase 21 Decisions
@@ -109,11 +109,21 @@ Full decision log in PROJECT.md Key Decisions table.
 - del()-based fallback redaction covers top level + one level deep for jq < 1.6
 - perl preferred for ANSI stripping (CSI+OSC+SS2/SS3); sed fallback for minimal systems
 
+### Phase 22 Decisions
+
+- Single script with event type as $1 argument (matching Gemini adapter pattern, less code duplication)
+- Runtime jq walk() capability test (same approach as Gemini adapter, more portable than version parsing)
+- Perl preferred for ANSI stripping with sed fallback (CSI+OSC+SS2/SS3 coverage)
+- del()-based fallback redaction for jq < 1.6 (top level + one level deep)
+- Session file cleanup only on user_exit or complete reasons (preserves resumed sessions)
+- No stdout output from hook script (Copilot ignores stdout for most events)
+
 ## Next Steps
 
-1. `/gsd:plan-phase 22` — Plan Copilot CLI adapter
-2. `/gsd:plan-phase 23` — Plan Cross-Agent Discovery + Documentation (after 22)
-3. Complete v2.1 milestone
+1. Execute Phase 22 Plan 02 (skills and agent definitions)
+2. Execute Phase 22 Plan 03 (install skill and README)
+3. Execute Phase 23 (Cross-Agent Discovery + Documentation) after Phase 22
+4. Complete v2.1 milestone
 
 ## Phase 21 Summary
 
@@ -188,4 +198,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-10 after Phase 21 Plan 04 execution (gap closure: jq compat, ANSI stripping, per-project paths) -- Phase 21 fully complete*
+*Updated: 2026-02-10 after Phase 22 Plan 01 execution (Copilot hook handler + hooks config)*
