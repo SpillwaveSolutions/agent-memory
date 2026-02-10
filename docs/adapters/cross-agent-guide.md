@@ -115,22 +115,19 @@ Time arguments accept both `YYYY-MM-DD` format and Unix epoch milliseconds.
 
 ### Topics by Agent
 
-View top topics for a specific agent using the retrieval route with agent filter:
+View the top topics a specific agent has contributed to:
 
 ```bash
-$ memory-daemon retrieval route "what topics were discussed" --agent opencode
+$ memory-daemon agents topics --agent opencode --limit 5
 
-Query Routing
-----------------------------------------------------------------------
-Query: "what topics were discussed"
-
-Results (5 found):
-----------------------------------------------------------------------
-1. [Agentic] toc:week:2026-W06 (score: 0.8500)
-   OpenCode plugin development and testing
-   Type: toc
-   Agent: opencode
+Top Topics for agent "opencode":
+    #  TOPIC                      IMPORTANCE  KEYWORDS
+    1  Plugin Development          0.87       opencode, plugin, commands
+    2  Event Capture               0.72       hooks, session, ingest
+    3  Skill Porting               0.65       skills, markdown, format
 ```
+
+The `--limit` flag controls how many topics are returned (default: 10). Topics are ranked by a combined importance and agent-relevance score.
 
 ## Cross-Agent Queries
 
