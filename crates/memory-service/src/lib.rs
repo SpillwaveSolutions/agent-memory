@@ -10,6 +10,7 @@
 //! - Health check endpoint (GRPC-03)
 //! - Reflection endpoint for debugging (GRPC-04)
 
+pub mod agents;
 pub mod hybrid;
 pub mod ingest;
 pub mod novelty;
@@ -28,6 +29,7 @@ pub mod pb {
     pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("memory_descriptor");
 }
 
+pub use agents::AgentDiscoveryHandler;
 pub use hybrid::HybridSearchHandler;
 pub use ingest::MemoryServiceImpl;
 pub use novelty::{NoveltyChecker, NoveltyMetrics, NoveltyMetricsSnapshot};

@@ -102,6 +102,14 @@ service MemoryService {
 
     // Route a query through the retrieval policy
     rpc RouteQuery(RouteQueryRequest) returns (RouteQueryResponse);
+
+    // ===== Agent Discovery RPCs (Phase 23 - R4.3.1, R4.3.2) =====
+
+    // List all contributing agents with summary statistics
+    rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+
+    // Get agent activity bucketed by time period
+    rpc GetAgentActivity(GetAgentActivityRequest) returns (GetAgentActivityResponse);
 }
 
 // Role of the message author
@@ -968,4 +976,38 @@ message RouteQueryResponse {
 
     // Layers that were attempted
     repeated RetrievalLayer layers_attempted = 4;
+}
+
+// ===== Agent Discovery Messages (Phase 23) =====
+
+message AgentSummary {
+    string agent_id = 1;
+    uint64 event_count = 2;
+    uint64 session_count = 3;
+    int64 first_seen_ms = 4;
+    int64 last_seen_ms = 5;
+}
+
+message ListAgentsRequest {}
+
+message ListAgentsResponse {
+    repeated AgentSummary agents = 1;
+}
+
+message GetAgentActivityRequest {
+    optional string agent_id = 1;
+    optional int64 from_ms = 2;
+    optional int64 to_ms = 3;
+    string bucket = 4; // "day" or "week"
+}
+
+message ActivityBucket {
+    int64 start_ms = 1;
+    int64 end_ms = 2;
+    uint64 event_count = 3;
+    string agent_id = 4;
+}
+
+message GetAgentActivityResponse {
+    repeated ActivityBucket buckets = 1;
 }

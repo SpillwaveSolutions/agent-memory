@@ -17,22 +17,25 @@ use memory_storage::Storage;
 use memory_types::{Event, EventRole, EventType, OutboxEntry};
 
 use crate::hybrid::HybridSearchHandler;
+use crate::agents::AgentDiscoveryHandler;
 use crate::pb::{
     memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
     ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, Event as ProtoEvent,
     EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
-    ExpandGripResponse, GetEventsRequest, GetEventsResponse, GetNodeRequest, GetNodeResponse,
-    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
-    GetRelatedTopicsResponse, GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse,
-    GetSchedulerStatusRequest, GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse,
-    GetTopTopicsRequest, GetTopTopicsResponse, GetTopicGraphStatusRequest,
-    GetTopicGraphStatusResponse, GetTopicsByQueryRequest, GetTopicsByQueryResponse,
-    GetVectorIndexStatusRequest, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
-    IngestEventResponse, PauseJobRequest, PauseJobResponse, PruneBm25IndexRequest,
-    PruneBm25IndexResponse, PruneVectorIndexRequest, PruneVectorIndexResponse, ResumeJobRequest,
-    ResumeJobResponse, RouteQueryRequest, RouteQueryResponse, SearchChildrenRequest,
-    SearchChildrenResponse, SearchNodeRequest, SearchNodeResponse, TeleportSearchRequest,
-    TeleportSearchResponse, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
+    ExpandGripResponse, GetAgentActivityRequest, GetAgentActivityResponse, GetEventsRequest,
+    GetEventsResponse, GetNodeRequest, GetNodeResponse, GetRankingStatusRequest,
+    GetRankingStatusResponse, GetRelatedTopicsRequest, GetRelatedTopicsResponse,
+    GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse, GetSchedulerStatusRequest,
+    GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest,
+    GetTopTopicsResponse, GetTopicGraphStatusRequest, GetTopicGraphStatusResponse,
+    GetTopicsByQueryRequest, GetTopicsByQueryResponse, GetVectorIndexStatusRequest,
+    HybridSearchRequest, HybridSearchResponse, IngestEventRequest, IngestEventResponse,
+    ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
+    PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
+    PruneVectorIndexResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
+    RouteQueryResponse, SearchChildrenRequest, SearchChildrenResponse, SearchNodeRequest,
+    SearchNodeResponse, TeleportSearchRequest, TeleportSearchResponse, VectorIndexStatus,
+    VectorTeleportRequest, VectorTeleportResponse,
 };
 use crate::query;
 use crate::retrieval::RetrievalHandler;
@@ -51,12 +54,14 @@ pub struct MemoryServiceImpl {
     hybrid_service: Option<Arc<HybridSearchHandler>>,
     topic_service: Option<Arc<TopicGraphHandler>>,
     retrieval_service: Option<Arc<RetrievalHandler>>,
+    agent_service: Arc<AgentDiscoveryHandler>,
 }
 
 impl MemoryServiceImpl {
     /// Create a new MemoryServiceImpl with the given storage.
     pub fn new(storage: Arc<Storage>) -> Self {
         let retrieval = Arc::new(RetrievalHandler::new(storage.clone()));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -65,6 +70,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -74,6 +80,7 @@ impl MemoryServiceImpl {
     /// (GetSchedulerStatus, PauseJob, ResumeJob) will be functional.
     pub fn with_scheduler(storage: Arc<Storage>, scheduler: Arc<SchedulerService>) -> Self {
         let retrieval = Arc::new(RetrievalHandler::new(storage.clone()));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -82,6 +89,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -99,6 +107,7 @@ impl MemoryServiceImpl {
             None,
             None,
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -107,6 +116,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -118,6 +128,7 @@ impl MemoryServiceImpl {
             None,
             None,
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -126,6 +137,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -140,6 +152,7 @@ impl MemoryServiceImpl {
             Some(vector_handler.clone()),
             None,
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -148,6 +161,7 @@ impl MemoryServiceImpl {
             hybrid_service: Some(hybrid_handler),
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -161,6 +175,7 @@ impl MemoryServiceImpl {
             None,
             Some(topic_handler.clone()),
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -169,6 +184,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: Some(topic_handler),
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -186,6 +202,7 @@ impl MemoryServiceImpl {
             Some(vector_handler.clone()),
             None,
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -194,6 +211,7 @@ impl MemoryServiceImpl {
             hybrid_service: Some(hybrid_handler),
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -212,6 +230,7 @@ impl MemoryServiceImpl {
             Some(vector_handler.clone()),
             Some(topic_handler.clone()),
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -220,6 +239,7 @@ impl MemoryServiceImpl {
             hybrid_service: Some(hybrid_handler),
             topic_service: Some(topic_handler),
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -665,6 +685,26 @@ impl MemoryService for MemoryServiceImpl {
             bm25_last_prune_timestamp: 0,
             bm25_last_prune_count: 0,
         }))
+    }
+
+    /// List all contributing agents with summary statistics.
+    ///
+    /// Per R4.3.1: Cross-agent discovery.
+    async fn list_agents(
+        &self,
+        request: Request<ListAgentsRequest>,
+    ) -> Result<Response<ListAgentsResponse>, Status> {
+        self.agent_service.list_agents(request).await
+    }
+
+    /// Get agent activity bucketed by time period.
+    ///
+    /// Per R4.3.2: Agent activity timeline.
+    async fn get_agent_activity(
+        &self,
+        request: Request<GetAgentActivityRequest>,
+    ) -> Result<Response<GetAgentActivityResponse>, Status> {
+        self.agent_service.get_agent_activity(request).await
     }
 }
 

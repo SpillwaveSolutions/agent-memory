@@ -24,6 +24,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
+serde_json = { workspace = true }
 ulid = { workspace = true }
 async-trait = { workspace = true }
 
