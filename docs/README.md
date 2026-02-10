@@ -402,6 +402,32 @@ Agents interact with memory through these gRPC operations:
 | `expand_grip(grip_id)` | Context around excerpt |
 | `teleport_query(query)` | Index-based jump (v2) |
 
+## Agent Discovery
+
+List all agents that have contributed memories:
+
+```bash
+memory-daemon agents list
+```
+
+View agent activity timeline:
+
+```bash
+# Activity for all agents (last 30 days, daily buckets)
+memory-daemon agents activity
+
+# Activity for a specific agent
+memory-daemon agents activity --agent claude
+
+# Activity with time range
+memory-daemon agents activity --agent opencode --from 2026-02-01 --to 2026-02-10
+
+# Weekly buckets
+memory-daemon agents activity --bucket week
+```
+
+Agent discovery uses the `ListAgents` and `GetAgentActivity` gRPC RPCs. Agent counts are derived from `TocNode.contributing_agents` (O(k) over TOC nodes) and time-bounded event scans with chrono bucketing.
+
 ## Event Types
 
 Events are captured via agent hooks with zero token overhead:
