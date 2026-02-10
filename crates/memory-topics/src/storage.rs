@@ -468,6 +468,63 @@ impl TopicStorage {
         self.list_topics_by_importance(limit)
     }
 
+    /// Get topics for a specific agent, sorted by combined importance and relevance.
+    ///
+    /// Uses the indirect path: Topic -> TopicLink -> TocNode -> contributing_agents
+    /// to find which topics a given agent has contributed to.
+    ///
+    /// # Arguments
+    /// * `main_storage` - Main storage for TocNode lookups
+    /// * `agent_id` - Agent identifier to filter by (case-insensitive)
+    /// * `limit` - Maximum number of topics to return
+    ///
+    /// # Returns
+    /// Vec of (Topic, agent_relevance) tuples sorted by importance * relevance descending.
+    pub fn get_topics_for_agent(
+        &self,
+        main_storage: &Storage,
+        agent_id: &str,
+        limit: usize,
+    ) -> Result<Vec<(Topic, f32)>, TopicsError> {
+        let agent_lower = agent_id.to_lowercase();
+        let topics = self.list_topics()?;
+        let mut scored_topics: Vec<(Topic, f32)> = Vec::new();
+
+        for topic in topics {
+            let links = self.get_links_for_topic(&topic.topic_id)?;
+            let mut max_relevance: f32 = 0.0;
+            let mut agent_found = false;
+
+            for link in &links {
+                // Look up TocNode via main storage to check contributing_agents
+                if let Ok(Some(node)) = main_storage.get_toc_node(&link.node_id) {
+                    if node.contributing_agents.contains(&agent_lower) {
+                        agent_found = true;
+                        if link.relevance > max_relevance {
+                            max_relevance = link.relevance;
+                        }
+                    }
+                }
+            }
+
+            if agent_found {
+                scored_topics.push((topic, max_relevance));
+            }
+        }
+
+        // Sort by importance_score * agent_relevance descending
+        scored_topics.sort_by(|a, b| {
+            let score_a = a.0.importance_score as f32 * a.1;
+            let score_b = b.0.importance_score as f32 * b.1;
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        scored_topics.truncate(limit);
+        Ok(scored_topics)
+    }
+
     /// Refresh importance scores for all topics.
     ///
     /// This is intended to be run as a periodic background job to ensure

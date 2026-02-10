@@ -12,6 +12,7 @@ use chrono::Utc;
 use tonic::{Request, Response, Status};
 use tracing::{debug, info};
 
+use memory_storage::Storage;
 use memory_topics::{RelationshipType, TopicStorage};
 
 use crate::pb::{
@@ -23,6 +24,8 @@ use crate::pb::{
 /// Handler for topic graph operations.
 pub struct TopicGraphHandler {
     storage: Arc<TopicStorage>,
+    /// Main storage for TocNode lookups (used by agent-filtered topic queries).
+    main_storage: Arc<Storage>,
 }
 
 /// Status of the topic graph.
@@ -43,8 +46,11 @@ pub struct TopicSearchResult {
 
 impl TopicGraphHandler {
     /// Create a new topic graph handler.
-    pub fn new(storage: Arc<TopicStorage>) -> Self {
-        Self { storage }
+    pub fn new(storage: Arc<TopicStorage>, main_storage: Arc<Storage>) -> Self {
+        Self {
+            storage,
+            main_storage,
+        }
     }
 
     /// Check if the topic graph is available.
@@ -280,6 +286,9 @@ impl TopicGraphHandler {
     }
 
     /// Handle GetTopTopics RPC request.
+    ///
+    /// When `agent_filter` is set, returns only topics that the specified agent
+    /// has contributed to (via TopicLink -> TocNode -> contributing_agents).
     pub async fn get_top_topics(
         &self,
         request: Request<GetTopTopicsRequest>,
@@ -291,29 +300,46 @@ impl TopicGraphHandler {
             10
         };
         let _days = if req.days > 0 { req.days } else { 30 };
+        let agent_filter = req.agent_filter.filter(|s| !s.is_empty());
 
-        debug!(limit = limit, days = _days, "GetTopTopics request");
+        debug!(
+            limit = limit,
+            days = _days,
+            agent_filter = ?agent_filter,
+            "GetTopTopics request"
+        );
 
-        // Get top topics sorted by importance
-        let topics = self.storage.get_top_topics(limit).map_err(|e| {
-            tracing::error!("Failed to get top topics: {}", e);
-            Status::internal(format!("Failed to get top topics: {}", e))
-        })?;
-
-        // Note: The days parameter could be used to filter topics by last_mentioned_at
-        // within the lookback window. For now, we rely on the importance scorer's
-        // time-decay which already factors in recency. Future enhancement could
-        // filter out topics not mentioned within the days window.
         let now = Utc::now();
         let cutoff = now - chrono::Duration::days(_days as i64);
 
-        let filtered_topics: Vec<_> = topics
-            .into_iter()
-            .filter(|t| t.last_mentioned_at >= cutoff)
-            .collect();
+        let proto_topics: Vec<ProtoTopic> = if let Some(agent_id) = agent_filter {
+            // Phase 23: Agent-filtered topic query
+            let agent_topics = self
+                .storage
+                .get_topics_for_agent(&self.main_storage, &agent_id, limit)
+                .map_err(|e| {
+                    tracing::error!("Failed to get topics for agent: {}", e);
+                    Status::internal(format!("Failed to get topics for agent: {}", e))
+                })?;
 
-        let proto_topics: Vec<ProtoTopic> =
-            filtered_topics.into_iter().map(topic_to_proto).collect();
+            agent_topics
+                .into_iter()
+                .filter(|(t, _)| t.last_mentioned_at >= cutoff)
+                .map(|(t, _relevance)| topic_to_proto(t))
+                .collect()
+        } else {
+            // Existing behavior: return all top topics by importance
+            let topics = self.storage.get_top_topics(limit).map_err(|e| {
+                tracing::error!("Failed to get top topics: {}", e);
+                Status::internal(format!("Failed to get top topics: {}", e))
+            })?;
+
+            topics
+                .into_iter()
+                .filter(|t| t.last_mentioned_at >= cutoff)
+                .map(topic_to_proto)
+                .collect()
+        };
 
         info!(
             limit = limit,

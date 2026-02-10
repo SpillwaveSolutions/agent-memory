@@ -745,6 +745,8 @@ message GetTopTopicsRequest {
     uint32 limit = 1;
     // Look back window in days for importance calculation (default: 30)
     uint32 days = 2;
+    // Phase 23: Filter topics by contributing agent (optional, omit for all agents)
+    optional string agent_filter = 201;
 }
 
 // Response with top topics

@@ -370,7 +370,37 @@ impl MemoryClient {
         days: u32,
     ) -> Result<Vec<ProtoTopic>, ClientError> {
         debug!("GetTopTopics request: limit={}, days={}", limit, days);
-        let request = tonic::Request::new(GetTopTopicsRequest { limit, days });
+        let request = tonic::Request::new(GetTopTopicsRequest {
+            limit,
+            days,
+            agent_filter: None,
+        });
+        let response = self.inner.get_top_topics(request).await?;
+        Ok(response.into_inner().topics)
+    }
+
+    /// Get top topics filtered by a specific agent.
+    ///
+    /// # Arguments
+    ///
+    /// * `limit` - Maximum results to return
+    /// * `days` - Look back window in days for importance calculation
+    /// * `agent_id` - Agent identifier to filter topics by
+    pub async fn get_top_topics_for_agent(
+        &mut self,
+        limit: u32,
+        days: u32,
+        agent_id: &str,
+    ) -> Result<Vec<ProtoTopic>, ClientError> {
+        debug!(
+            "GetTopTopics request: limit={}, days={}, agent={}",
+            limit, days, agent_id
+        );
+        let request = tonic::Request::new(GetTopTopicsRequest {
+            limit,
+            days,
+            agent_filter: Some(agent_id.to_string()),
+        });
         let response = self.inner.get_top_topics(request).await?;
         Ok(response.into_inner().topics)
     }
