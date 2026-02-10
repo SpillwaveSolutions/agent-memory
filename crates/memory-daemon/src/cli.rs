@@ -568,6 +568,18 @@ pub enum AgentsCommand {
         #[arg(long, default_value = "http://[::1]:50051")]
         addr: String,
     },
+    /// Show top topics for an agent
+    Topics {
+        /// Agent ID to show topics for
+        #[arg(long, short = 'a')]
+        agent: String,
+        /// Maximum number of topics to return
+        #[arg(long, short = 'n', default_value = "10")]
+        limit: u32,
+        /// gRPC server address
+        #[arg(long, default_value = "http://[::1]:50051")]
+        addr: String,
+    },
 }
 
 impl Cli {
@@ -1533,6 +1545,50 @@ mod tests {
                 assert_eq!(agent, Some("opencode".to_string()));
             }
             _ => panic!("Expected Agents Activity command"),
+        }
+    }
+
+    // === Phase 23: Agent Topics CLI Tests ===
+
+    #[test]
+    fn test_cli_agents_topics_defaults() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "agents",
+            "topics",
+            "--agent",
+            "claude",
+        ]);
+        match cli.command {
+            Commands::Agents(AgentsCommand::Topics { agent, limit, addr }) => {
+                assert_eq!(agent, "claude");
+                assert_eq!(limit, 10);
+                assert_eq!(addr, "http://[::1]:50051");
+            }
+            _ => panic!("Expected Agents Topics command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_agents_topics_with_options() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "agents",
+            "topics",
+            "-a",
+            "opencode",
+            "-n",
+            "5",
+            "--addr",
+            "http://localhost:9999",
+        ]);
+        match cli.command {
+            Commands::Agents(AgentsCommand::Topics { agent, limit, addr }) => {
+                assert_eq!(agent, "opencode");
+                assert_eq!(limit, 5);
+                assert_eq!(addr, "http://localhost:9999");
+            }
+            _ => panic!("Expected Agents Topics command"),
         }
     }
 

@@ -2426,6 +2426,9 @@ pub async fn handle_agents_command(cmd: AgentsCommand) -> Result<()> {
             )
             .await
         }
+        AgentsCommand::Topics { agent, limit, addr } => {
+            agents_topics(&agent, limit, &addr).await
+        }
     }
 }
 
@@ -2514,6 +2517,43 @@ async fn agents_activity(
         println!(
             "  {:<14} {:<16} {:>8}",
             date_str, b.agent_id, b.event_count
+        );
+    }
+
+    Ok(())
+}
+
+/// Show top topics for a specific agent.
+async fn agents_topics(agent: &str, limit: u32, addr: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    let topics = client
+        .get_top_topics_for_agent(limit, 30, agent)
+        .await
+        .context("Failed to get topics for agent")?;
+
+    if topics.is_empty() {
+        println!("No topics found for agent '{}'.", agent);
+        return Ok(());
+    }
+
+    println!("Top Topics for agent \"{}\":", agent);
+    println!("  {:<4} {:<30} {:>10}  KEYWORDS", "#", "TOPIC", "IMPORTANCE");
+
+    for (i, topic) in topics.iter().enumerate() {
+        let keywords = if topic.keywords.is_empty() {
+            String::new()
+        } else {
+            topic.keywords.join(", ")
+        };
+        println!(
+            "  {:<4} {:<30} {:>10.4}  {}",
+            i + 1,
+            truncate_text(&topic.label, 28),
+            topic.importance_score,
+            truncate_text(&keywords, 40),
         );
     }
 
