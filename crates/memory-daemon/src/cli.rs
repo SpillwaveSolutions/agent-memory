@@ -93,6 +93,32 @@ pub enum Commands {
     /// Agent discovery commands
     #[command(subcommand)]
     Agents(AgentsCommand),
+
+    /// CLOD format commands (convert and validate)
+    #[command(subcommand)]
+    Clod(ClodCliCommand),
+}
+
+/// CLOD (Cross-Language Operation Definition) commands
+#[derive(Subcommand, Debug, Clone)]
+pub enum ClodCliCommand {
+    /// Convert a CLOD definition to adapter-specific files
+    Convert {
+        /// Path to CLOD definition file (.toml)
+        #[arg(long)]
+        input: String,
+        /// Target adapter: claude, opencode, gemini, copilot, all
+        #[arg(long)]
+        target: String,
+        /// Output directory
+        #[arg(long)]
+        out: String,
+    },
+    /// Validate a CLOD definition file
+    Validate {
+        /// Path to CLOD definition file (.toml)
+        input: String,
+    },
 }
 
 /// Query subcommands
@@ -1507,6 +1533,72 @@ mod tests {
                 assert_eq!(agent, Some("opencode".to_string()));
             }
             _ => panic!("Expected Agents Activity command"),
+        }
+    }
+
+    // === Phase 23: CLOD CLI Tests ===
+
+    #[test]
+    fn test_cli_clod_convert() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "clod",
+            "convert",
+            "--input",
+            "memory-search.toml",
+            "--target",
+            "all",
+            "--out",
+            "/tmp/adapters",
+        ]);
+        match cli.command {
+            Commands::Clod(ClodCliCommand::Convert {
+                input,
+                target,
+                out,
+            }) => {
+                assert_eq!(input, "memory-search.toml");
+                assert_eq!(target, "all");
+                assert_eq!(out, "/tmp/adapters");
+            }
+            _ => panic!("Expected Clod Convert command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_clod_convert_single_target() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "clod",
+            "convert",
+            "--input",
+            "cmd.toml",
+            "--target",
+            "gemini",
+            "--out",
+            "./out",
+        ]);
+        match cli.command {
+            Commands::Clod(ClodCliCommand::Convert { target, .. }) => {
+                assert_eq!(target, "gemini");
+            }
+            _ => panic!("Expected Clod Convert command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_clod_validate() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "clod",
+            "validate",
+            "memory-search.toml",
+        ]);
+        match cli.command {
+            Commands::Clod(ClodCliCommand::Validate { input }) => {
+                assert_eq!(input, "memory-search.toml");
+            }
+            _ => panic!("Expected Clod Validate command"),
         }
     }
 }

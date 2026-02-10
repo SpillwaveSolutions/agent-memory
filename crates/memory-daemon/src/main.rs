@@ -22,9 +22,9 @@ use anyhow::Result;
 use clap::Parser;
 
 use memory_daemon::{
-    handle_admin, handle_agents_command, handle_query, handle_retrieval_command, handle_scheduler,
-    handle_teleport_command, handle_topics_command, show_status, start_daemon, stop_daemon, Cli,
-    Commands,
+    handle_admin, handle_agents_command, handle_clod_command, handle_query,
+    handle_retrieval_command, handle_scheduler, handle_teleport_command, handle_topics_command,
+    show_status, start_daemon, stop_daemon, Cli, Commands,
 };
 
 #[tokio::main]
@@ -72,6 +72,9 @@ async fn main() -> Result<()> {
         }
         Commands::Agents(cmd) => {
             handle_agents_command(cmd).await?;
+        }
+        Commands::Clod(cmd) => {
+            handle_clod_command(cmd).await?;
         }
     }
 

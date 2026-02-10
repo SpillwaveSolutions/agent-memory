@@ -33,8 +33,8 @@ use memory_toc::summarizer::MockSummarizer;
 use memory_types::Settings;
 
 use crate::cli::{
-    AdminCommands, AgentsCommand, QueryCommands, RetrievalCommand, SchedulerCommands,
-    TeleportCommand, TopicsCommand,
+    AdminCommands, AgentsCommand, ClodCliCommand, QueryCommands, RetrievalCommand,
+    SchedulerCommands, TeleportCommand, TopicsCommand,
 };
 
 /// Get the PID file path
@@ -2539,6 +2539,84 @@ fn format_utc_timestamp(ms: i64) -> String {
     chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
         .map(|t| t.format("%Y-%m-%d %H:%M UTC").to_string())
         .unwrap_or_else(|| "Invalid".to_string())
+}
+
+/// Handle CLOD format commands (convert and validate).
+pub async fn handle_clod_command(cmd: ClodCliCommand) -> Result<()> {
+    use crate::clod;
+    use std::path::Path;
+
+    match cmd {
+        ClodCliCommand::Convert { input, target, out } => {
+            let input_path = Path::new(&input);
+            let out_path = Path::new(&out);
+
+            let def = clod::parse_clod(input_path)?;
+
+            let files = match target.to_lowercase().as_str() {
+                "claude" => vec![clod::generate_claude(&def, out_path)?],
+                "opencode" => vec![clod::generate_opencode(&def, out_path)?],
+                "gemini" => vec![clod::generate_gemini(&def, out_path)?],
+                "copilot" => vec![clod::generate_copilot(&def, out_path)?],
+                "all" => clod::generate_all(&def, out_path)?,
+                other => anyhow::bail!(
+                    "Unknown target '{}'. Use: claude, opencode, gemini, copilot, all",
+                    other
+                ),
+            };
+
+            println!(
+                "Generated {} file(s) from CLOD definition '{}':",
+                files.len(),
+                def.command.name
+            );
+            for f in &files {
+                println!("  {}", f);
+            }
+        }
+        ClodCliCommand::Validate { input } => {
+            let input_path = Path::new(&input);
+            let def = clod::parse_clod(input_path)?;
+
+            let required_count = def.command.parameters.iter().filter(|p| p.required).count();
+            let optional_count = def.command.parameters.len() - required_count;
+            let step_count = def.process.as_ref().map_or(0, |p| p.steps.len());
+
+            // Collect configured adapters
+            let mut adapter_names = Vec::new();
+            if let Some(ref adapters) = def.adapters {
+                if adapters.claude.is_some() {
+                    adapter_names.push("claude");
+                }
+                if adapters.opencode.is_some() {
+                    adapter_names.push("opencode");
+                }
+                if adapters.gemini.is_some() {
+                    adapter_names.push("gemini");
+                }
+                if adapters.copilot.is_some() {
+                    adapter_names.push("copilot");
+                }
+            }
+
+            println!(
+                "Valid CLOD definition: {} v{}",
+                def.command.name, def.command.version
+            );
+            println!(
+                "  Parameters: {} ({} required, {} optional)",
+                def.command.parameters.len(),
+                required_count,
+                optional_count
+            );
+            println!("  Steps: {}", step_count);
+            if !adapter_names.is_empty() {
+                println!("  Adapters: {}", adapter_names.join(", "));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Format a Unix timestamp in milliseconds as a date-only UTC string.

@@ -121,5 +121,8 @@ usearch = "2"
 # Clustering
 hdbscan = "0.12"
 
+# TOML parsing
+toml = "0.8"
+
 # Futures utilities
 futures = "0.3"
