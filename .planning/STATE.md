@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 23 — Cross-Agent Discovery — In Progress
-Plan: 1 of 3 complete
-Status: Phase 23 Plan 01 complete (3 tasks, 11 files); Plans 02-03 pending
-Last activity: 2026-02-10 — Phase 23 Plan 01 executed (ListAgents/GetAgentActivity RPCs, CLI commands, docs)
+Phase: 23 — Cross-Agent Discovery — Complete
+Plan: 3 of 3 complete
+Status: Phase 23 complete (Plans 01-03 all executed); v2.1 milestone complete
+Last activity: 2026-02-10 — Phase 23 Plan 03 executed (CLOD spec, converter CLI, cross-agent docs, README/UPGRADING updates)
 
-Progress v2.1: [████████████████░░░░] 83% (5/6 phases) — Phase 23 in progress
+Progress v2.1: [████████████████████] 100% (6/6 phases) — All phases complete
 
 ## Milestone History
 
@@ -88,7 +88,7 @@ Full decision log in PROJECT.md Key Decisions table.
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
 | 21 | Gemini CLI Adapter | Complete (4/4 plans, incl. gap closure) |
 | 22 | Copilot CLI Adapter | Complete (3/3 plans) |
-| 23 | Cross-Agent Discovery + Documentation | In Progress (1/3 plans) |
+| 23 | Cross-Agent Discovery + Documentation | Complete (3/3 plans) |
 
 ### Phase 21 Decisions
 
@@ -136,11 +136,15 @@ Full decision log in PROJECT.md Key Decisions table.
 - Fixed pre-existing get_toc_nodes_by_level versioned key prefix bug in storage
 - parse_time_arg accepts both YYYY-MM-DD and epoch ms for CLI flexibility
 - AgentDiscoveryHandler follows Arc<Storage> handler pattern matching existing service modules
+- CLOD uses TOML format (matches Gemini commands, human-readable, Rust ecosystem native)
+- Simple format! generators for adapter file generation (no template engine needed)
+- UPGRADING.md uses v2.2.0 numbering for multi-agent ecosystem (v2.1 was ranking enhancements)
+- toml 0.8 crate added to workspace dependencies for CLOD parsing
 
 ## Next Steps
 
-1. Execute Phase 23 Plans 02-03 (remaining cross-agent discovery + documentation)
-2. Complete v2.1 milestone
+1. v2.1 Multi-Agent Ecosystem milestone complete
+2. Tag release and prepare for v2.2 planning
 
 ## Phase 21 Summary
 
@@ -236,4 +240,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Verification:** All must-haves passed across all 3 plans
 
 ---
-*Updated: 2026-02-10 after Phase 23 Plan 01 execution (ListAgents/GetAgentActivity RPCs, CLI, docs)*
+*Updated: 2026-02-10 after Phase 23 Plan 03 execution (CLOD spec, converter CLI, cross-agent docs, v2.1 milestone complete)*
