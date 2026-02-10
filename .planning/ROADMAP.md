@@ -130,9 +130,9 @@ Plans:
 **Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 21-01-PLAN.md — Hook capture script and settings.json configuration
-- [ ] 21-02-PLAN.md — TOML commands and skills with embedded navigator
-- [ ] 21-03-PLAN.md — Install skill, README, and documentation
+- [x] 21-01-PLAN.md — Hook capture script and settings.json configuration
+- [x] 21-02-PLAN.md — TOML commands and skills with embedded navigator
+- [x] 21-03-PLAN.md — Install skill, README, and documentation
 
 **Scope:**
 - Create hook handler shell script for Gemini lifecycle event capture
@@ -152,10 +152,12 @@ Plans:
 - `plugins/memory-gemini-adapter/README.md` — Setup guide
 
 **Definition of done:**
-- [ ] Gemini sessions captured with `agent:gemini` tag
-- [ ] Commands work via Gemini interface
-- [ ] Cross-agent queries include Gemini memories
-- [ ] Installation guide tested on fresh system
+- [x] Gemini sessions captured with `agent:gemini` tag
+- [x] Commands work via Gemini interface
+- [x] Cross-agent queries include Gemini memories
+- [x] Installation guide tested on fresh system
+
+**Completed:** 2026-02-10
 
 ---
 
