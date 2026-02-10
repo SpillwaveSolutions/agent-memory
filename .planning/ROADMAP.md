@@ -169,9 +169,9 @@ Plans:
 **Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 22-01-PLAN.md — Hook capture script with session ID synthesis and hook config
-- [ ] 22-02-PLAN.md — Skills, navigator agent, and plugin manifest
-- [ ] 22-03-PLAN.md — Install skill, README, and documentation
+- [x] 22-01-PLAN.md — Hook capture script with session ID synthesis and hook config
+- [x] 22-02-PLAN.md — Skills, navigator agent, and plugin manifest
+- [x] 22-03-PLAN.md — Install skill, README, and documentation
 
 **Scope:**
 - Create hook handler shell script with session ID synthesis (Copilot does not provide session_id)
@@ -193,11 +193,13 @@ Plans:
 - `plugins/memory-copilot-adapter/README.md` — Setup guide
 
 **Definition of done:**
-- [ ] Copilot sessions captured with `agent:copilot` tag
-- [ ] Skills work via Copilot interface (auto-activated)
-- [ ] Navigator agent available via /agent or auto-inference
-- [ ] Cross-agent queries include Copilot memories
-- [ ] Installation guide covers plugin install + per-project + manual
+- [x] Copilot sessions captured with `agent:copilot` tag
+- [x] Skills work via Copilot interface (auto-activated)
+- [x] Navigator agent available via /agent or auto-inference
+- [x] Cross-agent queries include Copilot memories
+- [x] Installation guide covers plugin install + per-project + manual
+
+**Completed:** 2026-02-10
 
 ---
 
