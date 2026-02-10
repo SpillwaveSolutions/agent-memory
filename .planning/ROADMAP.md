@@ -224,17 +224,19 @@ Plans:
 - `docs/adapters/clod-format.md` — CLOD specification (optional)
 
 **Definition of done:**
-- [ ] `memory-daemon agents list` shows all contributing agents
-- [ ] Agent activity visible in query results
-- [ ] Documentation covers all three adapters
-- [ ] Plugin authoring guide enables community contributions
+- [x] `memory-daemon agents list` shows all contributing agents
+- [x] Agent activity visible in query results
+- [x] Documentation covers all three adapters
+- [x] Plugin authoring guide enables community contributions
 
 **Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 23-01-PLAN.md — Agent insights RPC/CLI (list, activity)
-- [ ] 23-02-PLAN.md — Agent-aware topics and CLI surfacing
-- [ ] 23-03-PLAN.md — CLOD spec + converter CLI + cross-agent/authoring docs
+- [x] 23-01-PLAN.md — Agent insights RPC/CLI (list, activity)
+- [x] 23-02-PLAN.md — Agent-aware topics and CLI surfacing
+- [x] 23-03-PLAN.md — CLOD spec + converter CLI + cross-agent/authoring docs
+
+**Completed:** 2026-02-10
 
 ---
 
