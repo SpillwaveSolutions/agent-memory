@@ -127,19 +127,29 @@ Plans:
 
 **Goal:** Create Gemini CLI hook adapter with full Claude parity.
 
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 21-01-PLAN.md — Hook capture script and settings.json configuration
+- [ ] 21-02-PLAN.md — TOML commands and skills with embedded navigator
+- [ ] 21-03-PLAN.md — Install skill, README, and documentation
+
 **Scope:**
-- Research Gemini CLI hook format and lifecycle
-- Create hook configuration for session capture
-- Port commands to Gemini-compatible format
+- Create hook handler shell script for Gemini lifecycle event capture
+- Create settings.json hook configuration for 6 event types
+- Port commands to TOML format with {{args}} substitution
+- Copy skills with navigator logic embedded in memory-query
+- Create install skill for automated setup
 - Implement `agent:gemini` tagging
 
 **Requirements:** R2.1.1-R2.1.5, R2.2.1-R2.2.4, R2.3.1-R2.3.3
 
 **Files to create:**
-- `plugins/memory-gemini-adapter/` — Adapter plugin
-- `plugins/memory-gemini-adapter/hooks/` — Gemini hook configs
-- `plugins/memory-gemini-adapter/scripts/` — CLI wrappers
-- `docs/adapters/gemini-installation.md` — Setup guide
+- `plugins/memory-gemini-adapter/.gemini/hooks/memory-capture.sh` — Hook handler script
+- `plugins/memory-gemini-adapter/.gemini/settings.json` — Hook configuration
+- `plugins/memory-gemini-adapter/.gemini/commands/` — TOML command files
+- `plugins/memory-gemini-adapter/.gemini/skills/` — Skill directories
+- `plugins/memory-gemini-adapter/README.md` — Setup guide
 
 **Definition of done:**
 - [ ] Gemini sessions captured with `agent:gemini` tag
@@ -207,15 +217,15 @@ Plans:
 
 ```
 Phase 18 (Infrastructure)
-    │
-    ├──► Phase 19 (OpenCode Commands)
-    │        │
-    │        └──► Phase 20 (OpenCode Capture + Unified)
-    │
-    ├──► Phase 21 (Gemini Adapter) ─┐
-    │                                │
-    └──► Phase 22 (Copilot Adapter) ─┼──► Phase 23 (Discovery + Docs)
-                                     │
+    |
+    |---> Phase 19 (OpenCode Commands)
+    |        |
+    |        \---> Phase 20 (OpenCode Capture + Unified)
+    |
+    |---> Phase 21 (Gemini Adapter) --\
+    |                                  |
+    \---> Phase 22 (Copilot Adapter) --+---> Phase 23 (Discovery + Docs)
+                                       |
 ```
 
 - Phase 19-22 can run in parallel after Phase 18
