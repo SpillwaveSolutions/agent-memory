@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 22 — Copilot CLI Adapter — Complete
-Plan: 3 of 3 complete
-Status: Phase 22 complete (3/3 plans, 6 tasks, 17 files); Phase 23 ready
-Last activity: 2026-02-10 — Phase 22 Plan 03 executed (install skill, README, .gitignore)
+Phase: 23 — Cross-Agent Discovery — In Progress
+Plan: 1 of 3 complete
+Status: Phase 23 Plan 01 complete (3 tasks, 11 files); Plans 02-03 pending
+Last activity: 2026-02-10 — Phase 23 Plan 01 executed (ListAgents/GetAgentActivity RPCs, CLI commands, docs)
 
-Progress v2.1: [████████████████░░░░] 83% (5/6 phases) — Phase 23 pending
+Progress v2.1: [████████████████░░░░] 83% (5/6 phases) — Phase 23 in progress
 
 ## Milestone History
 
@@ -88,7 +88,7 @@ Full decision log in PROJECT.md Key Decisions table.
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
 | 21 | Gemini CLI Adapter | Complete (4/4 plans, incl. gap closure) |
 | 22 | Copilot CLI Adapter | Complete (3/3 plans) |
-| 23 | Cross-Agent Discovery + Documentation | Ready |
+| 23 | Cross-Agent Discovery + Documentation | In Progress (1/3 plans) |
 
 ### Phase 21 Decisions
 
@@ -129,9 +129,17 @@ Full decision log in PROJECT.md Key Decisions table.
 - README documents all Copilot-specific gaps: AssistantResponse, SubagentStart/Stop, Bug #991 per-prompt
 - Adapter comparison table covers Copilot vs Gemini vs Claude Code across 11 dimensions
 
+### Phase 23 Decisions
+
+- Approximate event_count from TOC node count (O(k)) instead of O(n) event scan
+- session_count = 0 since not available from TOC alone; exact counts deferred
+- Fixed pre-existing get_toc_nodes_by_level versioned key prefix bug in storage
+- parse_time_arg accepts both YYYY-MM-DD and epoch ms for CLI flexibility
+- AgentDiscoveryHandler follows Arc<Storage> handler pattern matching existing service modules
+
 ## Next Steps
 
-1. Execute Phase 23 (Cross-Agent Discovery + Documentation)
+1. Execute Phase 23 Plans 02-03 (remaining cross-agent discovery + documentation)
 2. Complete v2.1 milestone
 
 ## Phase 21 Summary
@@ -228,4 +236,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Verification:** All must-haves passed across all 3 plans
 
 ---
-*Updated: 2026-02-10 after Phase 22 Plan 03 execution (install skill, README, .gitignore)*
+*Updated: 2026-02-10 after Phase 23 Plan 01 execution (ListAgents/GetAgentActivity RPCs, CLI, docs)*
