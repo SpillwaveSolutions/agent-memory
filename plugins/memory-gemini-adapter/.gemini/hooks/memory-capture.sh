@@ -41,6 +41,13 @@ main_logic() {
     return 0
   fi
 
+  # Detect jq walk() capability (requires jq 1.6+)
+  # Uses runtime check instead of version string parsing for reliability
+  JQ_HAS_WALK=false
+  if jq -n 'walk(.)' >/dev/null 2>&1; then
+    JQ_HAS_WALK=true
+  fi
+
   # Read all of stdin (Gemini sends JSON via stdin)
   INPUT=$(cat) || return 0
 
@@ -51,7 +58,13 @@ main_logic() {
 
   # Strip ANSI escape sequences from input
   # Gemini CLI can emit colored/streaming output that contaminates JSON
-  INPUT=$(printf '%s' "$INPUT" | sed $'s/\x1b\[[0-9;]*[a-zA-Z]//g') || return 0
+  # Handles CSI sequences (ESC[...X), OSC sequences (ESC]...ST), and other escapes
+  if command -v perl >/dev/null 2>&1; then
+    INPUT=$(printf '%s' "$INPUT" | perl -pe 's/\e\[[0-9;]*[A-Za-z]//g; s/\e\][^\a\e]*(?:\a|\e\\)//g; s/\e[^[\]].//g') || return 0
+  else
+    # Fallback: sed handles CSI only (most common case)
+    INPUT=$(printf '%s' "$INPUT" | sed $'s/\x1b\[[0-9;]*[a-zA-Z]//g') || return 0
+  fi
 
   # Guard: verify input is valid JSON
   if ! echo "$INPUT" | jq empty 2>/dev/null; then
@@ -71,7 +84,13 @@ main_logic() {
 
   # Redaction filter for sensitive fields in objects
   # Removes keys matching common secret patterns (case-insensitive)
-  REDACT_FILTER='walk(if type == "object" then with_entries(select(.key | test("api_key|token|secret|password|credential|authorization"; "i") | not)) else . end)'
+  if [ "$JQ_HAS_WALK" = "true" ]; then
+    REDACT_FILTER='walk(if type == "object" then with_entries(select(.key | test("api_key|token|secret|password|credential|authorization"; "i") | not)) else . end)'
+  else
+    # Fallback for jq < 1.6: delete known sensitive keys at top level and one level deep
+    # Does not recurse into nested objects, but catches the common case
+    REDACT_FILTER='del(.api_key, .token, .secret, .password, .credential, .authorization, .API_KEY, .TOKEN, .SECRET, .PASSWORD, .CREDENTIAL, .AUTHORIZATION) | if type == "object" then to_entries | map(if (.value | type) == "object" then .value |= del(.api_key, .token, .secret, .password, .credential, .authorization, .API_KEY, .TOKEN, .SECRET, .PASSWORD, .CREDENTIAL, .AUTHORIZATION) else . end) | from_entries else . end'
+  fi
 
   # Build memory-ingest payload based on event type
   local PAYLOAD=""
