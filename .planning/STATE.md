@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 21 — Gemini CLI Adapter — IN PROGRESS
-Plan: 2 of 3 complete
-Status: Plans 01-02 complete (hooks + commands/skills), Plan 03 remaining (install skill + README)
-Last activity: 2026-02-10 — Phase 21 Plan 02 executed (2 tasks, TOML commands + skills with navigator)
+Phase: 21 — Gemini CLI Adapter — COMPLETE
+Plan: 3 of 3 complete
+Status: All plans complete (hooks, commands/skills, install skill + README)
+Last activity: 2026-02-10 — Phase 21 Plan 03 executed (2 tasks, install skill + README + .gitignore)
 
-Progress v2.1: [██████████░░░░░░░░░░] 50% (3/6 phases)
+Progress v2.1: [█████████████░░░░░░░] 67% (4/6 phases)
 
 ## Milestone History
 
@@ -86,9 +86,9 @@ Full decision log in PROJECT.md Key Decisions table.
 | 18 | Agent Tagging Infrastructure | ✓ Complete |
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
-| 21 | Gemini CLI Adapter | In Progress (2/3 plans) |
+| 21 | Gemini CLI Adapter | Complete (3/3 plans) |
 | 22 | Copilot CLI Adapter | Ready |
-| 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
+| 23 | Cross-Agent Discovery + Documentation | Blocked by 22 |
 
 ### Phase 21 Decisions
 
@@ -101,12 +101,38 @@ Full decision log in PROJECT.md Key Decisions table.
 - Skills are separate copies from OpenCode plugin (not symlinks) for portability
 - TOML commands are self-contained with full instructions (Gemini does not auto-load skills from commands)
 - Parallel invocation instructions included in Navigator Mode for reduced query latency
+- Install skill uses jq recursive merge (*) for settings.json to preserve existing user configuration
+- Install skill excludes itself from global deployment (no need to install the installer)
+- README provides three installation paths: automated skill, manual global, manual per-project
+- Settings.json precedence documented with 5-level hierarchy
 
 ## Next Steps
 
-1. `/gsd:execute-phase 21` — Continue Gemini CLI adapter (Plan 03 remaining: install skill + README)
-2. `/gsd:plan-phase 22` — Plan Copilot CLI adapter
-3. `/gsd:plan-phase 23` — Plan Cross-Agent Discovery + Documentation (after 21 & 22)
+1. `/gsd:plan-phase 22` — Plan Copilot CLI adapter
+2. `/gsd:plan-phase 23` — Plan Cross-Agent Discovery + Documentation (after 22)
+3. Complete v2.1 milestone
+
+## Phase 21 Summary
+
+**Completed:** 2026-02-10
+
+**Artifacts created:**
+- `plugins/memory-gemini-adapter/.gemini/hooks/memory-capture.sh` -- Shell hook handler (185 lines)
+- `plugins/memory-gemini-adapter/.gemini/settings.json` -- Hook configuration template
+- `plugins/memory-gemini-adapter/.gemini/commands/memory-search.toml` -- Search slash command
+- `plugins/memory-gemini-adapter/.gemini/commands/memory-recent.toml` -- Recent slash command
+- `plugins/memory-gemini-adapter/.gemini/commands/memory-context.toml` -- Context slash command
+- `plugins/memory-gemini-adapter/.gemini/skills/memory-query/SKILL.md` -- Core query + Navigator (508 lines)
+- `plugins/memory-gemini-adapter/.gemini/skills/retrieval-policy/SKILL.md` -- Tier detection
+- `plugins/memory-gemini-adapter/.gemini/skills/topic-graph/SKILL.md` -- Topic exploration
+- `plugins/memory-gemini-adapter/.gemini/skills/bm25-search/SKILL.md` -- Keyword search
+- `plugins/memory-gemini-adapter/.gemini/skills/vector-search/SKILL.md` -- Semantic search
+- `plugins/memory-gemini-adapter/.gemini/skills/memory-gemini-install/SKILL.md` -- Install skill (472 lines)
+- `plugins/memory-gemini-adapter/README.md` -- Complete documentation (453 lines)
+- `plugins/memory-gemini-adapter/.gitignore` -- OS/editor ignores
+
+**Plans:** 3 plans, 6 tasks, 16 files
+**Verification:** All must-haves passed across all 3 plans
 
 ## Phase 20 Summary
 
@@ -157,4 +183,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-10 after Phase 21 Plan 02 execution (TOML commands + skills with navigator)*
+*Updated: 2026-02-10 after Phase 21 Plan 03 execution (install skill + README + .gitignore) -- Phase 21 complete*
