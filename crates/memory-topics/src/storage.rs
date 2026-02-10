@@ -600,4 +600,197 @@ mod tests {
     fn test_cf_topic_relationships_alias() {
         assert_eq!(CF_TOPIC_RELATIONSHIPS, CF_TOPIC_RELS);
     }
+
+    // === Phase 23: Agent-filtered topic query tests ===
+
+    use memory_types::{TocLevel, TocNode};
+    use tempfile::TempDir;
+
+    /// Helper: create a temp storage for integration-style tests.
+    fn create_test_storage() -> (TempDir, Arc<Storage>) {
+        let dir = TempDir::new().unwrap();
+        let storage = Storage::open(dir.path()).unwrap();
+        (dir, Arc::new(storage))
+    }
+
+    /// Helper: create a test topic with given ID, label, and importance score.
+    fn create_topic_with_score(id: &str, label: &str, importance: f64) -> Topic {
+        let mut topic = Topic::new(id.to_string(), label.to_string(), vec![0.1, 0.2, 0.3]);
+        topic.importance_score = importance;
+        topic
+    }
+
+    /// Helper: create and store a TocNode with contributing agents.
+    fn store_toc_node(storage: &Storage, node_id: &str, agents: &[&str]) {
+        let now = chrono::Utc::now();
+        let mut node = TocNode::new(
+            node_id.to_string(),
+            TocLevel::Day,
+            format!("Node {}", node_id),
+            now,
+            now,
+        );
+        for agent in agents {
+            node = node.with_contributing_agent(*agent);
+        }
+        storage.put_toc_node(&node).unwrap();
+    }
+
+    #[test]
+    fn test_get_topics_for_agent_returns_matching_topics() {
+        let (_dir, storage) = create_test_storage();
+        let topic_storage = TopicStorage::new(storage.clone());
+
+        // Create 3 topics
+        let t1 = create_topic_with_score("t1", "Memory Retrieval", 0.9);
+        let t2 = create_topic_with_score("t2", "Agent Config", 0.8);
+        let t3 = create_topic_with_score("t3", "Testing Patterns", 0.7);
+        topic_storage.save_topic(&t1).unwrap();
+        topic_storage.save_topic(&t2).unwrap();
+        topic_storage.save_topic(&t3).unwrap();
+
+        // Store TocNodes: node1 has "claude", node2 has "claude", node3 has "opencode"
+        store_toc_node(&storage, "node-1", &["claude"]);
+        store_toc_node(&storage, "node-2", &["claude"]);
+        store_toc_node(&storage, "node-3", &["opencode"]);
+
+        // Link: t1 -> node-1, t2 -> node-2, t3 -> node-3
+        topic_storage
+            .save_link(&TopicLink::new("t1".to_string(), "node-1".to_string(), 0.9))
+            .unwrap();
+        topic_storage
+            .save_link(&TopicLink::new("t2".to_string(), "node-2".to_string(), 0.8))
+            .unwrap();
+        topic_storage
+            .save_link(&TopicLink::new("t3".to_string(), "node-3".to_string(), 0.7))
+            .unwrap();
+
+        // Query for "claude" topics
+        let results = topic_storage
+            .get_topics_for_agent(&storage, "claude", 10)
+            .unwrap();
+
+        assert_eq!(results.len(), 2, "Expected 2 topics for claude");
+        let topic_ids: Vec<&str> = results.iter().map(|(t, _)| t.topic_id.as_str()).collect();
+        assert!(topic_ids.contains(&"t1"), "Should contain t1");
+        assert!(topic_ids.contains(&"t2"), "Should contain t2");
+        assert!(
+            !topic_ids.contains(&"t3"),
+            "Should NOT contain t3 (opencode)"
+        );
+    }
+
+    #[test]
+    fn test_get_topics_for_agent_empty_when_no_match() {
+        let (_dir, storage) = create_test_storage();
+        let topic_storage = TopicStorage::new(storage.clone());
+
+        // Create a topic linked to opencode
+        let t1 = create_topic_with_score("t1", "Topic A", 0.9);
+        topic_storage.save_topic(&t1).unwrap();
+        store_toc_node(&storage, "node-1", &["opencode"]);
+        topic_storage
+            .save_link(&TopicLink::new("t1".to_string(), "node-1".to_string(), 0.9))
+            .unwrap();
+
+        // Query for "claude" should return empty
+        let results = topic_storage
+            .get_topics_for_agent(&storage, "claude", 10)
+            .unwrap();
+
+        assert!(results.is_empty(), "Expected no topics for claude");
+    }
+
+    #[test]
+    fn test_get_topics_for_agent_respects_limit() {
+        let (_dir, storage) = create_test_storage();
+        let topic_storage = TopicStorage::new(storage.clone());
+
+        // Create 5 topics all linked to "claude"
+        for i in 0..5 {
+            let t = create_topic_with_score(
+                &format!("t{}", i),
+                &format!("Topic {}", i),
+                0.9 - (i as f64 * 0.1),
+            );
+            topic_storage.save_topic(&t).unwrap();
+
+            let node_id = format!("node-{}", i);
+            store_toc_node(&storage, &node_id, &["claude"]);
+            topic_storage
+                .save_link(&TopicLink::new(
+                    format!("t{}", i),
+                    node_id,
+                    0.9 - (i as f32 * 0.1),
+                ))
+                .unwrap();
+        }
+
+        // Query with limit=3
+        let results = topic_storage
+            .get_topics_for_agent(&storage, "claude", 3)
+            .unwrap();
+
+        assert_eq!(results.len(), 3, "Expected exactly 3 results with limit=3");
+    }
+
+    #[test]
+    fn test_get_topics_for_agent_sorted_by_importance() {
+        let (_dir, storage) = create_test_storage();
+        let topic_storage = TopicStorage::new(storage.clone());
+
+        // Create topics with different importance scores
+        let t_low = create_topic_with_score("t-low", "Low Importance", 0.3);
+        let t_mid = create_topic_with_score("t-mid", "Mid Importance", 0.6);
+        let t_high = create_topic_with_score("t-high", "High Importance", 0.9);
+
+        // Save in random order
+        topic_storage.save_topic(&t_mid).unwrap();
+        topic_storage.save_topic(&t_low).unwrap();
+        topic_storage.save_topic(&t_high).unwrap();
+
+        // All linked to same agent with same relevance
+        for (id, node_id) in &[("t-low", "node-l"), ("t-mid", "node-m"), ("t-high", "node-h")] {
+            store_toc_node(&storage, node_id, &["claude"]);
+            topic_storage
+                .save_link(&TopicLink::new(
+                    id.to_string(),
+                    node_id.to_string(),
+                    0.9,
+                ))
+                .unwrap();
+        }
+
+        let results = topic_storage
+            .get_topics_for_agent(&storage, "claude", 10)
+            .unwrap();
+
+        assert_eq!(results.len(), 3);
+        // Results should be sorted by importance*relevance descending
+        assert_eq!(results[0].0.topic_id, "t-high");
+        assert_eq!(results[1].0.topic_id, "t-mid");
+        assert_eq!(results[2].0.topic_id, "t-low");
+    }
+
+    #[test]
+    fn test_get_topics_for_agent_case_insensitive() {
+        let (_dir, storage) = create_test_storage();
+        let topic_storage = TopicStorage::new(storage.clone());
+
+        let t1 = create_topic_with_score("t1", "Topic A", 0.9);
+        topic_storage.save_topic(&t1).unwrap();
+
+        // TocNode stores agents lowercase via with_contributing_agent
+        store_toc_node(&storage, "node-1", &["Claude"]);
+        topic_storage
+            .save_link(&TopicLink::new("t1".to_string(), "node-1".to_string(), 0.9))
+            .unwrap();
+
+        // Query with uppercase should still match
+        let results = topic_storage
+            .get_topics_for_agent(&storage, "CLAUDE", 10)
+            .unwrap();
+
+        assert_eq!(results.len(), 1, "Case-insensitive match should work");
+    }
 }
