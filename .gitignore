@@ -50,5 +50,11 @@ coverage/
 !**/.opencode
 !**/.opencode/
 
+# Override global gitignore for Gemini adapter plugin files
+!.gemini
+!.gemini/
+!**/.gemini
+!**/.gemini/
+
 # Local Cargo configuration (platform-specific)
 .cargo/

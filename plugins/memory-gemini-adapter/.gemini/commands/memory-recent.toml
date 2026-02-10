@@ -1,0 +1,101 @@
+description = "Show recent conversation summaries from agent-memory"
+
+prompt = """
+Display recent conversation summaries from the agent-memory system.
+
+## Arguments
+
+The user's input follows this instruction as `{{args}}`. Parse the arguments:
+- `--days <N>`: Number of days to look back (default: 7)
+- `--limit <N>`: Maximum number of segments to show (default: 10)
+- `--agent <value>`: Filter by agent (optional, e.g., "gemini", "claude", "opencode")
+
+If `{{args}}` is empty, use the defaults (last 7 days, up to 10 segments).
+
+## Process
+
+### Step 1: Check Daemon Status
+
+```bash
+memory-daemon status
+```
+
+If the daemon is not running, tell the user to start it with `memory-daemon start` and stop.
+
+### Step 2: Get TOC Root
+
+Get the root of the Table of Contents to find available time periods:
+
+```bash
+memory-daemon query --endpoint http://[::1]:50051 root
+```
+
+This returns year-level nodes. Identify the current year.
+
+### Step 3: Navigate to Current Period
+
+Browse into the current month to find recent day nodes:
+
+```bash
+# Browse the current year
+memory-daemon query --endpoint http://[::1]:50051 browse --parent-id "toc:year:2026" --limit 12
+
+# Browse the current month
+memory-daemon query --endpoint http://[::1]:50051 browse --parent-id "toc:month:2026-02" --limit 31
+```
+
+### Step 4: Collect Recent Day Nodes
+
+For each day within the requested range (default: last 7 days), browse that day's segments:
+
+```bash
+# Browse a specific day
+memory-daemon query --endpoint http://[::1]:50051 browse --parent-id "toc:day:2026-02-10" --limit 20
+```
+
+Collect segment summaries, bullet points, and grip IDs from each day node.
+
+### Step 5: If Agent Filter Specified
+
+If `--agent` was provided, note this in the output. The TOC nodes may include metadata about which agent produced the conversation. Filter or highlight accordingly.
+
+### Step 6: Format and Present Results
+
+Present the recent conversations with timestamps and grip IDs.
+
+## Output Format
+
+Format the results as follows:
+
+```markdown
+## Recent Conversations (Last [N] Days)
+
+### [Date - e.g., Monday, February 10, 2026]
+**Topics:** [keywords from day node]
+**Segments:**
+1. **[Time - e.g., 14:30]** - [segment summary/title]
+   - [bullet point] `grip:ID`
+   - [bullet point] `grip:ID`
+
+2. **[Time - e.g., 09:15]** - [segment summary/title]
+   - [bullet point] `grip:ID`
+
+### [Previous Date]
+**Topics:** [keywords from day node]
+**Segments:**
+1. **[Time]** - [segment summary/title]
+   - [bullet point] `grip:ID`
+
+---
+Total: [N] segments across [M] days
+Expand any excerpt with: /memory-context grip:ID
+Search by topic with: /memory-search [topic]
+```
+
+## Error Handling
+
+- **Daemon not running:** Tell the user to run `memory-daemon start`
+- **No recent data:** Inform the user that no conversations have been captured in the requested time range. Suggest checking if the hook is properly configured.
+- **Connection refused:** The daemon may not be running. Suggest `memory-daemon start`
+- **Empty TOC:** No events have been ingested yet. Suggest checking the hook installation.
+"""

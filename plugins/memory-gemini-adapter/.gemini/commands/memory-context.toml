@@ -1,0 +1,94 @@
+description = "Expand a grip to see full conversation context around an excerpt"
+
+prompt = """
+Expand a grip ID to retrieve full conversation context around a specific excerpt from the agent-memory system.
+
+## Arguments
+
+The user's input follows this instruction as `{{args}}`. Parse the arguments:
+- First positional argument: Grip ID to expand (required, format: `grip:{13-digit-timestamp}:{26-char-ulid}`)
+- `--before <N>`: Number of events to include before the excerpt (default: 3)
+- `--after <N>`: Number of events to include after the excerpt (default: 3)
+
+If `{{args}}` is empty or does not contain a valid grip ID, ask the user to provide one. Suggest using `/memory-search` or `/memory-recent` to find grip IDs first.
+
+## Grip ID Validation
+
+A valid grip ID has the format: `grip:{timestamp_ms}:{ulid}`
+- `timestamp_ms`: Exactly 13 digits (millisecond Unix timestamp)
+- `ulid`: Exactly 26 alphanumeric characters (ULID format)
+
+Example: `grip:1706540400000:01HN4QXKN6YWXVKZ3JMHP4BCDE`
+
+If the format does not match, tell the user the expected format and stop.
+
+## Process
+
+### Step 1: Check Daemon Status
+
+```bash
+memory-daemon status
+```
+
+If the daemon is not running, tell the user to start it with `memory-daemon start` and stop.
+
+### Step 2: Expand the Grip
+
+Use the query expand command to retrieve context around the referenced excerpt:
+
+```bash
+memory-daemon query --endpoint http://[::1]:50051 expand \
+  --grip-id "{{args}}" \
+  --before 3 \
+  --after 3
+```
+
+If `--before` or `--after` were specified in the user's arguments, use those values instead of the defaults.
+
+### Step 3: Format the Conversation Thread
+
+Present the conversation context as a readable thread showing what happened before and after the referenced excerpt.
+
+## Output Format
+
+Format the results as follows:
+
+```markdown
+## Conversation Context
+
+**Grip:** `grip:ID`
+**Timestamp:** [human-readable date and time]
+**Session:** [session ID if available]
+
+### Before ([N] events)
+
+| # | Role | Message |
+|---|------|---------|
+| 1 | user | [message text] |
+| 2 | assistant | [response text] |
+| 3 | user | [message text] |
+
+### Excerpt (Referenced)
+
+> [The full excerpt text that this grip points to]
+
+### After ([N] events)
+
+| # | Role | Message |
+|---|------|---------|
+| 1 | assistant | [continuation text] |
+| 2 | user | [follow-up text] |
+| 3 | assistant | [response text] |
+
+---
+**Source segment:** [segment ID if available]
+Search related: /memory-search [extracted topic]
+```
+
+## Error Handling
+
+- **Daemon not running:** Tell the user to run `memory-daemon start`
+- **Invalid grip format:** Show the expected format `grip:{13-digit-timestamp}:{26-char-ulid}` and suggest using `/memory-search` or `/memory-recent` to find valid grip IDs
+- **Grip not found:** The referenced excerpt may have been pruned or the ID is incorrect. Suggest searching for the topic with `/memory-search`
+- **Connection refused:** The daemon may not be running. Suggest `memory-daemon start`
+"""
