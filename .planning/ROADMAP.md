@@ -127,12 +127,13 @@ Plans:
 
 **Goal:** Create Gemini CLI hook adapter with full Claude parity.
 
-**Plans:** 3 plans in 2 waves
+**Plans:** 4 plans in 2 waves
 
 Plans:
 - [x] 21-01-PLAN.md — Hook capture script and settings.json configuration
 - [x] 21-02-PLAN.md — TOML commands and skills with embedded navigator
 - [x] 21-03-PLAN.md — Install skill, README, and documentation
+- [ ] 21-04-PLAN.md — Gap closure: jq 1.5 compatibility, ANSI stripping, per-project paths
 
 **Scope:**
 - Create hook handler shell script for Gemini lifecycle event capture
