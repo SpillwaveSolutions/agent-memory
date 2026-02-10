@@ -76,6 +76,14 @@ If not found, warn:
 
 **CRITICAL:** jq is required for the hook handler to function. If jq is missing, display a prominent warning that event capture will not work until jq is installed.
 
+If jq is found, also check its version for `walk` support:
+
+```bash
+if ! jq -n 'walk(.)' >/dev/null 2>&1; then
+  echo "NOTE: jq $(jq --version 2>&1) does not support walk(). The hook handler will use a simplified redaction filter. Consider upgrading to jq 1.6+ for full recursive redaction."
+fi
+```
+
 ### Summary
 
 After checking all prerequisites, display a summary:
@@ -106,6 +114,18 @@ Confirm each directory exists after creation:
 [ -d ~/.gemini/commands ] && echo "OK: ~/.gemini/commands" || echo "FAIL: ~/.gemini/commands"
 [ -d ~/.gemini/skills ] && echo "OK: ~/.gemini/skills" || echo "FAIL: ~/.gemini/skills"
 ```
+
+### Per-Project Mode
+
+If the user requests a per-project install (e.g., "install memory for this project", "project-level install", or uses `--project` flag), create directories under the current project root instead of `$HOME`:
+
+```bash
+mkdir -p .gemini/hooks
+mkdir -p .gemini/commands
+mkdir -p .gemini/skills
+```
+
+All subsequent copy operations in Steps 3-6 should target `.gemini/` instead of `~/.gemini/`.
 
 ## Step 3: Copy Hook Handler Script
 
@@ -250,6 +270,35 @@ echo "$EXISTING" | jq --argjson hooks "$HOOKS" '
 ' > ~/.gemini/settings.json
 ```
 
+### Per-Project Path Rewriting
+
+**CRITICAL:** When performing a per-project install, the hook command paths MUST be rewritten from global (`$HOME/.gemini/hooks/memory-capture.sh`) to project-relative (`.gemini/hooks/memory-capture.sh`).
+
+After writing settings.json, rewrite the command paths:
+
+```bash
+# For per-project installs, rewrite hook paths to project-relative
+jq '.hooks |= (if . then
+  walk(if type == "object" and has("command") and (.command | contains("$HOME/.gemini/hooks/")) then
+    .command = (.command | sub("\\$HOME/\\.gemini/hooks/"; ".gemini/hooks/"))
+  else . end)
+else . end)' .gemini/settings.json > .gemini/settings.json.tmp \
+  && mv .gemini/settings.json.tmp .gemini/settings.json
+```
+
+If jq does not support `walk` (jq < 1.6), use sed as fallback:
+
+```bash
+sed -i.bak 's|\$HOME/\.gemini/hooks/|.gemini/hooks/|g' .gemini/settings.json && rm -f .gemini/settings.json.bak
+```
+
+Verify the rewrite:
+
+```bash
+# Should show .gemini/hooks/memory-capture.sh (NOT $HOME/.gemini/hooks/...)
+grep "command" .gemini/settings.json
+```
+
 ### Validate the merge result
 
 ```bash
@@ -388,6 +437,8 @@ Installed Files:
   ~/.gemini/skills/topic-graph/SKILL.md
   ~/.gemini/skills/bm25-search/SKILL.md
   ~/.gemini/skills/vector-search/SKILL.md
+
+For per-project installs, report paths relative to the project root (`.gemini/...`) instead of `~/.gemini/...`.
 
 Warnings:
   [list any missing prerequisites]

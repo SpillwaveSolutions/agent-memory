@@ -27,6 +27,7 @@ memory-daemon retrieval route "your topic" --agent gemini
 - **Gemini CLI:** Requires a version with hook support (`settings.json` hooks system). See [Gemini CLI Hooks Documentation](https://geminicli.com/docs/hooks/).
 - **agent-memory:** v2.1.0 or later (memory-daemon and memory-ingest binaries)
 - **jq:** Required for the hook handler script (JSON processing)
+  - jq 1.6+ recommended (full recursive redaction via `walk`). jq 1.5 is supported with a simplified non-recursive redaction filter.
 
 ## Prerequisites
 
@@ -35,7 +36,7 @@ memory-daemon retrieval route "your topic" --agent gemini
 | memory-daemon | Yes | Stores and indexes conversation events |
 | memory-ingest | Yes | Receives hook events via stdin pipe |
 | Gemini CLI | Yes | The CLI tool being integrated |
-| jq | Yes | JSON processing in the hook handler script |
+| jq | Yes | JSON processing in the hook handler script (1.6+ recommended for full redaction; 1.5 works with simplified filter) |
 
 Verify the daemon is running:
 
@@ -105,7 +106,16 @@ Copy the `.gemini/` directory into your project root. Project-level settings tak
 cp -r plugins/memory-gemini-adapter/.gemini .gemini
 ```
 
-Note: For per-project installs, the hook handler path in `settings.json` should reference the project-relative path. Edit the command paths from `$HOME/.gemini/hooks/memory-capture.sh` to `.gemini/hooks/memory-capture.sh` (or use `$GEMINI_PROJECT_DIR/.gemini/hooks/memory-capture.sh`).
+After copying, rewrite hook paths from global to project-relative:
+
+```bash
+# Rewrite hook paths for per-project use
+sed -i.bak 's|\$HOME/\.gemini/hooks/|.gemini/hooks/|g' .gemini/settings.json && rm -f .gemini/settings.json.bak
+
+# Verify paths are project-relative
+grep "command" .gemini/settings.json
+# Should show: .gemini/hooks/memory-capture.sh
+```
 
 ## Commands
 
@@ -417,6 +427,29 @@ sudo dnf install jq
 
 # Verify
 jq --version
+```
+
+### jq version too old (redaction limited)
+
+**Symptom:** Hook handler works but uses simplified redaction (does not recursively strip sensitive keys from deeply nested objects).
+
+**Check:**
+
+```bash
+jq --version
+# jq-1.5 = simplified redaction, jq-1.6+ = full recursive redaction
+```
+
+**Solution:** Upgrade jq to 1.6 or later:
+
+```bash
+# macOS
+brew upgrade jq
+
+# Debian/Ubuntu (may need a PPA for 1.6+)
+sudo apt install jq
+
+# Or download directly from https://jqlang.github.io/jq/
 ```
 
 ### ANSI/color codes in output
