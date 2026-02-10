@@ -34,8 +34,8 @@ These issues were identified during post-execution review. They do not block Pha
 ## Status
 
 - [x] Findings captured
-- [ ] Gap closure planned (use `/gsd:plan-phase 21 --gaps` when ready)
-- [ ] Fixes applied
+- [x] Gap closure planned (21-04-PLAN.md)
+- [x] Fixes applied (21-04-SUMMARY.md, commits cc195f4 + 753bc2f)
 
 ## Notes
 

@@ -10,10 +10,10 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 21 — Gemini CLI Adapter — COMPLETE
-Plan: 3 of 3 complete
-Status: All plans complete (hooks, commands/skills, install skill + README)
-Last activity: 2026-02-10 — Phase 21 Plan 03 executed (2 tasks, install skill + README + .gitignore)
+Phase: 21 — Gemini CLI Adapter — COMPLETE (including gap closure)
+Plan: 4 of 4 complete (3 core + 1 gap closure)
+Status: All plans complete including UAT gap closure (jq compat, ANSI stripping, per-project paths)
+Last activity: 2026-02-10 — Phase 21 Plan 04 executed (2 tasks, gap closure for 3 UAT findings)
 
 Progress v2.1: [█████████████░░░░░░░] 67% (4/6 phases)
 
@@ -86,7 +86,7 @@ Full decision log in PROJECT.md Key Decisions table.
 | 18 | Agent Tagging Infrastructure | ✓ Complete |
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
-| 21 | Gemini CLI Adapter | Complete (3/3 plans) |
+| 21 | Gemini CLI Adapter | Complete (4/4 plans, incl. gap closure) |
 | 22 | Copilot CLI Adapter | Ready |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 22 |
 
@@ -105,6 +105,9 @@ Full decision log in PROJECT.md Key Decisions table.
 - Install skill excludes itself from global deployment (no need to install the installer)
 - README provides three installation paths: automated skill, manual global, manual per-project
 - Settings.json precedence documented with 5-level hierarchy
+- Runtime jq walk() capability test instead of version string parsing (more portable)
+- del()-based fallback redaction covers top level + one level deep for jq < 1.6
+- perl preferred for ANSI stripping (CSI+OSC+SS2/SS3); sed fallback for minimal systems
 
 ## Next Steps
 
@@ -131,8 +134,10 @@ Full decision log in PROJECT.md Key Decisions table.
 - `plugins/memory-gemini-adapter/README.md` -- Complete documentation (453 lines)
 - `plugins/memory-gemini-adapter/.gitignore` -- OS/editor ignores
 
-**Plans:** 3 plans, 6 tasks, 16 files
-**Verification:** All must-haves passed across all 3 plans
+**Plans:** 4 plans (3 core + 1 gap closure), 8 tasks, 16 files
+**Verification:** All must-haves passed across all 4 plans
+
+**Gap closure (Plan 04):** Fixed 3 UAT findings -- jq 1.5 compat (del-based fallback), perl ANSI stripping (CSI+OSC), per-project path rewriting docs
 
 ## Phase 20 Summary
 
@@ -183,4 +188,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-10 after Phase 21 Plan 03 execution (install skill + README + .gitignore) -- Phase 21 complete*
+*Updated: 2026-02-10 after Phase 21 Plan 04 execution (gap closure: jq compat, ANSI stripping, per-project paths) -- Phase 21 fully complete*
