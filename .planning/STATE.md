@@ -10,10 +10,10 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 20 — OpenCode Event Capture + Unified Queries — COMPLETE
-Plan: 3 of 3 complete
-Status: Phase 20 complete, ready for Phase 21
-Last activity: 2026-02-09 — Phase 20 Plan 03 executed (2 tasks, CLI agent display + plugin docs)
+Phase: 21 — Gemini CLI Adapter — IN PROGRESS
+Plan: 1 of 3 complete
+Status: Plan 01 complete (event capture hooks + settings.json), Plans 02-03 remaining
+Last activity: 2026-02-10 — Phase 21 Plan 01 executed (2 tasks, hook handler + settings.json)
 
 Progress v2.1: [██████████░░░░░░░░░░] 50% (3/6 phases)
 
@@ -86,13 +86,21 @@ Full decision log in PROJECT.md Key Decisions table.
 | 18 | Agent Tagging Infrastructure | ✓ Complete |
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
-| 21 | Gemini CLI Adapter | Ready |
+| 21 | Gemini CLI Adapter | In Progress (1/3 plans) |
 | 22 | Copilot CLI Adapter | Ready |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
 
+### Phase 21 Decisions
+
+- Function wrapping with trap ERR EXIT for fail-open shell hooks (more robust than || true)
+- $HOME env var in settings.json command path for global install (Gemini supports env var expansion)
+- MEMORY_INGEST_DRY_RUN and MEMORY_INGEST_PATH env vars for testing and path override
+- Redact sensitive keys from tool_input and JSON message fields only (not structural fields)
+- Added .gemini/ override to .gitignore (global gitignore blocks .gemini/ directories)
+
 ## Next Steps
 
-1. `/gsd:plan-phase 21` — Plan Gemini CLI adapter
+1. `/gsd:execute-phase 21` — Continue Gemini CLI adapter (Plans 02-03 remaining)
 2. `/gsd:plan-phase 22` — Plan Copilot CLI adapter
 3. `/gsd:plan-phase 23` — Plan Cross-Agent Discovery + Documentation (after 21 & 22)
 
@@ -145,4 +153,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-09 after Phase 20 Plan 03 execution (CLI agent display + plugin docs)*
+*Updated: 2026-02-10 after Phase 21 Plan 01 execution (Gemini hook handler + settings.json)*
