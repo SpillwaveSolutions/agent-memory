@@ -165,25 +165,38 @@ Plans:
 
 **Goal:** Create GitHub Copilot CLI hook adapter with full Claude parity.
 
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 22-01-PLAN.md — Hook capture script with session ID synthesis and hook config
+- [ ] 22-02-PLAN.md — Skills, navigator agent, and plugin manifest
+- [ ] 22-03-PLAN.md — Install skill, README, and documentation
+
 **Scope:**
-- Research Copilot CLI hook format and lifecycle
-- Create hook configuration for session capture
-- Port commands to Copilot-compatible format
+- Create hook handler shell script with session ID synthesis (Copilot does not provide session_id)
+- Create .github/hooks/memory-hooks.json configuration for 5 event types
+- Create SKILL.md skills (Copilot uses skills, not TOML commands)
+- Create .agent.md navigator agent (Copilot supports proper agent files)
+- Create plugin.json manifest for /plugin install support
+- Create install skill for automated per-project setup
 - Implement `agent:copilot` tagging
 
 **Requirements:** R3.1.1-R3.1.3, R3.2.1-R3.2.3, R3.3.1-R3.3.3
 
 **Files to create:**
-- `plugins/memory-copilot-adapter/` — Adapter plugin
-- `plugins/memory-copilot-adapter/hooks/` — Copilot hook configs
-- `plugins/memory-copilot-adapter/scripts/` — CLI wrappers
-- `docs/adapters/copilot-installation.md` — Setup guide
+- `plugins/memory-copilot-adapter/.github/hooks/scripts/memory-capture.sh` — Hook handler with session ID synthesis
+- `plugins/memory-copilot-adapter/.github/hooks/memory-hooks.json` — Hook configuration
+- `plugins/memory-copilot-adapter/.github/skills/` — Skill directories (5 skills + install skill)
+- `plugins/memory-copilot-adapter/.github/agents/memory-navigator.agent.md` — Navigator agent
+- `plugins/memory-copilot-adapter/plugin.json` — Plugin manifest
+- `plugins/memory-copilot-adapter/README.md` — Setup guide
 
 **Definition of done:**
 - [ ] Copilot sessions captured with `agent:copilot` tag
-- [ ] Commands work via Copilot interface
+- [ ] Skills work via Copilot interface (auto-activated)
+- [ ] Navigator agent available via /agent or auto-inference
 - [ ] Cross-agent queries include Copilot memories
-- [ ] Installation guide tested on fresh system
+- [ ] Installation guide covers plugin install + per-project + manual
 
 ---
 
