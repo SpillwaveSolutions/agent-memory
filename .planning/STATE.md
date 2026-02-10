@@ -136,6 +136,10 @@ Full decision log in PROJECT.md Key Decisions table.
 - Fixed pre-existing get_toc_nodes_by_level versioned key prefix bug in storage
 - parse_time_arg accepts both YYYY-MM-DD and epoch ms for CLI flexibility
 - AgentDiscoveryHandler follows Arc<Storage> handler pattern matching existing service modules
+- TopicGraphHandler accepts main_storage for TocNode lookups in agent-topic linking
+- agent_filter proto field uses number 201 (>200 convention for Phase 23 additions)
+- Agent-topic aggregation uses indirect TopicLink -> TocNode -> contributing_agents path (no denormalization)
+- Combined score = importance_score * max_relevance for agent-filtered topic ranking
 - CLOD uses TOML format (matches Gemini commands, human-readable, Rust ecosystem native)
 - Simple format! generators for adapter file generation (no template engine needed)
 - UPGRADING.md uses v2.2.0 numbering for multi-agent ecosystem (v2.1 was ranking enhancements)
