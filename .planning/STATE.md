@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 Milestone: v2.1 Multi-Agent Ecosystem
 Phase: 22 — Copilot CLI Adapter — In Progress
-Plan: 1 of 3 complete
-Status: Phase 22 Plan 01 executed (event capture infrastructure); Plans 02-03 pending
-Last activity: 2026-02-10 — Phase 22 Plan 01 executed (hook handler + hooks config)
+Plan: 2 of 3 complete
+Status: Phase 22 Plans 01-02 executed; Plan 03 pending (install skill + README)
+Last activity: 2026-02-10 — Phase 22 Plan 02 executed (skills, navigator agent, plugin manifest)
 
 Progress v2.1: [█████████████░░░░░░░] 67% (4/6 phases) — execution pending for Phases 22–23
 
@@ -87,7 +87,7 @@ Full decision log in PROJECT.md Key Decisions table.
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
 | 21 | Gemini CLI Adapter | Complete (4/4 plans, incl. gap closure) |
-| 22 | Copilot CLI Adapter | In Progress (1/3 plans) |
+| 22 | Copilot CLI Adapter | In Progress (2/3 plans) |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 22 |
 
 ### Phase 21 Decisions
@@ -117,11 +117,16 @@ Full decision log in PROJECT.md Key Decisions table.
 - del()-based fallback redaction for jq < 1.6 (top level + one level deep)
 - Session file cleanup only on user_exit or complete reasons (preserves resumed sessions)
 - No stdout output from hook script (Copilot ignores stdout for most events)
+- Skills use .github/skills/ path (Copilot canonical, not .claude/skills/)
+- Navigator agent is a separate .agent.md file with infer:true (unlike Gemini embedded in skill)
+- No TOML command files (Copilot uses skills, not TOML commands)
+- Command-equivalent instructions embedded in memory-query skill for search/recent/context
+- Agent uses tools: execute, read, search (Copilot CLI tool names)
+- plugin.json uses minimal fields (name, version, description, author, repository)
 
 ## Next Steps
 
-1. Execute Phase 22 Plan 02 (skills and agent definitions)
-2. Execute Phase 22 Plan 03 (install skill and README)
+1. Execute Phase 22 Plan 03 (install skill and README)
 3. Execute Phase 23 (Cross-Agent Discovery + Documentation) after Phase 22
 4. Complete v2.1 milestone
 
@@ -198,4 +203,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-10 after Phase 22 Plan 01 execution (Copilot hook handler + hooks config)*
+*Updated: 2026-02-10 after Phase 22 Plan 02 execution (skills, navigator agent, plugin manifest)*
