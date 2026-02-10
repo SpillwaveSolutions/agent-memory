@@ -133,7 +133,7 @@ Plans:
 - [x] 21-01-PLAN.md — Hook capture script and settings.json configuration
 - [x] 21-02-PLAN.md — TOML commands and skills with embedded navigator
 - [x] 21-03-PLAN.md — Install skill, README, and documentation
-- [ ] 21-04-PLAN.md — Gap closure: jq 1.5 compatibility, ANSI stripping, per-project paths
+- [x] 21-04-PLAN.md — Gap closure: jq 1.5 compatibility, ANSI stripping, per-project paths
 
 **Scope:**
 - Create hook handler shell script for Gemini lifecycle event capture
@@ -226,6 +226,13 @@ Plans:
 - [ ] Agent activity visible in query results
 - [ ] Documentation covers all three adapters
 - [ ] Plugin authoring guide enables community contributions
+
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 23-01-PLAN.md — Agent insights RPC/CLI (list, activity)
+- [ ] 23-02-PLAN.md — Agent-aware topics and CLI surfacing
+- [ ] 23-03-PLAN.md — CLOD spec + converter CLI + cross-agent/authoring docs
 
 ---
 
