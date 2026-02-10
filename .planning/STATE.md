@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 Milestone: v2.1 Multi-Agent Ecosystem
 Phase: 21 — Gemini CLI Adapter — IN PROGRESS
-Plan: 1 of 3 complete
-Status: Plan 01 complete (event capture hooks + settings.json), Plans 02-03 remaining
-Last activity: 2026-02-10 — Phase 21 Plan 01 executed (2 tasks, hook handler + settings.json)
+Plan: 2 of 3 complete
+Status: Plans 01-02 complete (hooks + commands/skills), Plan 03 remaining (install skill + README)
+Last activity: 2026-02-10 — Phase 21 Plan 02 executed (2 tasks, TOML commands + skills with navigator)
 
 Progress v2.1: [██████████░░░░░░░░░░] 50% (3/6 phases)
 
@@ -86,7 +86,7 @@ Full decision log in PROJECT.md Key Decisions table.
 | 18 | Agent Tagging Infrastructure | ✓ Complete |
 | 19 | OpenCode Commands and Skills | Complete (5/5 plans) |
 | 20 | OpenCode Event Capture + Unified Queries | Complete (3/3 plans) |
-| 21 | Gemini CLI Adapter | In Progress (1/3 plans) |
+| 21 | Gemini CLI Adapter | In Progress (2/3 plans) |
 | 22 | Copilot CLI Adapter | Ready |
 | 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
 
@@ -97,10 +97,14 @@ Full decision log in PROJECT.md Key Decisions table.
 - MEMORY_INGEST_DRY_RUN and MEMORY_INGEST_PATH env vars for testing and path override
 - Redact sensitive keys from tool_input and JSON message fields only (not structural fields)
 - Added .gemini/ override to .gitignore (global gitignore blocks .gemini/ directories)
+- Navigator agent logic embedded in memory-query SKILL.md (Gemini has no separate agent definition format)
+- Skills are separate copies from OpenCode plugin (not symlinks) for portability
+- TOML commands are self-contained with full instructions (Gemini does not auto-load skills from commands)
+- Parallel invocation instructions included in Navigator Mode for reduced query latency
 
 ## Next Steps
 
-1. `/gsd:execute-phase 21` — Continue Gemini CLI adapter (Plans 02-03 remaining)
+1. `/gsd:execute-phase 21` — Continue Gemini CLI adapter (Plan 03 remaining: install skill + README)
 2. `/gsd:plan-phase 22` — Plan Copilot CLI adapter
 3. `/gsd:plan-phase 23` — Plan Cross-Agent Discovery + Documentation (after 21 & 22)
 
@@ -153,4 +157,4 @@ Full decision log in PROJECT.md Key Decisions table.
 **Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
 
 ---
-*Updated: 2026-02-10 after Phase 21 Plan 01 execution (Gemini hook handler + settings.json)*
+*Updated: 2026-02-10 after Phase 21 Plan 02 execution (TOML commands + skills with navigator)*
