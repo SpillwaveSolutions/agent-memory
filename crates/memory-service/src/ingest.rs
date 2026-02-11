@@ -772,19 +772,116 @@ impl MemoryService for MemoryServiceImpl {
     }
 
     /// Prune old BM25 documents per lifecycle policy (FR-09).
+    ///
+    /// Reports documents eligible for pruning based on lifecycle retention policy.
+    /// Actual deletion requires the `SearchIndexer` (writer) which is not available
+    /// from the service layer. Use rebuild-toc-index for compaction.
     async fn prune_bm25_index(
         &self,
-        _request: Request<PruneBm25IndexRequest>,
+        request: Request<PruneBm25IndexRequest>,
     ) -> Result<Response<PruneBm25IndexResponse>, Status> {
-        // TODO: Implement BM25 lifecycle pruning
+        let searcher = match &self.teleport_searcher {
+            Some(s) => s,
+            None => {
+                return Ok(Response::new(PruneBm25IndexResponse {
+                    success: true,
+                    segments_pruned: 0,
+                    grips_pruned: 0,
+                    days_pruned: 0,
+                    weeks_pruned: 0,
+                    optimized: false,
+                    message: "BM25 index not configured".to_string(),
+                }));
+            }
+        };
+
+        let req = request.into_inner();
+        let level_filter = if req.level.is_empty() {
+            None
+        } else {
+            Some(req.level.as_str())
+        };
+        let dry_run = req.dry_run;
+
+        let config = memory_search::Bm25LifecycleConfig::default();
+        let ret_map = memory_search::retention_map(&config);
+
+        let pruneable_levels: Vec<&str> = if let Some(level) = level_filter {
+            if memory_search::is_protected_level(level) {
+                return Ok(Response::new(PruneBm25IndexResponse {
+                    success: true,
+                    segments_pruned: 0,
+                    grips_pruned: 0,
+                    days_pruned: 0,
+                    weeks_pruned: 0,
+                    optimized: false,
+                    message: format!("Level '{}' is protected and cannot be pruned", level),
+                }));
+            }
+            vec![level]
+        } else {
+            vec!["segment", "grip", "day", "week"]
+        };
+
+        // Build cutoff timestamps for each level
+        let mut cutoffs = std::collections::HashMap::new();
+        for level in &pruneable_levels {
+            let retention_days = if req.age_days_override > 0 {
+                req.age_days_override
+            } else {
+                match ret_map.get(level) {
+                    Some(&days) => days,
+                    None => continue,
+                }
+            };
+            let cutoff_ms =
+                (Utc::now() - Duration::days(retention_days as i64)).timestamp_millis();
+            cutoffs.insert(*level, cutoff_ms);
+        }
+
+        let counts = searcher.count_docs_before_cutoff(&cutoffs).map_err(|e| {
+            error!("Failed to scan BM25 index: {}", e);
+            Status::internal(format!("Failed to scan BM25 index: {}", e))
+        })?;
+
+        let segments_count = *counts.get("segment").unwrap_or(&0);
+        let grips_count = *counts.get("grip").unwrap_or(&0);
+        let days_count = *counts.get("day").unwrap_or(&0);
+        let weeks_count = *counts.get("week").unwrap_or(&0);
+        let total = segments_count + grips_count + days_count + weeks_count;
+
+        let mode = if dry_run { "Dry run: " } else { "" };
+        let message = if total == 0 {
+            format!(
+                "{}No BM25 documents eligible for pruning (retention policy applied). \
+                 Total indexed: {} docs.",
+                mode,
+                searcher.num_docs()
+            )
+        } else {
+            format!(
+                "{}{} BM25 documents eligible for pruning \
+                 (segments={}, grips={}, days={}, weeks={}). \
+                 Note: Actual deletion requires rebuild-toc-index. \
+                 Total indexed: {} docs.",
+                mode,
+                total,
+                segments_count,
+                grips_count,
+                days_count,
+                weeks_count,
+                searcher.num_docs()
+            )
+        };
+
         Ok(Response::new(PruneBm25IndexResponse {
             success: true,
-            segments_pruned: 0,
-            grips_pruned: 0,
-            days_pruned: 0,
-            weeks_pruned: 0,
+            segments_pruned: segments_count,
+            grips_pruned: grips_count,
+            days_pruned: days_count,
+            weeks_pruned: weeks_count,
             optimized: false,
-            message: "BM25 pruning not yet implemented".to_string(),
+            message,
         }))
     }
 
@@ -1027,6 +1124,29 @@ mod tests {
         assert_eq!(resp.vector_last_prune_count, 0);
         assert_eq!(resp.bm25_last_prune_timestamp, 0);
         assert_eq!(resp.bm25_last_prune_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_prune_bm25_index_no_service() {
+        let (service, _temp) = create_test_service();
+
+        let response = service
+            .prune_bm25_index(Request::new(PruneBm25IndexRequest {
+                level: String::new(),
+                age_days_override: 0,
+                dry_run: false,
+            }))
+            .await
+            .unwrap();
+
+        let resp = response.into_inner();
+        assert!(resp.success);
+        assert_eq!(resp.segments_pruned, 0);
+        assert_eq!(resp.grips_pruned, 0);
+        assert_eq!(resp.days_pruned, 0);
+        assert_eq!(resp.weeks_pruned, 0);
+        assert!(!resp.optimized);
+        assert!(resp.message.contains("not configured"));
     }
 
     #[tokio::test]
