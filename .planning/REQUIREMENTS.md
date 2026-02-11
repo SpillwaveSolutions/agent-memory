@@ -13,10 +13,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **E2E-02**: Teleport index test: ingest -> BM25 index build -> bm25_search returns matching events
 - [x] **E2E-03**: Vector teleport test: ingest -> vector index build -> vector_search returns semantically similar events
 - [x] **E2E-04**: Topic graph test: ingest -> topic clustering -> get_top_topics returns relevant topics
-- [ ] **E2E-05**: Multi-agent test: ingest from multiple agents -> cross-agent query returns all -> filtered query returns one
-- [ ] **E2E-06**: Graceful degradation test: query with missing indexes still returns results via TOC fallback
+- [x] **E2E-05**: Multi-agent test: ingest from multiple agents -> cross-agent query returns all -> filtered query returns one
+- [x] **E2E-06**: Graceful degradation test: query with missing indexes still returns results via TOC fallback
 - [x] **E2E-07**: Grip provenance test: ingest -> segment with grips -> expand_grip returns source events with context
-- [ ] **E2E-08**: Error path test: malformed events handled gracefully, invalid queries return useful errors
+- [x] **E2E-08**: Error path test: malformed events handled gracefully, invalid queries return useful errors
 
 ### Tech Debt
 
@@ -64,10 +64,10 @@ Deferred to future release.
 | E2E-02 | Phase 25 | Done |
 | E2E-03 | Phase 25 | Done |
 | E2E-04 | Phase 25 | Done |
-| E2E-05 | Phase 26 | Pending |
-| E2E-06 | Phase 26 | Pending |
+| E2E-05 | Phase 26 | Done |
+| E2E-06 | Phase 26 | Done |
 | E2E-07 | Phase 25 | Done |
-| E2E-08 | Phase 26 | Pending |
+| E2E-08 | Phase 26 | Done |
 | DEBT-01 | Phase 24 | Done |
 | DEBT-02 | Phase 24 | Done |
 | DEBT-03 | Phase 24 | Done |
