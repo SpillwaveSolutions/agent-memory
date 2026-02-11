@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 
 Milestone: v2.2 Production Hardening
 Phase: 24 of 27 (Proto & Service Debt Cleanup)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-10 — Roadmap created for v2.2 milestone
+Plan: 1 of 3 in current phase
+Status: Executing
+Last activity: 2026-02-11 — Completed 24-01 Wire RPC Stubs
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [###░░░░░░░] 33%
 
 ## Milestone History
 
@@ -28,15 +28,15 @@ See: .planning/MILESTONES.md for complete history
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0 (v2.2)
-- Average duration: --
-- Total execution time: --
+- Total plans completed: 1 (v2.2)
+- Average duration: 23min
+- Total execution time: 23min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 24 | 1 | 23min | 23min |
 
 ## Accumulated Context
 
@@ -47,12 +47,16 @@ Recent decisions affecting current work:
 
 - v2.2: E2E tests use cargo test infrastructure (not separate framework)
 - v2.2: Tech debt resolved before E2E tests (agent fields needed for assertions)
+- 24-01: Use SalienceConfig/NoveltyConfig defaults as truth for GetRankingStatus
+- 24-01: Bound session event scan to 365 days for performance
+- 24-01: BM25 lifecycle reported as false (no persistent config storage)
 
 ### Technical Debt (target of this milestone)
 
-- 3 stub RPCs: GetRankingStatus, PruneVectorIndex, PruneBm25Index
-- session_count = 0 in ListAgents (needs event scanning)
-- TeleportResult/VectorTeleportMatch lack agent field
+- ~~GetRankingStatus stub~~ (DONE - 24-01)
+- 2 stub RPCs: PruneVectorIndex, PruneBm25Index
+- ~~session_count = 0 in ListAgents~~ (DONE - 24-01)
+- TeleportResult/VectorTeleportMatch agent field wired but needs indexer population
 - No automated E2E tests in CI
 
 ### Blockers/Concerns
@@ -61,6 +65,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-10
-Stopped at: Roadmap created for v2.2 milestone
+Last session: 2026-02-11
+Stopped at: Completed 24-01-PLAN.md
 Resume file: None
