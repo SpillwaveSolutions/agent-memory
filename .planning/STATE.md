@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 
 Milestone: v2.2 Production Hardening
 Phase: 25 of 27 (E2E Core Pipeline Tests)
-Plan: 2 of 3 in current phase (25-02 done)
-Status: In Progress
-Last activity: 2026-02-11 — Completed 25-02 BM25 Teleport E2E Tests
+Plan: 3 of 3 in current phase (25-03 done)
+Status: Phase Complete
+Last activity: 2026-02-11 — Completed 25-03 Vector Search & Topic Graph E2E Tests
 
-Progress: [######----] 67% (Phase 25)
+Progress: [##########] 100% (Phase 25)
 
 ## Milestone History
 
@@ -28,16 +28,16 @@ See: .planning/MILESTONES.md for complete history
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5 (v2.2)
-- Average duration: 20min
-- Total execution time: 98min
+- Total plans completed: 6 (v2.2)
+- Average duration: 18min
+- Total execution time: 110min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 24 | 3 | 81min | 27min |
-| 25 | 2 | 17min | 9min |
+| 25 | 3 | 29min | 10min |
 
 ## Accumulated Context
 
@@ -61,6 +61,9 @@ Recent decisions affecting current work:
 - 25-01: Direct RetrievalHandler testing via tonic::Request without gRPC server
 - 25-01: MockSummarizer grip extraction may yield zero grips; tests handle gracefully
 - 25-02: Ranking assertions use segment membership (node+grip IDs) not exact node_id, since grips may outrank parent node
+- 25-03: OnceLock<Arc<CandleEmbedder>> shared across tests to prevent concurrent model loading race
+- 25-03: Vector E2E tests use #[ignore] due to ~80MB model download; topic tests run without ignore
+- 25-03: Topic tests use direct TopicStorage::save_topic instead of full HDBSCAN clustering
 
 ### Technical Debt (target of this milestone)
 
@@ -77,5 +80,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 25-02-PLAN.md
+Stopped at: Completed 25-03-PLAN.md — Phase 25 fully done
 Resume file: None
