@@ -43,10 +43,7 @@ async fn test_full_pipeline_ingest_toc_grip_route_query() {
         !toc_node.title.is_empty(),
         "TocNode title should not be empty"
     );
-    assert!(
-        !toc_node.bullets.is_empty(),
-        "TocNode should have bullets"
-    );
+    assert!(!toc_node.bullets.is_empty(), "TocNode should have bullets");
     assert!(
         !toc_node.keywords.is_empty(),
         "TocNode should have keywords"
@@ -62,11 +59,7 @@ async fn test_full_pipeline_ingest_toc_grip_route_query() {
     // Verify grips exist in storage
     for grip_id in &grip_ids {
         let grip = harness.storage.get_grip(grip_id).unwrap();
-        assert!(
-            grip.is_some(),
-            "Grip {} should exist in storage",
-            grip_id
-        );
+        assert!(grip.is_some(), "Grip {} should exist in storage", grip_id);
     }
 
     // 7. Verify parent TOC nodes exist up to Year level
@@ -96,12 +89,8 @@ async fn test_full_pipeline_ingest_toc_grip_route_query() {
     let bm25_searcher = Arc::new(TeleportSearcher::new(&bm25_index).unwrap());
 
     // 10. Create RetrievalHandler with BM25 searcher
-    let handler = RetrievalHandler::with_services(
-        harness.storage.clone(),
-        Some(bm25_searcher),
-        None,
-        None,
-    );
+    let handler =
+        RetrievalHandler::with_services(harness.storage.clone(), Some(bm25_searcher), None, None);
 
     // 11. Call route_query
     let response = handler

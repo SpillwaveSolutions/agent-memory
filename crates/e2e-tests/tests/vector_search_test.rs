@@ -23,8 +23,7 @@ static EMBEDDER: OnceLock<Arc<CandleEmbedder>> = OnceLock::new();
 fn get_embedder() -> Arc<CandleEmbedder> {
     EMBEDDER
         .get_or_init(|| {
-            let embedder =
-                CandleEmbedder::load_default().expect("Failed to load embedding model");
+            let embedder = CandleEmbedder::load_default().expect("Failed to load embedding model");
             Arc::new(embedder)
         })
         .clone()

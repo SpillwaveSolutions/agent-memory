@@ -88,10 +88,7 @@ async fn test_bm25_ingest_index_search_ranked() {
 
     // 9. Search for "rust ownership borrow"
     let results_rust = searcher
-        .search(
-            "rust ownership borrow",
-            SearchOptions::new().with_limit(10),
-        )
+        .search("rust ownership borrow", SearchOptions::new().with_limit(10))
         .unwrap();
 
     // 10. Verify results
@@ -132,10 +129,7 @@ async fn test_bm25_ingest_index_search_ranked() {
 
     // 11. Search for "python flask django" and verify Python segment ranks first
     let results_python = searcher
-        .search(
-            "python flask django",
-            SearchOptions::new().with_limit(10),
-        )
+        .search("python flask django", SearchOptions::new().with_limit(10))
         .unwrap();
 
     assert!(
@@ -254,7 +248,10 @@ async fn test_bm25_search_filters_by_doc_type() {
     // If grips were indexed, unfiltered search should also include Grip results
     if grip_count > 0 {
         let has_grip = all_results.iter().any(|r| r.doc_type == DocType::Grip);
-        assert!(has_grip, "Unfiltered search should include Grip results when grips are indexed");
+        assert!(
+            has_grip,
+            "Unfiltered search should include Grip results when grips are indexed"
+        );
     }
 }
 
@@ -359,7 +356,8 @@ async fn test_bm25_search_with_agent_attribution() {
         "Should find the non-agent node in results"
     );
     assert_eq!(
-        no_agent_result.unwrap().agent, None,
+        no_agent_result.unwrap().agent,
+        None,
         "Agent field should be None for node without contributing_agents"
     );
 }

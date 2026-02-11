@@ -15,12 +15,7 @@ use memory_service::TopicGraphHandler;
 use memory_topics::{Topic, TopicStatus, TopicStorage};
 
 /// Helper: create a test topic with the given attributes.
-fn create_test_topic(
-    id: &str,
-    label: &str,
-    keywords: &[&str],
-    importance_score: f64,
-) -> Topic {
+fn create_test_topic(id: &str, label: &str, keywords: &[&str], importance_score: f64) -> Topic {
     let mut topic = Topic::new(id.to_string(), label.to_string(), vec![0.0_f32; 384]);
     topic.importance_score = importance_score;
     topic.keywords = keywords.iter().map(|k| k.to_string()).collect();
@@ -83,10 +78,7 @@ async fn test_topic_ingest_cluster_get_top_topics() {
     }
 
     // 4. Create TopicGraphHandler
-    let handler = TopicGraphHandler::new(
-        Arc::new(topic_storage),
-        harness.storage.clone(),
-    );
+    let handler = TopicGraphHandler::new(Arc::new(topic_storage), harness.storage.clone());
 
     // 5. Call get_top_topics with limit: 3
     let response = handler
@@ -152,7 +144,11 @@ async fn test_topic_ingest_cluster_get_top_topics() {
         .expect("get_top_topics with limit=1 failed");
 
     let one_topic = response_one.into_inner().topics;
-    assert_eq!(one_topic.len(), 1, "Should return exactly 1 topic with limit=1");
+    assert_eq!(
+        one_topic.len(),
+        1,
+        "Should return exactly 1 topic with limit=1"
+    );
     assert_eq!(
         one_topic[0].label, "Rust Memory Safety",
         "The single returned topic should be the most important one"
@@ -190,13 +186,12 @@ async fn test_topic_search_by_query() {
     ];
 
     for topic in &topics {
-        topic_storage.save_topic(topic).expect("Failed to save topic");
+        topic_storage
+            .save_topic(topic)
+            .expect("Failed to save topic");
     }
 
-    let handler = TopicGraphHandler::new(
-        Arc::new(topic_storage),
-        harness.storage.clone(),
-    );
+    let handler = TopicGraphHandler::new(Arc::new(topic_storage), harness.storage.clone());
 
     // 2. Search for "rust ownership"
     let rust_results = handler
@@ -283,23 +278,22 @@ async fn test_topic_graph_status() {
     ];
 
     for topic in &topics {
-        topic_storage.save_topic(topic).expect("Failed to save topic");
+        topic_storage
+            .save_topic(topic)
+            .expect("Failed to save topic");
     }
 
-    let handler = TopicGraphHandler::new(
-        Arc::new(topic_storage),
-        harness.storage.clone(),
-    );
+    let handler = TopicGraphHandler::new(Arc::new(topic_storage), harness.storage.clone());
 
     // 2. Call get_status
     let status = handler.get_status().await;
 
     // 3. Verify
-    assert!(status.available, "Topic graph should be available when topics exist");
-    assert_eq!(
-        status.topic_count, 5,
-        "Should report 5 topics"
+    assert!(
+        status.available,
+        "Topic graph should be available when topics exist"
     );
+    assert_eq!(status.topic_count, 5, "Should report 5 topics");
 
     // 4. Also verify via the RPC method
     let rpc_response = handler
@@ -308,9 +302,9 @@ async fn test_topic_graph_status() {
         .expect("get_topic_graph_status RPC failed");
 
     let rpc_status = rpc_response.into_inner();
-    assert!(rpc_status.available, "RPC status should report available=true");
-    assert_eq!(
-        rpc_status.topic_count, 5,
-        "RPC should report 5 topics"
+    assert!(
+        rpc_status.available,
+        "RPC status should report available=true"
     );
+    assert_eq!(rpc_status.topic_count, 5, "RPC should report 5 topics");
 }
