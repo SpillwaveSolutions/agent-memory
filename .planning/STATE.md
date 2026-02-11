@@ -5,15 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.2 Production Hardening — E2E tests, tech debt cleanup, CI/CD
+**Current focus:** v2.2 Production Hardening — Phase 24: Proto & Service Debt Cleanup
 
 ## Current Position
 
 Milestone: v2.2 Production Hardening
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-10 — Milestone v2.2 started
+Phase: 24 of 27 (Proto & Service Debt Cleanup)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-02-10 — Roadmap created for v2.2 milestone
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Milestone History
 
@@ -23,21 +25,42 @@ See: .planning/MILESTONES.md for complete history
 - v2.0.0 Scheduler+Teleport: Shipped 2026-02-07 (9 phases, 42 plans)
 - v2.1 Multi-Agent Ecosystem: Shipped 2026-02-10 (6 phases, 22 plans)
 
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0 (v2.2)
+- Average duration: --
+- Total execution time: --
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
 ## Accumulated Context
 
-### Key Decisions
+### Decisions
 
-Full decision log in PROJECT.md Key Decisions table.
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
 
-### Technical Debt (from v2.1)
+- v2.2: E2E tests use cargo test infrastructure (not separate framework)
+- v2.2: Tech debt resolved before E2E tests (agent fields needed for assertions)
 
-- 3 stub RPCs: GetRankingStatus, PruneVectorIndex, PruneBm25Index (admin features)
-- session_count = 0 in ListAgents (not available from TOC alone; needs event scanning)
-- TeleportResult/VectorTeleportMatch lack agent field (needs index metadata work)
+### Technical Debt (target of this milestone)
+
+- 3 stub RPCs: GetRankingStatus, PruneVectorIndex, PruneBm25Index
+- session_count = 0 in ListAgents (needs event scanning)
+- TeleportResult/VectorTeleportMatch lack agent field
 - No automated E2E tests in CI
-- No performance benchmarks
 
-## Next Steps
+### Blockers/Concerns
 
-1. Define requirements for v2.2
-2. Create roadmap (phases continue from 24+)
+None yet.
+
+## Session Continuity
+
+Last session: 2026-02-10
+Stopped at: Roadmap created for v2.2 milestone
+Resume file: None
