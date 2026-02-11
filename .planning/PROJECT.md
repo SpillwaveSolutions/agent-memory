@@ -2,10 +2,10 @@
 
 ## Current State
 
-**Version:** v2.1 (Shipped 2026-02-10)
-**Status:** Multi-agent ecosystem complete — 4 adapters, cross-agent discovery, CLOD format
+**Version:** v2.2 (Shipped 2026-02-11)
+**Status:** Production-hardened — all RPCs wired, 29 E2E tests, CI/CD with dedicated E2E job
 
-The system implements a complete 6-layer cognitive stack with control plane and multi-agent support:
+The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, and production verification:
 - Layer 0: Raw Events (RocksDB) — agent-tagged
 - Layer 1: TOC Hierarchy (time-based navigation) — contributing_agents tracking
 - Layer 2: Agentic TOC Search (index-free, always works)
@@ -16,17 +16,10 @@ The system implements a complete 6-layer cognitive stack with control plane and 
 - Control: Retrieval Policy (intent routing, tier detection, fallbacks)
 - Adapters: Claude Code, OpenCode, Gemini CLI, Copilot CLI
 - Discovery: ListAgents, GetAgentActivity, agent-filtered topics
+- Testing: 29 E2E tests covering all layers + multi-agent + degradation + error paths
+- CI/CD: Dedicated E2E job in GitHub Actions, required for PR merge
 
-40,817 LOC Rust across 14 crates. 4 adapter plugins. 3 documentation guides.
-
-## Current Milestone: v2.2 Production Hardening
-
-**Goal:** Make Agent Memory CI-verified and production-ready by closing all tech debt, adding E2E pipeline tests, and strengthening CI/CD.
-
-**Target features:**
-- E2E test suite (ingest → TOC build → grip creation → query route → results)
-- Tech debt cleanup (wire stub RPCs, fix session_count, agent field on teleport results)
-- CI/CD improvements (E2E tests in GitHub Actions)
+43,932 LOC Rust across 14 crates. 4 adapter plugins. 3 documentation guides. 29 E2E tests.
 
 ## What This Is
 
@@ -167,20 +160,20 @@ Agent Memory implements a layered cognitive architecture:
 
 </details>
 
-### Active (v2.2 Production Hardening)
+### Validated (v2.2 - Shipped 2026-02-11)
 
-**E2E Testing**
-- [ ] Full pipeline E2E tests (ingest → TOC → grips → query → results)
-- [ ] E2E tests run in CI (GitHub Actions)
+**Production Hardening (v2.2)**
+- [x] All gRPC stub RPCs wired (GetRankingStatus, PruneVectorIndex, PruneBm25Index) — v2.2
+- [x] ListAgents session_count fixed via event scanning — v2.2
+- [x] Agent field on TeleportResult and VectorTeleportMatch — v2.2
+- [x] 29 E2E tests across 7 files (pipeline, BM25, vector, topic, multi-agent, degradation, error paths) — v2.2
+- [x] Dedicated E2E CI job in GitHub Actions with separate pass/fail reporting — v2.2
+- [x] E2E tests run on every PR, required for merge via ci-success gate — v2.2
 
-**Tech Debt Cleanup**
-- [ ] Wire GetRankingStatus, PruneVectorIndex, PruneBm25Index stub RPCs
-- [ ] Fix session_count in ListAgents (event scanning, not TOC-only)
-- [ ] Add agent field to TeleportResult and VectorTeleportMatch
-- [ ] CI/CD pipeline improvements
+### Active (future)
 
-**Deferred (future)**
-- Performance benchmarks
+**Deferred**
+- Performance benchmarks (ingest throughput, query latency)
 - Cross-project unified memory
 
 ### Out of Scope
@@ -257,6 +250,10 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | O(k) agent discovery | Aggregate from TocNode.contributing_agents, not O(n) events | ✓ Validated v2.1 |
 | CLOD as internal format | TOML-based portable command definition, not external standard | ✓ Validated v2.1 |
 | Skills portable across agents | Same SKILL.md works in Claude/OpenCode/Copilot | ✓ Validated v2.1 |
+| E2E tests via cargo test | Standard test infra, no separate framework | ✓ Validated v2.2 |
+| Direct handler testing | tonic::Request without gRPC server; faster, simpler | ✓ Validated v2.2 |
+| Dedicated E2E CI job | Separate from unit tests; clear reporting per CI-03 | ✓ Validated v2.2 |
+| BM25 prune report-only | TeleportSearcher is read-only; deletion needs SearchIndexer | — Design decision v2.2 |
 
 ---
-*Last updated: 2026-02-10 after v2.2 milestone initialization*
+*Last updated: 2026-02-11 after v2.2 milestone completion*

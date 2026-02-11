@@ -80,7 +80,7 @@ jobs:
           shared-key: "test-${{ matrix.os }}"
 
       - name: Run tests
-        run: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features --exclude e2e-tests
 
   build:
     name: Build (${{ matrix.os }})
@@ -139,10 +139,51 @@ jobs:
           RUSTDOCFLAGS: "-D warnings"
         run: cargo doc --no-deps --workspace --all-features
 
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libclang-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "e2e"
+
+      - name: Run E2E tests
+        id: e2e_run
+        continue-on-error: true
+        run: cargo test -p e2e-tests --all-features -- --show-output 2>&1 | tee e2e-results.txt
+
+      - name: Report E2E summary
+        if: always()
+        run: |
+          echo "## E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -E "^test |^running |ok|FAILED|test result:" e2e-results.txt >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check E2E test result
+        if: always()
+        run: |
+          if [[ "${{ steps.e2e_run.outcome }}" != "success" ]]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+          echo "E2E tests passed!"
+
   # Summary job that depends on all other jobs
   ci-success:
     name: CI Success
-    needs: [fmt, clippy, test, build, doc]
+    needs: [fmt, clippy, test, build, doc, e2e]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -152,7 +193,8 @@ jobs:
              [[ "${{ needs.clippy.result }}" != "success" ]] || \
              [[ "${{ needs.test.result }}" != "success" ]] || \
              [[ "${{ needs.build.result }}" != "success" ]] || \
-             [[ "${{ needs.doc.result }}" != "success" ]]; then
+             [[ "${{ needs.doc.result }}" != "success" ]] || \
+             [[ "${{ needs.e2e.result }}" != "success" ]]; then
             echo "One or more jobs failed"
             exit 1
           fi
