@@ -19,6 +19,15 @@ The system implements a complete 6-layer cognitive stack with control plane and 
 
 40,817 LOC Rust across 14 crates. 4 adapter plugins. 3 documentation guides.
 
+## Current Milestone: v2.2 Production Hardening
+
+**Goal:** Make Agent Memory CI-verified and production-ready by closing all tech debt, adding E2E pipeline tests, and strengthening CI/CD.
+
+**Target features:**
+- E2E test suite (ingest → TOC build → grip creation → query route → results)
+- Tech debt cleanup (wire stub RPCs, fix session_count, agent field on teleport results)
+- CI/CD improvements (E2E tests in GitHub Actions)
+
 ## What This Is
 
 **Agent Memory is a cognitive architecture for agents** — not just a memory system.
@@ -158,13 +167,21 @@ Agent Memory implements a layered cognitive architecture:
 
 </details>
 
-### Active
+### Active (v2.2 Production Hardening)
 
-(No active milestone — ready for next milestone planning)
+**E2E Testing**
+- [ ] Full pipeline E2E tests (ingest → TOC → grips → query → results)
+- [ ] E2E tests run in CI (GitHub Actions)
+
+**Tech Debt Cleanup**
+- [ ] Wire GetRankingStatus, PruneVectorIndex, PruneBm25Index stub RPCs
+- [ ] Fix session_count in ListAgents (event scanning, not TOC-only)
+- [ ] Add agent field to TeleportResult and VectorTeleportMatch
+- [ ] CI/CD pipeline improvements
 
 **Deferred (future)**
-- Automated E2E tests in CI
 - Performance benchmarks
+- Cross-project unified memory
 
 ### Out of Scope
 
@@ -242,4 +259,4 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Skills portable across agents | Same SKILL.md works in Claude/OpenCode/Copilot | ✓ Validated v2.1 |
 
 ---
-*Last updated: 2026-02-10 after v2.1 milestone completion*
+*Last updated: 2026-02-10 after v2.2 milestone initialization*
