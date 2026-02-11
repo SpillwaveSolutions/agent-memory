@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.2 Production Hardening — Phase 24 complete, ready for Phase 25
+**Current focus:** v2.2 Production Hardening — Phase 25 in progress (E2E Core Pipeline Tests)
 
 ## Current Position
 
 Milestone: v2.2 Production Hardening
-Phase: 24 of 27 (Proto & Service Debt Cleanup) -- COMPLETE
-Plan: 3 of 3 in current phase (all done)
-Status: Phase Complete
-Last activity: 2026-02-11 — Completed 24-03 Prune RPCs
+Phase: 25 of 27 (E2E Core Pipeline Tests)
+Plan: 1 of 3 in current phase (25-01 done)
+Status: In Progress
+Last activity: 2026-02-11 — Completed 25-01 Core Pipeline E2E Tests
 
-Progress: [##########] 100% (Phase 24)
+Progress: [###-------] 33% (Phase 25)
 
 ## Milestone History
 
@@ -28,15 +28,16 @@ See: .planning/MILESTONES.md for complete history
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v2.2)
-- Average duration: 27min
-- Total execution time: 81min
+- Total plans completed: 4 (v2.2)
+- Average duration: 24min
+- Total execution time: 95min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 24 | 3 | 81min | 27min |
+| 25 | 1 | 14min | 14min |
 
 ## Accumulated Context
 
@@ -56,6 +57,9 @@ Recent decisions affecting current work:
 - 24-03: Vector prune removes metadata only; orphaned HNSW vectors harmless until rebuild-index
 - 24-03: BM25 prune is report-only (TeleportSearcher is read-only; deletion requires SearchIndexer)
 - 24-03: Level matching for vectors uses doc_id prefix pattern (:day:, :week:, :segment:)
+- 25-01: tempfile/rand as regular deps in e2e-tests since lib.rs is shared test infrastructure
+- 25-01: Direct RetrievalHandler testing via tonic::Request without gRPC server
+- 25-01: MockSummarizer grip extraction may yield zero grips; tests handle gracefully
 
 ### Technical Debt (target of this milestone)
 
@@ -72,5 +76,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 24-03-PLAN.md (Phase 24 complete)
+Stopped at: Completed 25-01-PLAN.md
 Resume file: None
