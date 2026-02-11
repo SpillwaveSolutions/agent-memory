@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.2 Production Hardening — Phase 26 complete, ready for Phase 27
+**Current focus:** v2.2 Production Hardening — Phase 27 complete, milestone done
 
 ## Current Position
 
 Milestone: v2.2 Production Hardening
-Phase: 26 of 27 (E2E Advanced Scenario Tests)
-Plan: 3 of 3 in current phase (26-03 done)
-Status: Phase Complete
-Last activity: 2026-02-11 — Completed 26-03 Error Path E2E Tests
+Phase: 27 of 27 (CI/CD E2E Integration)
+Plan: 1 of 1 in current phase (27-01 done)
+Status: Milestone Complete
+Last activity: 2026-02-11 — Completed 27-01 CI/CD E2E Integration
 
-Progress: [##########] 100% (Phase 26)
+Progress: [##########] 100% (Phase 27 - Milestone Complete)
 
 ## Milestone History
 
@@ -28,9 +28,9 @@ See: .planning/MILESTONES.md for complete history
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9 (v2.2)
-- Average duration: 21min
-- Total execution time: 186min
+- Total plans completed: 10 (v2.2)
+- Average duration: 19min
+- Total execution time: 191min
 
 **By Phase:**
 
@@ -39,6 +39,7 @@ See: .planning/MILESTONES.md for complete history
 | 24 | 3 | 81min | 27min |
 | 25 | 3 | 29min | 10min |
 | 26 | 3 | 76min | 25min |
+| 27 | 1 | 5min | 5min |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - 26-03: Used i64::MAX for invalid timestamp test (chrono rejects overflow, -999999999999999 is valid ancient date)
 - 26-03: Direct service-level testing (no gRPC server) matches Phase 25 pattern for E2E tests
 - 26-03: RetrievalHandler used directly for route_query/classify_intent tests; MemoryServiceImpl for remaining
+- 27-01: Single ubuntu-24.04 runner for E2E CI job (platform-independent logic tests)
+- 27-01: continue-on-error + outcome check pattern for test-then-summary CI reporting
+- 27-01: E2E excluded from workspace test job to avoid redundant execution
 
 ### Technical Debt (target of this milestone)
 
@@ -80,7 +84,7 @@ Recent decisions affecting current work:
 - ~~2 stub RPCs: PruneVectorIndex, PruneBm25Index~~ (DONE - 24-03)
 - ~~session_count = 0 in ListAgents~~ (DONE - 24-01)
 - ~~TeleportResult/VectorTeleportMatch lack agent field~~ (DONE - 24-02)
-- No automated E2E tests in CI
+- ~~No automated E2E tests in CI~~ (DONE - 27-01)
 
 ### Blockers/Concerns
 
@@ -89,5 +93,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 26-03-PLAN.md — Phase 26 fully done
+Stopped at: Completed 27-01-PLAN.md — Phase 27 done, v2.2 milestone complete
 Resume file: None
