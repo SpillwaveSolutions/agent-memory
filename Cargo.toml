@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/e2e-tests",
     "crates/memory-adapters",
     "crates/memory-client",
     "crates/memory-daemon",

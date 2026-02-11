@@ -1,0 +1,29 @@
+[package]
+name = "e2e-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+memory-types = { workspace = true }
+memory-storage = { workspace = true }
+memory-service = { workspace = true }
+memory-client = { workspace = true }
+memory-toc = { workspace = true }
+memory-search = { workspace = true }
+memory-indexing = { workspace = true }
+memory-vector = { workspace = true }
+memory-embeddings = { workspace = true }
+memory-topics = { workspace = true }
+memory-retrieval = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+ulid = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+tempfile = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = "1"
+tonic = { workspace = true }
