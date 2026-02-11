@@ -6,6 +6,7 @@
 - ✅ **v2.0 Scheduler+Teleport** — Phases 10-17 (shipped 2026-02-07)
 - ✅ **v2.1 Multi-Agent Ecosystem** — Phases 18-23 (shipped 2026-02-10)
 - ✅ **v2.2 Production Hardening** — Phases 24-27 (shipped 2026-02-11)
+- **v2.3 TBD** — Phase 28 (planning)
 
 ## Phases
 
@@ -68,6 +69,24 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 
 </details>
 
+### v2.3 Install & Setup Experience (Planning)
+
+**Milestone Goal:** Improve installation, configuration, and user-facing setup guidance with agent skills and step-by-step docs.
+
+- [ ] **Phase 28: Install & Configuration Skills + User Guides** (0/1 plans) -- not started
+
+## Phase Details
+
+### Phase 28: Install & Configuration Skills + User Guides
+**Goal:** Deliver step-by-step install/config user guides and agent skills that help users set up and validate the system.
+**Depends on:** 19-opencode-commands-and-skills, 21-gemini-cli-adapter, 22-copilot-cli-adapter
+**Requirements:** SETUP-01
+**Success Criteria** (what must be TRUE):
+  1. TBD
+**Plans:** 1 plan (placeholder)
+Plans:
+- [ ] 28-01-PLAN.md -- Install/config guides and setup skills
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -76,7 +95,8 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 | 10-17 | v2.0 | 42/42 | Complete | 2026-02-07 |
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24-27 | v2.2 | 10/10 | Complete | 2026-02-11 |
+| 28. Install & Configuration Skills + User Guides | v2.3 | 0/1 | Planned | — |
 
 ---
 
-*Updated: 2026-02-11 after v2.2 milestone completion*
+*Updated: 2026-02-11 after v2.3 milestone initialization*
