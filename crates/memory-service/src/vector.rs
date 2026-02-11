@@ -37,6 +37,11 @@ impl VectorTeleportHandler {
         }
     }
 
+    /// Get a reference to the vector metadata store.
+    pub fn metadata(&self) -> &Arc<VectorMetadata> {
+        &self.metadata
+    }
+
     /// Check if the vector index is available for search.
     pub fn is_available(&self) -> bool {
         let index = self.index.read().unwrap();

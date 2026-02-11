@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use chrono::{TimeZone, Utc};
+use chrono::{Duration, TimeZone, Utc};
 use tonic::{Request, Response, Status};
 use tracing::{debug, error, info};
 
@@ -633,18 +633,141 @@ impl MemoryService for MemoryServiceImpl {
     }
 
     /// Prune old vectors per lifecycle policy (FR-08).
+    ///
+    /// Removes vector metadata entries older than the retention cutoff.
+    /// Orphaned HNSW vectors are harmless (metadata lookup will miss) and
+    /// can be compacted by a full rebuild-index later.
     async fn prune_vector_index(
         &self,
-        _request: Request<PruneVectorIndexRequest>,
+        request: Request<PruneVectorIndexRequest>,
     ) -> Result<Response<PruneVectorIndexResponse>, Status> {
-        // TODO: Implement vector lifecycle pruning
+        let vector_service = match &self.vector_service {
+            Some(svc) => svc,
+            None => {
+                return Ok(Response::new(PruneVectorIndexResponse {
+                    success: true,
+                    segments_pruned: 0,
+                    grips_pruned: 0,
+                    days_pruned: 0,
+                    weeks_pruned: 0,
+                    message: "Vector index not configured".to_string(),
+                }));
+            }
+        };
+
+        let req = request.into_inner();
+        let level_filter = if req.level.is_empty() {
+            None
+        } else {
+            Some(req.level.as_str())
+        };
+        let dry_run = req.dry_run;
+
+        let config = memory_vector::VectorLifecycleConfig::default();
+        let ret_map = memory_vector::lifecycle::retention_map(&config);
+
+        let pruneable_levels: Vec<&str> = if let Some(level) = level_filter {
+            if memory_vector::is_protected_level(level) {
+                return Ok(Response::new(PruneVectorIndexResponse {
+                    success: true,
+                    segments_pruned: 0,
+                    grips_pruned: 0,
+                    days_pruned: 0,
+                    weeks_pruned: 0,
+                    message: format!("Level '{}' is protected and cannot be pruned", level),
+                }));
+            }
+            vec![level]
+        } else {
+            vec!["segment", "grip", "day", "week"]
+        };
+
+        let metadata = vector_service.metadata();
+        let all_entries = metadata.get_all().map_err(|e| {
+            error!("Failed to read vector metadata: {}", e);
+            Status::internal(format!("Failed to read vector metadata: {}", e))
+        })?;
+
+        let mut stats = memory_vector::PruneStats::new();
+
+        for level in &pruneable_levels {
+            let retention_days = if req.age_days_override > 0 {
+                req.age_days_override
+            } else {
+                match ret_map.get(level) {
+                    Some(&days) => days,
+                    None => continue,
+                }
+            };
+
+            let cutoff_ms =
+                (Utc::now() - Duration::days(retention_days as i64)).timestamp_millis();
+
+            for entry in &all_entries {
+                // Match entries to the current level by doc_type and doc_id prefix
+                let matches_level = match *level {
+                    "grip" => entry.doc_type == memory_vector::DocType::Grip,
+                    "segment" => {
+                        entry.doc_type == memory_vector::DocType::TocNode
+                            && entry.doc_id.contains(":segment:")
+                    }
+                    "day" => {
+                        entry.doc_type == memory_vector::DocType::TocNode
+                            && entry.doc_id.contains(":day:")
+                    }
+                    "week" => {
+                        entry.doc_type == memory_vector::DocType::TocNode
+                            && entry.doc_id.contains(":week:")
+                    }
+                    _ => false,
+                };
+
+                if !matches_level {
+                    continue;
+                }
+
+                if entry.created_at < cutoff_ms {
+                    if !dry_run {
+                        if let Err(e) = metadata.delete(entry.vector_id) {
+                            stats.errors.push(format!(
+                                "Failed to delete vector {}: {}",
+                                entry.vector_id, e
+                            ));
+                            continue;
+                        }
+                    }
+                    stats.add(level, 1);
+                }
+            }
+        }
+
+        let action = if dry_run { "eligible for pruning" } else { "pruned" };
+        let message = if stats.total() == 0 {
+            format!(
+                "No vector metadata entries {} (retention policy applied). \
+                 Note: HNSW vectors remain until a full rebuild-index compacts them.",
+                action
+            )
+        } else {
+            format!(
+                "{} {} vector metadata entries (segments={}, grips={}, days={}, weeks={}). \
+                 Note: HNSW vectors remain until a full rebuild-index compacts them.",
+                stats.total(),
+                action,
+                stats.segments_pruned,
+                stats.grips_pruned,
+                stats.days_pruned,
+                stats.weeks_pruned,
+            )
+        };
+
         Ok(Response::new(PruneVectorIndexResponse {
-            success: true,
-            segments_pruned: 0,
-            grips_pruned: 0,
-            days_pruned: 0,
-            weeks_pruned: 0,
-            message: "Vector pruning not yet implemented".to_string(),
+            success: !stats.has_errors(),
+            segments_pruned: stats.segments_pruned,
+            grips_pruned: stats.grips_pruned,
+            days_pruned: stats.days_pruned,
+            weeks_pruned: stats.weeks_pruned,
+            message,
         }))
     }
 
@@ -904,6 +1027,28 @@ mod tests {
         assert_eq!(resp.vector_last_prune_count, 0);
         assert_eq!(resp.bm25_last_prune_timestamp, 0);
         assert_eq!(resp.bm25_last_prune_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_prune_vector_index_no_service() {
+        let (service, _temp) = create_test_service();
+
+        let response = service
+            .prune_vector_index(Request::new(PruneVectorIndexRequest {
+                level: String::new(),
+                age_days_override: 0,
+                dry_run: false,
+            }))
+            .await
+            .unwrap();
+
+        let resp = response.into_inner();
+        assert!(resp.success);
+        assert_eq!(resp.segments_pruned, 0);
+        assert_eq!(resp.grips_pruned, 0);
+        assert_eq!(resp.days_pruned, 0);
+        assert_eq!(resp.weeks_pruned, 0);
+        assert!(resp.message.contains("not configured"));
     }
 
     #[test]
