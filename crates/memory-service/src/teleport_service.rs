@@ -254,4 +254,63 @@ mod tests {
         // Should still return results (limit defaults to 10)
         assert!(!resp.results.is_empty());
     }
+
+    #[tokio::test]
+    async fn test_handle_teleport_search_with_agent() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SearchIndexConfig::new(temp_dir.path());
+        let index = SearchIndex::open_or_create(config).unwrap();
+
+        // Create a node with contributing_agents set
+        let mut node = TocNode::new(
+            "node-agent".to_string(),
+            TocLevel::Day,
+            "Agent Memory Discussion".to_string(),
+            Utc::now(),
+            Utc::now(),
+        );
+        node.bullets = vec![TocBullet::new("Discussed agent memory patterns")];
+        node.keywords = vec!["agent".to_string()];
+        node.contributing_agents = vec!["claude".to_string()];
+
+        let indexer = SearchIndexer::new(&index).unwrap();
+        indexer.index_toc_node(&node).unwrap();
+        indexer.commit().unwrap();
+
+        let searcher = Arc::new(TeleportSearcher::new(&index).unwrap());
+
+        let request = Request::new(TeleportSearchRequest {
+            query: "agent".to_string(),
+            doc_type: TeleportDocType::TocNode as i32,
+            limit: 10,
+            agent_filter: None,
+        });
+
+        let response = handle_teleport_search(searcher, request).await.unwrap();
+        let resp = response.into_inner();
+
+        assert_eq!(resp.results.len(), 1);
+        assert_eq!(resp.results[0].agent, Some("claude".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_handle_teleport_search_without_agent() {
+        // Existing test nodes don't have contributing_agents set,
+        // so their agent field should be None
+        let (_temp_dir, searcher) = setup_searcher();
+
+        let request = Request::new(TeleportSearchRequest {
+            query: "memory".to_string(),
+            doc_type: TeleportDocType::TocNode as i32,
+            limit: 10,
+            agent_filter: None,
+        });
+
+        let response = handle_teleport_search(searcher, request).await.unwrap();
+        let resp = response.into_inner();
+
+        assert_eq!(resp.results.len(), 1);
+        // No contributing_agents on sample node -> agent should be None
+        assert_eq!(resp.results[0].agent, None);
+    }
 }

@@ -197,6 +197,7 @@ impl VectorTeleportHandler {
                     score: result.score,
                     text_preview: entry.text_preview,
                     timestamp_ms: entry.created_at,
+                    agent: entry.agent.clone(),
                 });
             }
         }
@@ -212,6 +213,8 @@ pub struct VectorSearchResult {
     pub score: f32,
     pub text_preview: String,
     pub timestamp_ms: i64,
+    /// Agent attribution (from VectorEntry metadata)
+    pub agent: Option<String>,
 }
 
 #[cfg(test)]
