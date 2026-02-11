@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 
 Milestone: v2.2 Production Hardening
 Phase: 25 of 27 (E2E Core Pipeline Tests)
-Plan: 1 of 3 in current phase (25-01 done)
+Plan: 2 of 3 in current phase (25-02 done)
 Status: In Progress
-Last activity: 2026-02-11 — Completed 25-01 Core Pipeline E2E Tests
+Last activity: 2026-02-11 — Completed 25-02 BM25 Teleport E2E Tests
 
-Progress: [###-------] 33% (Phase 25)
+Progress: [######----] 67% (Phase 25)
 
 ## Milestone History
 
@@ -28,16 +28,16 @@ See: .planning/MILESTONES.md for complete history
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (v2.2)
-- Average duration: 24min
-- Total execution time: 95min
+- Total plans completed: 5 (v2.2)
+- Average duration: 20min
+- Total execution time: 98min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 24 | 3 | 81min | 27min |
-| 25 | 1 | 14min | 14min |
+| 25 | 2 | 17min | 9min |
 
 ## Accumulated Context
 
@@ -60,6 +60,7 @@ Recent decisions affecting current work:
 - 25-01: tempfile/rand as regular deps in e2e-tests since lib.rs is shared test infrastructure
 - 25-01: Direct RetrievalHandler testing via tonic::Request without gRPC server
 - 25-01: MockSummarizer grip extraction may yield zero grips; tests handle gracefully
+- 25-02: Ranking assertions use segment membership (node+grip IDs) not exact node_id, since grips may outrank parent node
 
 ### Technical Debt (target of this milestone)
 
@@ -76,5 +77,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 25-01-PLAN.md
+Stopped at: Completed 25-02-PLAN.md
 Resume file: None
