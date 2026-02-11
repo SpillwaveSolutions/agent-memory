@@ -76,7 +76,11 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
   2. PruneVectorIndex and PruneBm25Index RPCs trigger actual index cleanup and return a status indicating what was pruned
   3. ListAgents RPC returns accurate session_count by scanning events, not just TOC nodes
   4. TeleportResult and VectorTeleportMatch proto messages include an agent field populated from event metadata
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 24-01-PLAN.md -- Wire GetRankingStatus RPC + fix ListAgents session_count
+- [ ] 24-02-PLAN.md -- Add agent field to teleport and vector search results
+- [ ] 24-03-PLAN.md -- Wire PruneVectorIndex and PruneBm25Index RPCs
 
 ### Phase 25: E2E Core Pipeline Tests
 **Goal**: The core ingest-to-query pipeline is verified end-to-end by automated tests covering every search layer
@@ -119,7 +123,7 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
 | 1-9 | v1.0 | 20/20 | Complete | 2026-01-30 |
 | 10-17 | v2.0 | 42/42 | Complete | 2026-02-07 |
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
-| 24. Proto & Service Debt Cleanup | v2.2 | 0/TBD | Not started | - |
+| 24. Proto & Service Debt Cleanup | v2.2 | 0/3 | Planned | - |
 | 25. E2E Core Pipeline Tests | v2.2 | 0/TBD | Not started | - |
 | 26. E2E Advanced Scenario Tests | v2.2 | 0/TBD | Not started | - |
 | 27. CI/CD E2E Integration | v2.2 | 0/TBD | Not started | - |
