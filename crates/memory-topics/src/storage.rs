@@ -750,14 +750,14 @@ mod tests {
         topic_storage.save_topic(&t_high).unwrap();
 
         // All linked to same agent with same relevance
-        for (id, node_id) in &[("t-low", "node-l"), ("t-mid", "node-m"), ("t-high", "node-h")] {
+        for (id, node_id) in &[
+            ("t-low", "node-l"),
+            ("t-mid", "node-m"),
+            ("t-high", "node-h"),
+        ] {
             store_toc_node(&storage, node_id, &["claude"]);
             topic_storage
-                .save_link(&TopicLink::new(
-                    id.to_string(),
-                    node_id.to_string(),
-                    0.9,
-                ))
+                .save_link(&TopicLink::new(id.to_string(), node_id.to_string(), 0.9))
                 .unwrap();
         }
 

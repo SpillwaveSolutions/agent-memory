@@ -41,9 +41,9 @@ impl AgentDiscoveryHandler {
         &self,
         _request: Request<ListAgentsRequest>,
     ) -> Result<Response<ListAgentsResponse>, Status> {
-        let all_nodes = self.iter_all_toc_nodes().map_err(|e| {
-            Status::internal(format!("Failed to iterate TOC nodes: {}", e))
-        })?;
+        let all_nodes = self
+            .iter_all_toc_nodes()
+            .map_err(|e| Status::internal(format!("Failed to iterate TOC nodes: {}", e)))?;
 
         let mut agent_map: HashMap<String, AgentSummaryBuilder> = HashMap::new();
 
@@ -63,18 +63,15 @@ impl AgentDiscoveryHandler {
         }
 
         // Scan events for distinct session_ids per agent (bounded to last 365 days)
-        let session_counts = self.count_sessions_per_agent().map_err(|e| {
-            Status::internal(format!("Failed to count sessions: {}", e))
-        })?;
+        let session_counts = self
+            .count_sessions_per_agent()
+            .map_err(|e| Status::internal(format!("Failed to count sessions: {}", e)))?;
 
         // Convert to proto summaries, sorted by last_seen descending
         let mut agents: Vec<AgentSummary> = agent_map
             .into_values()
             .map(|b| {
-                let session_count = session_counts
-                    .get(&b.agent_id)
-                    .copied()
-                    .unwrap_or(0);
+                let session_count = session_counts.get(&b.agent_id).copied().unwrap_or(0);
                 AgentSummary {
                     agent_id: b.agent_id,
                     event_count: b.node_count, // Approximate: number of TOC nodes
@@ -104,9 +101,7 @@ impl AgentDiscoveryHandler {
         // Validate bucket
         let bucket = req.bucket.as_str();
         if bucket != "day" && bucket != "week" {
-            return Err(Status::invalid_argument(
-                "bucket must be 'day' or 'week'",
-            ));
+            return Err(Status::invalid_argument("bucket must be 'day' or 'week'"));
         }
 
         // Default from_ms to 30 days ago, to_ms to now
@@ -130,11 +125,7 @@ impl AgentDiscoveryHandler {
                 Err(_) => continue, // Skip unparseable events
             };
 
-            let agent_id = event
-                .agent
-                .as_deref()
-                .unwrap_or("unknown")
-                .to_string();
+            let agent_id = event.agent.as_deref().unwrap_or("unknown").to_string();
 
             // Filter by agent_id if provided
             if let Some(ref filter_agent) = req.agent_id {
@@ -206,11 +197,7 @@ impl AgentDiscoveryHandler {
                 Err(_) => continue,
             };
 
-            let agent_id = event
-                .agent
-                .as_deref()
-                .unwrap_or("unknown")
-                .to_string();
+            let agent_id = event.agent.as_deref().unwrap_or("unknown").to_string();
 
             agent_sessions
                 .entry(agent_id)
@@ -428,10 +415,8 @@ mod tests {
 
         for event in &events {
             let bytes = event.to_bytes().unwrap();
-            let outbox = memory_types::OutboxEntry::for_toc(
-                event.event_id.clone(),
-                event.timestamp_ms(),
-            );
+            let outbox =
+                memory_types::OutboxEntry::for_toc(event.event_id.clone(), event.timestamp_ms());
             let outbox_bytes = outbox.to_bytes().unwrap();
             storage
                 .put_event(&event.event_id, &bytes, &outbox_bytes)
@@ -483,10 +468,8 @@ mod tests {
 
         for event in &events {
             let bytes = event.to_bytes().unwrap();
-            let outbox = memory_types::OutboxEntry::for_toc(
-                event.event_id.clone(),
-                event.timestamp_ms(),
-            );
+            let outbox =
+                memory_types::OutboxEntry::for_toc(event.event_id.clone(), event.timestamp_ms());
             let outbox_bytes = outbox.to_bytes().unwrap();
             storage
                 .put_event(&event.event_id, &bytes, &outbox_bytes)
@@ -530,10 +513,8 @@ mod tests {
 
         for event in &events {
             let bytes = event.to_bytes().unwrap();
-            let outbox = memory_types::OutboxEntry::for_toc(
-                event.event_id.clone(),
-                event.timestamp_ms(),
-            );
+            let outbox =
+                memory_types::OutboxEntry::for_toc(event.event_id.clone(), event.timestamp_ms());
             let outbox_bytes = outbox.to_bytes().unwrap();
             storage
                 .put_event(&event.event_id, &bytes, &outbox_bytes)
@@ -569,10 +550,8 @@ mod tests {
 
         for event in &events {
             let bytes = event.to_bytes().unwrap();
-            let outbox = memory_types::OutboxEntry::for_toc(
-                event.event_id.clone(),
-                event.timestamp_ms(),
-            );
+            let outbox =
+                memory_types::OutboxEntry::for_toc(event.event_id.clone(), event.timestamp_ms());
             let outbox_bytes = outbox.to_bytes().unwrap();
             storage
                 .put_event(&event.event_id, &bytes, &outbox_bytes)
@@ -610,10 +589,8 @@ mod tests {
 
         for event in &events {
             let bytes = event.to_bytes().unwrap();
-            let outbox = memory_types::OutboxEntry::for_toc(
-                event.event_id.clone(),
-                event.timestamp_ms(),
-            );
+            let outbox =
+                memory_types::OutboxEntry::for_toc(event.event_id.clone(), event.timestamp_ms());
             let outbox_bytes = outbox.to_bytes().unwrap();
             storage
                 .put_event(&event.event_id, &bytes, &outbox_bytes)
@@ -702,11 +679,7 @@ mod tests {
 
     /// Helper to create test events with known timestamps and agents.
     /// Uses ULID-based event IDs as required by storage layer.
-    fn create_test_event(
-        session_id: &str,
-        timestamp_ms: i64,
-        agent: Option<&str>,
-    ) -> Event {
+    fn create_test_event(session_id: &str, timestamp_ms: i64, agent: Option<&str>) -> Event {
         let ulid = ulid::Ulid::from_parts(timestamp_ms as u64, rand::random());
         let event_id = ulid.to_string();
         let timestamp = DateTime::<Utc>::from_timestamp_millis(timestamp_ms)

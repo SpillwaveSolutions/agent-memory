@@ -554,27 +554,15 @@ mod tests {
         // Create topic links
         handler
             .storage
-            .save_link(&TopicLink::new(
-                "t1".to_string(),
-                "node-1".to_string(),
-                0.9,
-            ))
+            .save_link(&TopicLink::new("t1".to_string(), "node-1".to_string(), 0.9))
             .unwrap();
         handler
             .storage
-            .save_link(&TopicLink::new(
-                "t2".to_string(),
-                "node-2".to_string(),
-                0.8,
-            ))
+            .save_link(&TopicLink::new("t2".to_string(), "node-2".to_string(), 0.8))
             .unwrap();
         handler
             .storage
-            .save_link(&TopicLink::new(
-                "t3".to_string(),
-                "node-3".to_string(),
-                0.7,
-            ))
+            .save_link(&TopicLink::new("t3".to_string(), "node-3".to_string(), 0.7))
             .unwrap();
 
         // Filter by "claude" - should get t1 (node-1 has claude) and t3 (node-3 has claude)
@@ -591,7 +579,10 @@ mod tests {
         let ids: Vec<&str> = topics.iter().map(|t| t.id.as_str()).collect();
         assert!(ids.contains(&"t1"), "Should include t1 (claude)");
         assert!(ids.contains(&"t3"), "Should include t3 (shared)");
-        assert!(!ids.contains(&"t2"), "Should NOT include t2 (opencode only)");
+        assert!(
+            !ids.contains(&"t2"),
+            "Should NOT include t2 (opencode only)"
+        );
     }
 
     #[tokio::test]

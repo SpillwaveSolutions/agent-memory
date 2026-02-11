@@ -2426,9 +2426,7 @@ pub async fn handle_agents_command(cmd: AgentsCommand) -> Result<()> {
             )
             .await
         }
-        AgentsCommand::Topics { agent, limit, addr } => {
-            agents_topics(&agent, limit, &addr).await
-        }
+        AgentsCommand::Topics { agent, limit, addr } => agents_topics(&agent, limit, &addr).await,
     }
 }
 
@@ -2507,17 +2505,11 @@ async fn agents_activity(
     }
 
     println!("Agent Activity ({} buckets):", bucket);
-    println!(
-        "  {:<14} {:<16} {:>8}",
-        "DATE", "AGENT", "EVENTS"
-    );
+    println!("  {:<14} {:<16} {:>8}", "DATE", "AGENT", "EVENTS");
 
     for b in &response.buckets {
         let date_str = format_utc_date(b.start_ms);
-        println!(
-            "  {:<14} {:<16} {:>8}",
-            date_str, b.agent_id, b.event_count
-        );
+        println!("  {:<14} {:<16} {:>8}", date_str, b.agent_id, b.event_count);
     }
 
     Ok(())
@@ -2540,7 +2532,10 @@ async fn agents_topics(agent: &str, limit: u32, addr: &str) -> Result<()> {
     }
 
     println!("Top Topics for agent \"{}\":", agent);
-    println!("  {:<4} {:<30} {:>10}  KEYWORDS", "#", "TOPIC", "IMPORTANCE");
+    println!(
+        "  {:<4} {:<30} {:>10}  KEYWORDS",
+        "#", "TOPIC", "IMPORTANCE"
+    );
 
     for (i, topic) in topics.iter().enumerate() {
         let keywords = if topic.keywords.is_empty() {
@@ -2568,8 +2563,10 @@ fn parse_time_arg(s: &str) -> Result<i64> {
     }
 
     // Try parsing as YYYY-MM-DD
-    let date = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
-        .context(format!("Invalid time format: {}. Use YYYY-MM-DD or epoch ms", s))?;
+    let date = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").context(format!(
+        "Invalid time format: {}. Use YYYY-MM-DD or epoch ms",
+        s
+    ))?;
     let datetime = date.and_hms_opt(0, 0, 0).unwrap();
     Ok(chrono::Utc.from_utc_datetime(&datetime).timestamp_millis())
 }

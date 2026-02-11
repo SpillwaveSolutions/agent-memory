@@ -1533,13 +1533,7 @@ mod tests {
 
     #[test]
     fn test_cli_agents_activity_short_agent() {
-        let cli = Cli::parse_from([
-            "memory-daemon",
-            "agents",
-            "activity",
-            "-a",
-            "opencode",
-        ]);
+        let cli = Cli::parse_from(["memory-daemon", "agents", "activity", "-a", "opencode"]);
         match cli.command {
             Commands::Agents(AgentsCommand::Activity { agent, .. }) => {
                 assert_eq!(agent, Some("opencode".to_string()));
@@ -1552,13 +1546,7 @@ mod tests {
 
     #[test]
     fn test_cli_agents_topics_defaults() {
-        let cli = Cli::parse_from([
-            "memory-daemon",
-            "agents",
-            "topics",
-            "--agent",
-            "claude",
-        ]);
+        let cli = Cli::parse_from(["memory-daemon", "agents", "topics", "--agent", "claude"]);
         match cli.command {
             Commands::Agents(AgentsCommand::Topics { agent, limit, addr }) => {
                 assert_eq!(agent, "claude");
@@ -1608,11 +1596,7 @@ mod tests {
             "/tmp/adapters",
         ]);
         match cli.command {
-            Commands::Clod(ClodCliCommand::Convert {
-                input,
-                target,
-                out,
-            }) => {
+            Commands::Clod(ClodCliCommand::Convert { input, target, out }) => {
                 assert_eq!(input, "memory-search.toml");
                 assert_eq!(target, "all");
                 assert_eq!(out, "/tmp/adapters");
@@ -1644,12 +1628,7 @@ mod tests {
 
     #[test]
     fn test_cli_clod_validate() {
-        let cli = Cli::parse_from([
-            "memory-daemon",
-            "clod",
-            "validate",
-            "memory-search.toml",
-        ]);
+        let cli = Cli::parse_from(["memory-daemon", "clod", "validate", "memory-search.toml"]);
         match cli.command {
             Commands::Clod(ClodCliCommand::Validate { input }) => {
                 assert_eq!(input, "memory-search.toml");

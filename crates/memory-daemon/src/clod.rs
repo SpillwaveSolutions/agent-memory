@@ -74,10 +74,10 @@ pub struct AdapterConfig {
 
 /// Parse a CLOD definition from a TOML file.
 pub fn parse_clod(path: &Path) -> Result<ClodDefinition> {
-    let content =
-        fs::read_to_string(path).with_context(|| format!("Failed to read CLOD file: {}", path.display()))?;
-    let def: ClodDefinition =
-        toml::from_str(&content).with_context(|| format!("Failed to parse CLOD file: {}", path.display()))?;
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read CLOD file: {}", path.display()))?;
+    let def: ClodDefinition = toml::from_str(&content)
+        .with_context(|| format!("Failed to parse CLOD file: {}", path.display()))?;
 
     // Validate required fields
     if def.command.name.is_empty() {
@@ -172,7 +172,10 @@ pub fn generate_opencode(def: &ClodDefinition, out_dir: &Path) -> Result<String>
             } else {
                 "optional"
             };
-            content.push_str(&format!("- **{}** ({}): {}\n", param.name, req, param.description));
+            content.push_str(&format!(
+                "- **{}** ({}): {}\n",
+                param.name, req, param.description
+            ));
         }
     }
 
@@ -208,7 +211,10 @@ pub fn generate_gemini(def: &ClodDefinition, out_dir: &Path) -> Result<String> {
             } else {
                 "optional"
             };
-            prompt_body.push_str(&format!("- {} ({}): {}\n", param.name, req, param.description));
+            prompt_body.push_str(&format!(
+                "- {} ({}): {}\n",
+                param.name, req, param.description
+            ));
         }
     }
 
@@ -226,10 +232,7 @@ pub fn generate_gemini(def: &ClodDefinition, out_dir: &Path) -> Result<String> {
         "description = \"{}\"\n",
         def.command.description.replace('"', "\\\"")
     ));
-    content.push_str(&format!(
-        "command = \"\"\"\n{}\"\"\"\n",
-        prompt_body
-    ));
+    content.push_str(&format!("command = \"\"\"\n{}\"\"\"\n", prompt_body));
 
     fs::write(&filepath, &content)?;
     Ok(filepath.display().to_string())
@@ -279,7 +282,10 @@ pub fn generate_copilot(def: &ClodDefinition, out_dir: &Path) -> Result<String> 
             } else {
                 "optional"
             };
-            content.push_str(&format!("- **{}** ({}): {}\n", param.name, req, param.description));
+            content.push_str(&format!(
+                "- **{}** ({}): {}\n",
+                param.name, req, param.description
+            ));
         }
     }
 
@@ -336,7 +342,13 @@ fn adapter_ext(
 
 /// Escape a string for YAML frontmatter values.
 fn yaml_escape(s: &str) -> String {
-    if s.contains(':') || s.contains('"') || s.contains('\'') || s.contains('#') || s.contains('{') || s.contains('}') {
+    if s.contains(':')
+        || s.contains('"')
+        || s.contains('\'')
+        || s.contains('#')
+        || s.contains('{')
+        || s.contains('}')
+    {
         format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
     } else {
         s.to_string()
@@ -542,10 +554,7 @@ required = false
     #[test]
     fn test_yaml_escape() {
         assert_eq!(yaml_escape("simple text"), "simple text");
-        assert_eq!(
-            yaml_escape("text: with colon"),
-            "\"text: with colon\""
-        );
+        assert_eq!(yaml_escape("text: with colon"), "\"text: with colon\"");
         assert_eq!(
             yaml_escape("text with \"quotes\""),
             "\"text with \\\"quotes\\\"\""

@@ -16,8 +16,8 @@ use memory_search::TeleportSearcher;
 use memory_storage::Storage;
 use memory_types::{Event, EventRole, EventType, NoveltyConfig, OutboxEntry, SalienceConfig};
 
-use crate::hybrid::HybridSearchHandler;
 use crate::agents::AgentDiscoveryHandler;
+use crate::hybrid::HybridSearchHandler;
 use crate::pb::{
     memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
     ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, Event as ProtoEvent,
@@ -700,8 +700,7 @@ impl MemoryService for MemoryServiceImpl {
                 }
             };
 
-            let cutoff_ms =
-                (Utc::now() - Duration::days(retention_days as i64)).timestamp_millis();
+            let cutoff_ms = (Utc::now() - Duration::days(retention_days as i64)).timestamp_millis();
 
             for entry in &all_entries {
                 // Match entries to the current level by doc_type and doc_id prefix
@@ -741,7 +740,11 @@ impl MemoryService for MemoryServiceImpl {
             }
         }
 
-        let action = if dry_run { "eligible for pruning" } else { "pruned" };
+        let action = if dry_run {
+            "eligible for pruning"
+        } else {
+            "pruned"
+        };
         let message = if stats.total() == 0 {
             format!(
                 "No vector metadata entries {} (retention policy applied). \
@@ -834,8 +837,7 @@ impl MemoryService for MemoryServiceImpl {
                     None => continue,
                 }
             };
-            let cutoff_ms =
-                (Utc::now() - Duration::days(retention_days as i64)).timestamp_millis();
+            let cutoff_ms = (Utc::now() - Duration::days(retention_days as i64)).timestamp_millis();
             cutoffs.insert(*level, cutoff_ms);
         }
 
