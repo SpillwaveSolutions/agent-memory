@@ -45,6 +45,9 @@ pub struct VectorEntry {
     pub created_at: i64,
     /// Text that was embedded (truncated for storage)
     pub text_preview: String,
+    /// Agent attribution (from TocNode.contributing_agents or event metadata)
+    #[serde(default)]
+    pub agent: Option<String>,
 }
 
 impl VectorEntry {
@@ -68,7 +71,14 @@ impl VectorEntry {
             doc_id: doc_id.into(),
             created_at,
             text_preview,
+            agent: None,
         }
+    }
+
+    /// Set agent attribution (builder pattern).
+    pub fn with_agent(mut self, agent: Option<String>) -> Self {
+        self.agent = agent;
+        self
     }
 }
 

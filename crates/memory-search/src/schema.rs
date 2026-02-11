@@ -57,6 +57,8 @@ pub struct SearchSchema {
     pub keywords: Field,
     /// Timestamp in milliseconds (STRING | STORED for recency)
     pub timestamp_ms: Field,
+    /// Agent attribution (STRING | STORED) - from TocNode.contributing_agents
+    pub agent: Field,
 }
 
 impl SearchSchema {
@@ -85,6 +87,9 @@ impl SearchSchema {
         let timestamp_ms = schema
             .get_field("timestamp_ms")
             .map_err(|_| SearchError::SchemaMismatch("missing timestamp_ms field".into()))?;
+        let agent = schema
+            .get_field("agent")
+            .map_err(|_| SearchError::SchemaMismatch("missing agent field".into()))?;
 
         Ok(Self {
             schema,
@@ -94,6 +99,7 @@ impl SearchSchema {
             text,
             keywords,
             timestamp_ms,
+            agent,
         })
     }
 }
@@ -128,6 +134,9 @@ pub fn build_teleport_schema() -> SearchSchema {
     // Timestamp for recency (stored as string for simplicity)
     let timestamp_ms = schema_builder.add_text_field("timestamp_ms", STRING | STORED);
 
+    // Agent attribution (from TocNode.contributing_agents)
+    let agent = schema_builder.add_text_field("agent", STRING | STORED);
+
     let schema = schema_builder.build();
 
     SearchSchema {
@@ -138,6 +147,7 @@ pub fn build_teleport_schema() -> SearchSchema {
         text,
         keywords,
         timestamp_ms,
+        agent,
     }
 }
 

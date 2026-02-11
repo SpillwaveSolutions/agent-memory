@@ -537,6 +537,8 @@ message TeleportSearchResult {
     optional string keywords = 4;
     // Timestamp in milliseconds
     optional int64 timestamp_ms = 5;
+    // Phase 24: Agent that produced this result (from TocNode.contributing_agents)
+    optional string agent = 6;
 }
 
 // Response from teleport search
@@ -593,6 +595,8 @@ message VectorMatch {
     string text_preview = 4;
     // Document timestamp in milliseconds
     int64 timestamp_ms = 5;
+    // Phase 24: Agent that produced this result (from vector metadata)
+    optional string agent = 6;
 }
 
 // Response from vector search

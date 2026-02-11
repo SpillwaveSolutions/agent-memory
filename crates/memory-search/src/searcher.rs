@@ -25,6 +25,8 @@ pub struct TeleportResult {
     pub keywords: Option<String>,
     /// Timestamp in milliseconds
     pub timestamp_ms: Option<i64>,
+    /// Agent attribution (from TocNode.contributing_agents)
+    pub agent: Option<String>,
 }
 
 /// Search options for filtering and limiting results.
@@ -155,6 +157,12 @@ impl TeleportSearcher {
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<i64>().ok());
 
+            let agent = doc
+                .get_first(self.schema.agent)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .filter(|s| !s.is_empty());
+
             let doc_type = doc_type_str.parse::<DocType>().unwrap_or(DocType::TocNode);
 
             results.push(TeleportResult {
@@ -163,6 +171,7 @@ impl TeleportSearcher {
                 score,
                 keywords,
                 timestamp_ms,
+                agent,
             });
         }
 

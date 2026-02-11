@@ -27,13 +27,21 @@ pub fn toc_node_to_doc(schema: &SearchSchema, node: &TocNode) -> TantivyDocument
     // Timestamp in milliseconds
     let timestamp = node.start_time.timestamp_millis().to_string();
 
+    // Use first contributing agent as the primary agent
+    let agent = node
+        .contributing_agents
+        .first()
+        .cloned()
+        .unwrap_or_default();
+
     doc!(
         schema.doc_type => DocType::TocNode.as_str(),
         schema.doc_id => node.node_id.clone(),
         schema.level => node.level.to_string(),
         schema.text => text,
         schema.keywords => keywords,
-        schema.timestamp_ms => timestamp
+        schema.timestamp_ms => timestamp,
+        schema.agent => agent
     )
 }
 
@@ -50,7 +58,8 @@ pub fn grip_to_doc(schema: &SearchSchema, grip: &Grip) -> TantivyDocument {
         schema.level => "",  // Not applicable for grips
         schema.text => grip.excerpt.clone(),
         schema.keywords => "",  // Grips don't have keywords
-        schema.timestamp_ms => timestamp
+        schema.timestamp_ms => timestamp,
+        schema.agent => ""  // Grips inherit agent from parent node
     )
 }
 
