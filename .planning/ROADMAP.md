@@ -61,7 +61,7 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
 **Milestone Goal:** Make Agent Memory CI-verified and production-ready by closing all tech debt, adding E2E pipeline tests, and strengthening CI/CD.
 
 - [x] **Phase 24: Proto & Service Debt Cleanup** (3/3 plans) -- completed 2026-02-11
-- [ ] **Phase 25: E2E Core Pipeline Tests** - Full pipeline, index teleport, topic, and grip provenance tests
+- [ ] **Phase 25: E2E Core Pipeline Tests** (0/3 plans) - Full pipeline, index teleport, topic, and grip provenance tests
 - [ ] **Phase 26: E2E Advanced Scenario Tests** - Multi-agent, graceful degradation, and error path tests
 - [ ] **Phase 27: CI/CD E2E Integration** - E2E tests running in GitHub Actions on every PR
 
@@ -92,7 +92,11 @@ Plans:
   3. A test ingests events, builds vector index, and verifies vector_search returns semantically similar events
   4. A test ingests events, runs topic clustering, and verifies get_top_topics returns relevant topics
   5. A test ingests events with grips, calls expand_grip, and verifies source events with surrounding context are returned
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 25-01-PLAN.md -- E2E crate setup + full pipeline test + grip provenance test
+- [ ] 25-02-PLAN.md -- BM25 teleport search E2E test with relevance ranking
+- [ ] 25-03-PLAN.md -- Vector semantic search + topic graph E2E tests
 
 ### Phase 26: E2E Advanced Scenario Tests
 **Goal**: Edge cases and multi-agent scenarios are verified: cross-agent queries, fallback chains, and error handling all work correctly
@@ -124,7 +128,7 @@ Plans:
 | 10-17 | v2.0 | 42/42 | Complete | 2026-02-07 |
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24. Proto & Service Debt Cleanup | v2.2 | 3/3 | Complete | 2026-02-11 |
-| 25. E2E Core Pipeline Tests | v2.2 | 0/TBD | Not started | - |
+| 25. E2E Core Pipeline Tests | v2.2 | 0/3 | Planned | - |
 | 26. E2E Advanced Scenario Tests | v2.2 | 0/TBD | Not started | - |
 | 27. CI/CD E2E Integration | v2.2 | 0/TBD | Not started | - |
 
