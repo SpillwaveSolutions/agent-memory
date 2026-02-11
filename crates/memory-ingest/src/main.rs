@@ -40,6 +40,9 @@ struct CchEvent {
     /// Current working directory
     #[serde(default)]
     cwd: Option<String>,
+    /// Agent identifier (e.g., "opencode", "claude")
+    #[serde(default)]
+    agent: Option<String>,
 }
 
 /// Map CCH event name to HookEventType.
@@ -84,6 +87,9 @@ fn map_cch_to_hook(cch: &CchEvent) -> HookEvent {
         let mut metadata = std::collections::HashMap::new();
         metadata.insert("cwd".to_string(), cwd.clone());
         hook = hook.with_metadata(metadata);
+    }
+    if let Some(agent) = &cch.agent {
+        hook = hook.with_agent(agent.clone());
     }
 
     hook
@@ -240,6 +246,7 @@ mod tests {
             tool_input: None,
             timestamp: None,
             cwd: None,
+            agent: None,
         };
 
         let hook = map_cch_to_hook(&cch);
@@ -259,6 +266,7 @@ mod tests {
             tool_input: Some(serde_json::json!({"path": "/test.rs"})),
             timestamp: None,
             cwd: None,
+            agent: None,
         };
 
         let hook = map_cch_to_hook(&cch);
@@ -282,6 +290,7 @@ mod tests {
             tool_input: None,
             timestamp: Some(ts),
             cwd: None,
+            agent: None,
         };
 
         let hook = map_cch_to_hook(&cch);
@@ -299,6 +308,7 @@ mod tests {
             tool_input: None,
             timestamp: None,
             cwd: Some("/home/user".to_string()),
+            agent: None,
         };
 
         let hook = map_cch_to_hook(&cch);
@@ -320,5 +330,29 @@ mod tests {
         assert_eq!(event.text, "Hello world");
         assert_eq!(event.event_type, memory_types::EventType::UserMessage);
         assert_eq!(event.role, memory_types::EventRole::User);
+    }
+
+    #[test]
+    fn test_parse_with_agent() {
+        let json =
+            r#"{"hook_event_name":"SessionStart","session_id":"test-123","agent":"opencode"}"#;
+        let cch: CchEvent = serde_json::from_str(json).unwrap();
+        assert_eq!(cch.agent, Some("opencode".to_string()));
+    }
+
+    #[test]
+    fn test_parse_without_agent_backward_compat() {
+        let json = r#"{"hook_event_name":"SessionStart","session_id":"test-123"}"#;
+        let cch: CchEvent = serde_json::from_str(json).unwrap();
+        assert!(cch.agent.is_none());
+    }
+
+    #[test]
+    fn test_end_to_end_with_agent() {
+        let json = r#"{"hook_event_name":"UserPromptSubmit","session_id":"test-123","message":"Hello","agent":"opencode"}"#;
+        let cch: CchEvent = serde_json::from_str(json).unwrap();
+        let hook = map_cch_to_hook(&cch);
+        let event = map_hook_event(hook);
+        assert_eq!(event.agent, Some("opencode".to_string()));
     }
 }

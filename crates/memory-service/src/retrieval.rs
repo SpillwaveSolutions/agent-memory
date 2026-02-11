@@ -278,7 +278,7 @@ impl RetrievalHandler {
                 text_preview: r.text_preview.clone(),
                 source_layer: layer_to_proto(r.source_layer) as i32,
                 metadata: r.metadata.clone(),
-                agent: None, // Phase 18: Agent populated when available
+                agent: r.metadata.get("agent").cloned(),
             })
             .collect();
 
@@ -827,5 +827,53 @@ mod tests {
             proto_to_intent(ProtoIntent::Unspecified),
             CrateIntent::Answer
         );
+    }
+
+    #[test]
+    fn test_retrieval_result_agent_from_metadata() {
+        use memory_retrieval::executor::SearchResult;
+        use memory_retrieval::types::RetrievalLayer;
+
+        // Result with agent in metadata
+        let mut metadata = HashMap::new();
+        metadata.insert("agent".to_string(), "opencode".to_string());
+        let result = SearchResult {
+            doc_id: "doc-1".to_string(),
+            doc_type: "toc".to_string(),
+            score: 0.95,
+            text_preview: "test".to_string(),
+            source_layer: RetrievalLayer::BM25,
+            metadata,
+        };
+        let proto_result = ProtoResult {
+            doc_id: result.doc_id.clone(),
+            doc_type: result.doc_type.clone(),
+            score: result.score,
+            text_preview: result.text_preview.clone(),
+            source_layer: layer_to_proto(result.source_layer) as i32,
+            metadata: result.metadata.clone(),
+            agent: result.metadata.get("agent").cloned(),
+        };
+        assert_eq!(proto_result.agent, Some("opencode".to_string()));
+
+        // Result without agent
+        let result_no_agent = SearchResult {
+            doc_id: "doc-2".to_string(),
+            doc_type: "grip".to_string(),
+            score: 0.5,
+            text_preview: "test".to_string(),
+            source_layer: RetrievalLayer::Vector,
+            metadata: HashMap::new(),
+        };
+        let proto_no_agent = ProtoResult {
+            doc_id: result_no_agent.doc_id.clone(),
+            doc_type: result_no_agent.doc_type.clone(),
+            score: result_no_agent.score,
+            text_preview: result_no_agent.text_preview.clone(),
+            source_layer: layer_to_proto(result_no_agent.source_layer) as i32,
+            metadata: result_no_agent.metadata.clone(),
+            agent: result_no_agent.metadata.get("agent").cloned(),
+        };
+        assert_eq!(proto_no_agent.agent, None);
     }
 }

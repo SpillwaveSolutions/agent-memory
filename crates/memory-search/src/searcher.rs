@@ -25,6 +25,8 @@ pub struct TeleportResult {
     pub keywords: Option<String>,
     /// Timestamp in milliseconds
     pub timestamp_ms: Option<i64>,
+    /// Agent attribution (from TocNode.contributing_agents)
+    pub agent: Option<String>,
 }
 
 /// Search options for filtering and limiting results.
@@ -155,6 +157,12 @@ impl TeleportSearcher {
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<i64>().ok());
 
+            let agent = doc
+                .get_first(self.schema.agent)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .filter(|s| !s.is_empty());
+
             let doc_type = doc_type_str.parse::<DocType>().unwrap_or(DocType::TocNode);
 
             results.push(TeleportResult {
@@ -163,6 +171,7 @@ impl TeleportSearcher {
                 score,
                 keywords,
                 timestamp_ms,
+                agent,
             });
         }
 
@@ -201,6 +210,75 @@ impl TeleportSearcher {
             .iter()
             .map(|r| r.num_docs() as u64)
             .sum()
+    }
+
+    /// Count documents older than cutoff timestamps, grouped by level.
+    ///
+    /// Returns a map of level name -> count of documents with timestamp_ms < cutoff.
+    /// Used by lifecycle prune RPCs to report what would be pruned.
+    pub fn count_docs_before_cutoff(
+        &self,
+        cutoffs: &std::collections::HashMap<&str, i64>,
+    ) -> Result<std::collections::HashMap<String, u32>, SearchError> {
+        use tantivy::schema::Value;
+
+        let searcher = self.reader.searcher();
+        let mut counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+
+        for segment_reader in searcher.segment_readers() {
+            let store_reader = segment_reader.get_store_reader(1)?;
+            let alive_bitset = segment_reader.alive_bitset();
+
+            for doc_id in 0..segment_reader.max_doc() {
+                // Skip deleted docs
+                if let Some(bitset) = alive_bitset {
+                    if !bitset.is_alive(doc_id) {
+                        continue;
+                    }
+                }
+
+                let doc: tantivy::TantivyDocument = store_reader.get(doc_id)?;
+
+                // Get timestamp_ms
+                let timestamp_ms = doc
+                    .get_first(self.schema.timestamp_ms)
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .unwrap_or(0);
+
+                if timestamp_ms == 0 {
+                    continue;
+                }
+
+                // Get the level from the stored "level" field (toc_node docs)
+                // or from doc_type (grip docs)
+                let doc_type_str = doc
+                    .get_first(self.schema.doc_type)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                let level = if doc_type_str == "grip" {
+                    "grip"
+                } else {
+                    // For toc_node, read the stored level field
+                    doc.get_first(self.schema.level)
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                };
+
+                if level.is_empty() {
+                    continue;
+                }
+
+                if let Some(&cutoff_ms) = cutoffs.get(level) {
+                    if timestamp_ms < cutoff_ms {
+                        *counts.entry(level.to_string()).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+
+        Ok(counts)
     }
 }
 

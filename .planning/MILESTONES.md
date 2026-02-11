@@ -56,3 +56,33 @@
 **What's next:** Teleport indexes (BM25/vector search), additional hook adapters (OpenCode, Gemini CLI), or production hardening
 
 ---
+
+## v2.1 Multi-Agent Ecosystem (Shipped: 2026-02-10)
+
+**Delivered:** Multi-agent ecosystem with 4 adapter plugins (Claude Code, OpenCode, Gemini CLI, Copilot CLI), cross-agent discovery (agent listing, activity timeline, topic-by-agent), and CLOD universal command format.
+
+**Phases completed:** 18-23 (22 plans total)
+
+**Key accomplishments:**
+
+- Agent tagging infrastructure — Event.agent field, TocNode.contributing_agents, AgentAdapter trait SDK
+- OpenCode plugin — 3 commands, 5 skills, navigator agent, TypeScript event capture plugin
+- OpenCode event capture — agent field through ingest-to-retrieval pipeline, multi-agent query results
+- Gemini CLI adapter — shell hook handler, TOML commands, skills with embedded navigator, install skill
+- Copilot CLI adapter — session ID synthesis, skills, .agent.md navigator, plugin.json manifest
+- Cross-agent discovery — ListAgents/GetAgentActivity RPCs, agent-filtered topics, CLOD spec + converter CLI
+- Comprehensive documentation — cross-agent usage guide, adapter authoring guide, UPGRADING.md
+
+**Stats:**
+
+- 155 files created/modified
+- 31,544 lines added (40,817 total LOC Rust)
+- 6 phases, 22 plans, 76 commits
+- 2 days from start to ship (2026-02-09 → 2026-02-10)
+
+**Git range:** `feat(18-01)` → `docs(phase-23)`
+
+**What's next:** E2E automated tests, performance benchmarks, or v2.2 enhancements
+
+---
+

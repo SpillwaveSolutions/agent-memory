@@ -4,6 +4,99 @@ This document provides upgrade instructions between agent-memory versions, with 
 
 ---
 
+## v2.1.0 to v2.2.0 (Multi-Agent Ecosystem)
+
+**Release Focus:** Cross-agent discovery, multi-adapter support, and ecosystem documentation
+
+### Summary
+
+This release adds multi-agent support, enabling Agent Memory to work with Claude Code, OpenCode, Gemini CLI, and Copilot CLI simultaneously. All changes are backward-compatible.
+
+- **Multi-agent event tagging**: Events are tagged by originating agent (`claude`, `opencode`, `gemini`, `copilot`)
+- **Agent discovery**: `memory-daemon agents list|activity` commands for cross-agent insights
+- **Agent filtering**: `--agent <name>` flag on retrieval, teleport, and topic commands
+- **Four adapters**: Complete adapters for Claude Code, OpenCode, Gemini CLI, Copilot CLI
+- **CLOD format**: Universal command definition for cross-adapter file generation
+- **Comprehensive documentation**: Cross-agent usage guide, adapter authoring guide, CLOD spec
+
+### Upgrade Requirements
+
+| Requirement | Status |
+|-------------|--------|
+| Data Migration | **NOT REQUIRED** |
+| Config Migration | **NOT REQUIRED** |
+| Schema Changes | Additive only (backward compatible) |
+| Breaking Changes | **NONE** |
+
+### What Happens on Upgrade
+
+1. **Existing data reads normally** -- Events without an `agent` field are visible to all queries (no migration needed)
+2. **New agent field is optional** -- Uses `serde(default)` for backward compatibility
+3. **Proto compatibility maintained** -- Old clients work without modification
+4. **New CLI commands are additive** -- Existing commands unchanged
+
+### New CLI Commands
+
+```bash
+# Agent discovery
+memory-daemon agents list                        # List contributing agents
+memory-daemon agents activity                    # Agent activity timeline
+memory-daemon agents activity --agent claude     # Filter to one agent
+memory-daemon agents activity --bucket week      # Weekly buckets
+
+# Agent filtering on existing commands
+memory-daemon retrieval route "query" --agent opencode
+memory-daemon teleport search "query" --agent gemini
+memory-daemon teleport vector-search --query "q" --agent copilot
+memory-daemon teleport hybrid-search --query "q" --agent claude
+
+# CLOD format tools
+memory-daemon clod convert --input cmd.toml --target all --out ./out
+memory-daemon clod validate cmd.toml
+```
+
+### New Adapters
+
+Install the adapters for your agents:
+
+| Agent | Adapter Location | Install |
+|-------|-----------------|---------|
+| Claude Code | Built-in (hooks.yaml) | [Setup Guide](../plugins/memory-query-plugin/README.md) |
+| OpenCode | `plugins/memory-opencode-plugin/` | [Setup Guide](../plugins/memory-opencode-plugin/README.md) |
+| Gemini CLI | `plugins/memory-gemini-adapter/` | [Setup Guide](../plugins/memory-gemini-adapter/README.md) |
+| Copilot CLI | `plugins/memory-copilot-adapter/` | [Setup Guide](../plugins/memory-copilot-adapter/README.md) |
+
+### New Documentation
+
+- [Cross-Agent Usage Guide](adapters/cross-agent-guide.md) -- Working with multiple agents
+- [Adapter Authoring Guide](adapters/authoring-guide.md) -- Building new adapters
+- [CLOD Format Specification](adapters/clod-format.md) -- Universal command definitions
+
+### Migration Steps
+
+1. Update `memory-daemon` binary to v2.2
+2. Install desired adapter(s) from the table above
+3. Existing memories without agent tags are visible to all queries (no migration needed)
+4. New events will automatically be tagged with the agent that captured them
+
+### Verification
+
+After upgrade, verify multi-agent support:
+
+```bash
+# Check daemon starts
+memory-daemon status
+
+# Check new commands exist
+memory-daemon agents list
+memory-daemon clod --help
+
+# Verify existing data is accessible
+memory-daemon query root
+```
+
+---
+
 ## v2.0.0 to v2.1.0 (Phase 16-17)
 
 **Release Focus:** Memory Ranking Enhancements and Index Lifecycle Automation
@@ -244,6 +337,7 @@ memory-daemon admin rebuild-index --type all
 
 | Version | Release Date | Key Changes |
 |---------|--------------|-------------|
+| v2.2.0 | TBD | Phase 18-23: Multi-agent ecosystem, cross-agent discovery, CLOD format |
 | v2.1.0 | TBD | Phase 16-17: Ranking enhancements, index lifecycle |
 | v2.0.0 | 2026-02-01 | Topic graph, vector search, hybrid search |
 | v1.0.0 | 2026-01-15 | Initial release: TOC, BM25, grips |

@@ -331,6 +331,42 @@ agent-memory/
 |--------|-------------|
 | memory-query-plugin | Query past conversations with /memory-search, /memory-recent, /memory-context |
 
+## Supported Agents
+
+Agent Memory supports multiple AI coding agents simultaneously. Each adapter captures events and provides skills/commands for its respective agent:
+
+| Agent | Adapter | Event Capture | Install |
+|-------|---------|---------------|---------|
+| Claude Code | Built-in (hooks.yaml) | CCH binary | [Setup Guide](../plugins/memory-query-plugin/README.md) |
+| OpenCode | Plugin (TypeScript) | Plugin system | [Setup Guide](../plugins/memory-opencode-plugin/README.md) |
+| Gemini CLI | Shell hooks | settings.json | [Setup Guide](../plugins/memory-gemini-adapter/README.md) |
+| Copilot CLI | Shell hooks | hooks.json | [Setup Guide](../plugins/memory-copilot-adapter/README.md) |
+
+All adapters share the same memory daemon and storage. Events are tagged by agent for cross-agent discovery and filtering.
+
+## Cross-Agent Discovery
+
+When using multiple agents, you can discover which agents contributed memories and query across or within specific agents:
+
+```bash
+# List all contributing agents
+memory-daemon agents list
+
+# View agent activity timeline
+memory-daemon agents activity --agent claude
+
+# View topics for a specific agent
+memory-daemon retrieval route "what topics" --agent opencode
+
+# Search across all agents (default)
+memory-daemon retrieval route "authentication implementation"
+
+# Search within a specific agent
+memory-daemon teleport search "JWT tokens" --agent gemini
+```
+
+See the [Cross-Agent Usage Guide](adapters/cross-agent-guide.md) for detailed workflows and examples.
+
 ## Development Phases
 
 | Phase | Description | Status |
@@ -401,6 +437,32 @@ Agents interact with memory through these gRPC operations:
 | `get_events(time_range)` | Raw events (last resort) |
 | `expand_grip(grip_id)` | Context around excerpt |
 | `teleport_query(query)` | Index-based jump (v2) |
+
+## Agent Discovery
+
+List all agents that have contributed memories:
+
+```bash
+memory-daemon agents list
+```
+
+View agent activity timeline:
+
+```bash
+# Activity for all agents (last 30 days, daily buckets)
+memory-daemon agents activity
+
+# Activity for a specific agent
+memory-daemon agents activity --agent claude
+
+# Activity with time range
+memory-daemon agents activity --agent opencode --from 2026-02-01 --to 2026-02-10
+
+# Weekly buckets
+memory-daemon agents activity --bucket week
+```
+
+Agent discovery uses the `ListAgents` and `GetAgentActivity` gRPC RPCs. Agent counts are derived from `TocNode.contributing_agents` (O(k) over TOC nodes) and time-bounded event scans with chrono bucketing.
 
 ## Event Types
 
@@ -534,6 +596,9 @@ echo '{"hook_event_name":"SessionStart","session_id":"test-123"}' | ./target/rel
 
 | Document | Description |
 |----------|-------------|
+| [Cross-Agent Usage Guide](adapters/cross-agent-guide.md) | Using agent-memory with multiple AI agents |
+| [Adapter Authoring Guide](adapters/authoring-guide.md) | Building a new adapter for an AI agent |
+| [CLOD Format Specification](adapters/clod-format.md) | Universal command definition format |
 | [Configuration Reference](references/configuration-reference.md) | Complete configuration options with defaults |
 | [Lifecycle Telemetry](references/lifecycle-telemetry.md) | Metrics and monitoring for index lifecycle |
 | [UPGRADING](UPGRADING.md) | Version upgrade instructions and migration notes |

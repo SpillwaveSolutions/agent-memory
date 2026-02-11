@@ -1,0 +1,24 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Local development
+.env
+*.local
+
+# Node.js
+node_modules/
+
+# Build artifacts (if any in future)
+dist/
+build/
+
+# Compiled TypeScript
+.opencode/plugin/*.js

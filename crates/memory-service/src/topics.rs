@@ -12,6 +12,7 @@ use chrono::Utc;
 use tonic::{Request, Response, Status};
 use tracing::{debug, info};
 
+use memory_storage::Storage;
 use memory_topics::{RelationshipType, TopicStorage};
 
 use crate::pb::{
@@ -23,6 +24,8 @@ use crate::pb::{
 /// Handler for topic graph operations.
 pub struct TopicGraphHandler {
     storage: Arc<TopicStorage>,
+    /// Main storage for TocNode lookups (used by agent-filtered topic queries).
+    main_storage: Arc<Storage>,
 }
 
 /// Status of the topic graph.
@@ -43,8 +46,11 @@ pub struct TopicSearchResult {
 
 impl TopicGraphHandler {
     /// Create a new topic graph handler.
-    pub fn new(storage: Arc<TopicStorage>) -> Self {
-        Self { storage }
+    pub fn new(storage: Arc<TopicStorage>, main_storage: Arc<Storage>) -> Self {
+        Self {
+            storage,
+            main_storage,
+        }
     }
 
     /// Check if the topic graph is available.
@@ -280,6 +286,9 @@ impl TopicGraphHandler {
     }
 
     /// Handle GetTopTopics RPC request.
+    ///
+    /// When `agent_filter` is set, returns only topics that the specified agent
+    /// has contributed to (via TopicLink -> TocNode -> contributing_agents).
     pub async fn get_top_topics(
         &self,
         request: Request<GetTopTopicsRequest>,
@@ -291,29 +300,46 @@ impl TopicGraphHandler {
             10
         };
         let _days = if req.days > 0 { req.days } else { 30 };
+        let agent_filter = req.agent_filter.filter(|s| !s.is_empty());
 
-        debug!(limit = limit, days = _days, "GetTopTopics request");
+        debug!(
+            limit = limit,
+            days = _days,
+            agent_filter = ?agent_filter,
+            "GetTopTopics request"
+        );
 
-        // Get top topics sorted by importance
-        let topics = self.storage.get_top_topics(limit).map_err(|e| {
-            tracing::error!("Failed to get top topics: {}", e);
-            Status::internal(format!("Failed to get top topics: {}", e))
-        })?;
-
-        // Note: The days parameter could be used to filter topics by last_mentioned_at
-        // within the lookback window. For now, we rely on the importance scorer's
-        // time-decay which already factors in recency. Future enhancement could
-        // filter out topics not mentioned within the days window.
         let now = Utc::now();
         let cutoff = now - chrono::Duration::days(_days as i64);
 
-        let filtered_topics: Vec<_> = topics
-            .into_iter()
-            .filter(|t| t.last_mentioned_at >= cutoff)
-            .collect();
+        let proto_topics: Vec<ProtoTopic> = if let Some(agent_id) = agent_filter {
+            // Phase 23: Agent-filtered topic query
+            let agent_topics = self
+                .storage
+                .get_topics_for_agent(&self.main_storage, &agent_id, limit)
+                .map_err(|e| {
+                    tracing::error!("Failed to get topics for agent: {}", e);
+                    Status::internal(format!("Failed to get topics for agent: {}", e))
+                })?;
 
-        let proto_topics: Vec<ProtoTopic> =
-            filtered_topics.into_iter().map(topic_to_proto).collect();
+            agent_topics
+                .into_iter()
+                .filter(|(t, _)| t.last_mentioned_at >= cutoff)
+                .map(|(t, _relevance)| topic_to_proto(t))
+                .collect()
+        } else {
+            // Existing behavior: return all top topics by importance
+            let topics = self.storage.get_top_topics(limit).map_err(|e| {
+                tracing::error!("Failed to get top topics: {}", e);
+                Status::internal(format!("Failed to get top topics: {}", e))
+            })?;
+
+            topics
+                .into_iter()
+                .filter(|t| t.last_mentioned_at >= cutoff)
+                .map(topic_to_proto)
+                .collect()
+        };
 
         info!(
             limit = limit,
@@ -433,5 +459,149 @@ mod tests {
         );
         assert_eq!(parse_relationship_type("unknown"), None);
         assert_eq!(parse_relationship_type(""), None);
+    }
+
+    // === Phase 23: Agent-filtered GetTopTopics integration tests ===
+
+    use memory_topics::{TopicLink, TopicStorage};
+    use memory_types::{TocLevel, TocNode};
+    use tempfile::TempDir;
+
+    /// Helper: create storage and TopicGraphHandler for integration tests.
+    fn create_test_handler() -> (TempDir, Arc<TopicGraphHandler>) {
+        let dir = TempDir::new().unwrap();
+        let storage = Arc::new(memory_storage::Storage::open(dir.path()).unwrap());
+        let topic_storage = Arc::new(TopicStorage::new(storage.clone()));
+        let handler = Arc::new(TopicGraphHandler::new(topic_storage, storage));
+        (dir, handler)
+    }
+
+    /// Helper: create a test topic with known importance score.
+    fn make_topic(id: &str, label: &str, importance: f64) -> Topic {
+        let now = Utc::now();
+        Topic {
+            topic_id: id.to_string(),
+            label: label.to_string(),
+            embedding: vec![0.1, 0.2],
+            importance_score: importance,
+            node_count: 5,
+            created_at: now,
+            last_mentioned_at: now,
+            status: memory_topics::TopicStatus::Active,
+            keywords: vec!["test".to_string()],
+        }
+    }
+
+    /// Helper: store a TocNode with contributing agents.
+    fn store_node(storage: &memory_storage::Storage, node_id: &str, agents: &[&str]) {
+        let now = Utc::now();
+        let mut node = TocNode::new(
+            node_id.to_string(),
+            TocLevel::Day,
+            format!("Node {}", node_id),
+            now,
+            now,
+        );
+        for agent in agents {
+            node = node.with_contributing_agent(*agent);
+        }
+        storage.put_toc_node(&node).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_top_topics_without_agent_filter() {
+        let (_dir, handler) = create_test_handler();
+
+        // Add topics directly to storage
+        let t1 = make_topic("t1", "Topic One", 0.9);
+        let t2 = make_topic("t2", "Topic Two", 0.5);
+        handler.storage.save_topic(&t1).unwrap();
+        handler.storage.save_topic(&t2).unwrap();
+
+        // Call GetTopTopics without agent_filter
+        let request = tonic::Request::new(GetTopTopicsRequest {
+            limit: 10,
+            days: 30,
+            agent_filter: None,
+        });
+
+        let response = handler.get_top_topics(request).await.unwrap();
+        let topics = response.into_inner().topics;
+
+        assert_eq!(topics.len(), 2, "Should return all topics");
+        // Should be sorted by importance descending
+        assert_eq!(topics[0].id, "t1");
+        assert_eq!(topics[1].id, "t2");
+    }
+
+    #[tokio::test]
+    async fn test_get_top_topics_with_agent_filter() {
+        let (_dir, handler) = create_test_handler();
+
+        // Create topics
+        let t1 = make_topic("t1", "Claude Topic", 0.9);
+        let t2 = make_topic("t2", "OpenCode Topic", 0.8);
+        let t3 = make_topic("t3", "Shared Topic", 0.7);
+        handler.storage.save_topic(&t1).unwrap();
+        handler.storage.save_topic(&t2).unwrap();
+        handler.storage.save_topic(&t3).unwrap();
+
+        // Store TocNodes with agents
+        store_node(&handler.main_storage, "node-1", &["claude"]);
+        store_node(&handler.main_storage, "node-2", &["opencode"]);
+        store_node(&handler.main_storage, "node-3", &["claude", "opencode"]);
+
+        // Create topic links
+        handler
+            .storage
+            .save_link(&TopicLink::new("t1".to_string(), "node-1".to_string(), 0.9))
+            .unwrap();
+        handler
+            .storage
+            .save_link(&TopicLink::new("t2".to_string(), "node-2".to_string(), 0.8))
+            .unwrap();
+        handler
+            .storage
+            .save_link(&TopicLink::new("t3".to_string(), "node-3".to_string(), 0.7))
+            .unwrap();
+
+        // Filter by "claude" - should get t1 (node-1 has claude) and t3 (node-3 has claude)
+        let request = tonic::Request::new(GetTopTopicsRequest {
+            limit: 10,
+            days: 30,
+            agent_filter: Some("claude".to_string()),
+        });
+
+        let response = handler.get_top_topics(request).await.unwrap();
+        let topics = response.into_inner().topics;
+
+        assert_eq!(topics.len(), 2, "Should return 2 topics for claude");
+        let ids: Vec<&str> = topics.iter().map(|t| t.id.as_str()).collect();
+        assert!(ids.contains(&"t1"), "Should include t1 (claude)");
+        assert!(ids.contains(&"t3"), "Should include t3 (shared)");
+        assert!(
+            !ids.contains(&"t2"),
+            "Should NOT include t2 (opencode only)"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_top_topics_agent_filter_empty_string_ignored() {
+        let (_dir, handler) = create_test_handler();
+
+        let t1 = make_topic("t1", "Any Topic", 0.9);
+        handler.storage.save_topic(&t1).unwrap();
+
+        // Empty string agent_filter should behave like no filter
+        let request = tonic::Request::new(GetTopTopicsRequest {
+            limit: 10,
+            days: 30,
+            agent_filter: Some(String::new()),
+        });
+
+        let response = handler.get_top_topics(request).await.unwrap();
+        let topics = response.into_inner().topics;
+
+        assert_eq!(topics.len(), 1, "Empty filter should return all topics");
     }
 }

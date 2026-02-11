@@ -1,0 +1,98 @@
+description = "Search past conversations by topic or keyword using agent-memory"
+
+prompt = """
+Search past conversations by topic or keyword using tier-aware retrieval with automatic fallback chains.
+
+## Arguments
+
+The user's query follows this instruction as `{{args}}`. Parse the arguments:
+- First positional argument: Topic or keyword to search (required)
+- `--period <value>`: Time period filter (optional, e.g., "last week", "january", "2026-01")
+- `--agent <value>`: Filter by agent (optional, e.g., "gemini", "claude", "opencode")
+
+If `{{args}}` is empty, ask the user what topic they want to search for.
+
+## Process
+
+### Step 1: Check Daemon Status
+
+```bash
+memory-daemon status
+```
+
+If the daemon is not running, tell the user to start it with `memory-daemon start` and stop.
+
+### Step 2: Check Retrieval Capabilities
+
+```bash
+memory-daemon retrieval status
+```
+
+Note the current tier (1-5) and available layers. This determines the search strategy.
+
+### Step 3: Route Through Tier-Aware Retrieval
+
+Use the retrieval route command to search through optimal layers automatically:
+
+```bash
+memory-daemon retrieval route "{{args}}"
+```
+
+This command:
+- Classifies query intent (Explore, Answer, Locate, Time-boxed)
+- Detects the current tier and available layers
+- Routes through the optimal fallback chain
+- Returns results with explainability
+
+### Step 4: Fallback to TOC Navigation
+
+If retrieval route returns no results, fall back to manual TOC navigation:
+
+```bash
+# Get root periods
+memory-daemon query --endpoint http://[::1]:50051 root
+
+# Browse into the relevant time period
+memory-daemon query --endpoint http://[::1]:50051 browse --parent-id "toc:month:2026-02" --limit 20
+
+# Search within a time period
+memory-daemon query search --parent "toc:month:2026-02" --query "{{args}}" --limit 20
+```
+
+Navigate the TOC hierarchy (Year -> Month -> Week -> Day -> Segment) to find matching content.
+
+### Step 5: Format and Present Results
+
+Present results with grip IDs so the user can drill down into specific excerpts.
+
+## Output Format
+
+Format the results as follows:
+
+```markdown
+## Memory Search: [topic]
+
+**Tier:** [tier name] | **Intent:** [classified intent] | **Layers:** [layers used]
+
+### [Time Period]
+**Summary:** [matching bullet points from TOC nodes]
+
+**Excerpts:**
+- "[excerpt text]" `grip:ID`
+  _Source: [human-readable timestamp]_
+
+- "[excerpt text]" `grip:ID`
+  _Source: [human-readable timestamp]_
+
+---
+Expand any excerpt with: /memory-context grip:ID
+Search related topics with: /memory-search [related term]
+```
+
+## Error Handling
+
+- **Daemon not running:** Tell the user to run `memory-daemon start`
+- **No results found:** Suggest broadening the search terms, trying a different time period, or checking if events have been ingested
+- **Connection refused:** The daemon may not be running on the default endpoint. Suggest `memory-daemon start`
+- **Timeout:** Suggest narrowing the query or reducing the time range
+"""

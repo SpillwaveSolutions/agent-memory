@@ -2,28 +2,31 @@
 
 ## Current State
 
-**Version:** v2.0.0 (Shipped 2026-02-07)
-**Status:** Full cognitive architecture complete
+**Version:** v2.1 (Shipped 2026-02-10)
+**Status:** Multi-agent ecosystem complete — 4 adapters, cross-agent discovery, CLOD format
 
-The system now implements a complete 6-layer cognitive stack with control plane:
-- Layer 0: Raw Events (RocksDB)
-- Layer 1: TOC Hierarchy (time-based navigation)
+The system implements a complete 6-layer cognitive stack with control plane and multi-agent support:
+- Layer 0: Raw Events (RocksDB) — agent-tagged
+- Layer 1: TOC Hierarchy (time-based navigation) — contributing_agents tracking
 - Layer 2: Agentic TOC Search (index-free, always works)
 - Layer 3: Lexical Teleport (BM25/Tantivy)
 - Layer 4: Semantic Teleport (Vector/HNSW)
-- Layer 5: Conceptual Discovery (Topic Graph)
+- Layer 5: Conceptual Discovery (Topic Graph) — agent-filtered queries
 - Layer 6: Ranking Policy (salience, usage, novelty, lifecycle)
 - Control: Retrieval Policy (intent routing, tier detection, fallbacks)
+- Adapters: Claude Code, OpenCode, Gemini CLI, Copilot CLI
+- Discovery: ListAgents, GetAgentActivity, agent-filtered topics
 
-## Current Milestone: v2.1 Multi-Agent Ecosystem
+40,817 LOC Rust across 14 crates. 4 adapter plugins. 3 documentation guides.
 
-**Goal:** Extend Agent Memory to work across the AI agent ecosystem with full Claude parity.
+## Current Milestone: v2.2 Production Hardening
+
+**Goal:** Make Agent Memory CI-verified and production-ready by closing all tech debt, adding E2E pipeline tests, and strengthening CI/CD.
 
 **Target features:**
-- OpenCode plugin (query commands, event capture, navigator agent)
-- Gemini CLI hook adapter (event capture + plugin equivalent)
-- GitHub Copilot CLI hook adapter (event capture + plugin equivalent)
-- Cross-agent memory sharing (agent-tagged events, unified queries, filter-by-agent)
+- E2E test suite (ingest → TOC build → grip creation → query route → results)
+- Tech debt cleanup (wire stub RPCs, fix session_count, agent field on teleport results)
+- CI/CD improvements (E2E tests in GitHub Actions)
 
 ## What This Is
 
@@ -85,7 +88,21 @@ Agent Memory implements a layered cognitive architecture:
 
 ## Requirements
 
-### Validated (v2.0.0 - Shipped 2026-02-07)
+### Validated (v2.1 - Shipped 2026-02-10)
+
+**Multi-Agent Ecosystem (v2.1)**
+- [x] OpenCode plugin — 3 commands, 5 skills, navigator agent, event capture — v2.1
+- [x] Gemini CLI adapter — hook handler, TOML commands, skills, install skill — v2.1
+- [x] Copilot CLI adapter — hook handler, session synthesis, skills, navigator agent — v2.1
+- [x] Agent-tagged events with Event.agent field and TocNode.contributing_agents — v2.1
+- [x] Unified cross-agent queries (all agents by default, --agent filter) — v2.1
+- [x] Agent discovery RPCs (ListAgents, GetAgentActivity) — v2.1
+- [x] Agent-filtered topic queries (GetTopTopics with agent_filter) — v2.1
+- [x] CLOD format spec and converter CLI (4 adapter generators) — v2.1
+- [x] Cross-agent usage guide, adapter authoring guide, UPGRADING docs — v2.1
+
+<details>
+<summary>v2.0.0 Validated (Shipped 2026-02-07)</summary>
 
 **Cognitive Layers (v2.0)**
 - [x] Background scheduler with Tokio cron, timezone handling, overlap policy — v2.0
@@ -102,6 +119,8 @@ Agent Memory implements a layered cognitive architecture:
 - [x] Tier detection (5 capability tiers) — v2.0
 - [x] Fallback chains with graceful degradation — v2.0
 - [x] Explainability payload for skill contracts — v2.0
+
+</details>
 
 <details>
 <summary>v1.0.0 Validated (Shipped 2026-01-30)</summary>
@@ -148,31 +167,21 @@ Agent Memory implements a layered cognitive architecture:
 
 </details>
 
-### Active (v2.1 Multi-Agent Ecosystem)
+### Active (v2.2 Production Hardening)
 
-**OpenCode Plugin**
-- [ ] Query commands (/memory-search, /memory-recent, /memory-context)
-- [ ] Event capture (conversation events to daemon)
-- [ ] Navigator agent for complex queries
+**E2E Testing**
+- [ ] Full pipeline E2E tests (ingest → TOC → grips → query → results)
+- [ ] E2E tests run in CI (GitHub Actions)
 
-**Gemini CLI Adapter**
-- [ ] Hook handler for Gemini CLI events
-- [ ] Event capture to daemon
-- [ ] Plugin/skill equivalent for queries
+**Tech Debt Cleanup**
+- [ ] Wire GetRankingStatus, PruneVectorIndex, PruneBm25Index stub RPCs
+- [ ] Fix session_count in ListAgents (event scanning, not TOC-only)
+- [ ] Add agent field to TeleportResult and VectorTeleportMatch
+- [ ] CI/CD pipeline improvements
 
-**GitHub Copilot CLI Adapter**
-- [ ] Hook handler for Copilot CLI events
-- [ ] Event capture to daemon
-- [ ] Plugin/skill equivalent for queries
-
-**Cross-Agent Memory Sharing**
-- [ ] Agent-tagged events (source agent in metadata)
-- [ ] Unified query (see all agents by default)
-- [ ] Filter-by-agent option for scoped queries
-
-**Deferred (v2.2+)**
-- Automated E2E tests in CI
+**Deferred (future)**
 - Performance benchmarks
+- Cross-project unified memory
 
 ### Out of Scope
 
@@ -242,6 +251,12 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Local embeddings | all-MiniLM-L6-v2 via Candle; no API dependency | ✓ Validated v2.0 |
 | Graceful degradation | Tier detection enables fallback chains | ✓ Validated v2.0 |
 | Skills as control plane | Skills decide how to use layers; layers are passive | ✓ Validated v2.0 |
+| Adapter-per-agent plugins | Each agent gets its own plugin dir with native format | ✓ Validated v2.1 |
+| Fail-open shell hooks | trap ERR EXIT, background processes, exit 0 always | ✓ Validated v2.1 |
+| Agent field via serde(default) | Backward-compatible JSON parsing for agent tags | ✓ Validated v2.1 |
+| O(k) agent discovery | Aggregate from TocNode.contributing_agents, not O(n) events | ✓ Validated v2.1 |
+| CLOD as internal format | TOML-based portable command definition, not external standard | ✓ Validated v2.1 |
+| Skills portable across agents | Same SKILL.md works in Claude/OpenCode/Copilot | ✓ Validated v2.1 |
 
 ---
-*Last updated: 2026-02-08 after v2.1 milestone initialization*
+*Last updated: 2026-02-10 after v2.2 milestone initialization*

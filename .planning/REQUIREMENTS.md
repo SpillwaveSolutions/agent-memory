@@ -1,237 +1,88 @@
-# Requirements: v2.1 Multi-Agent Ecosystem
+# Requirements: v2.2 Production Hardening
 
-**Milestone Goal:** Extend Agent Memory to work across the AI agent ecosystem with full Claude parity.
+**Defined:** 2026-02-10
+**Core Value:** An agent can answer "what were we talking about last week?" without scanning everything
 
-**Success Criteria:** All adapters (OpenCode, Gemini CLI, Copilot CLI) provide equivalent functionality to the existing Claude Code plugin.
+## v1 Requirements
 
----
+Requirements for this milestone. Each maps to roadmap phases.
 
-## R1: OpenCode Plugin
+### E2E Testing
 
-**Goal:** OpenCode integration using native plugin architecture (commands + skills, not hooks).
+- [ ] **E2E-01**: Full pipeline test: ingest events -> TOC segment build -> grip creation -> query route returns correct results
+- [ ] **E2E-02**: Teleport index test: ingest -> BM25 index build -> bm25_search returns matching events
+- [ ] **E2E-03**: Vector teleport test: ingest -> vector index build -> vector_search returns semantically similar events
+- [ ] **E2E-04**: Topic graph test: ingest -> topic clustering -> get_top_topics returns relevant topics
+- [ ] **E2E-05**: Multi-agent test: ingest from multiple agents -> cross-agent query returns all -> filtered query returns one
+- [ ] **E2E-06**: Graceful degradation test: query with missing indexes still returns results via TOC fallback
+- [ ] **E2E-07**: Grip provenance test: ingest -> segment with grips -> expand_grip returns source events with context
+- [ ] **E2E-08**: Error path test: malformed events handled gracefully, invalid queries return useful errors
 
-### R1.1: Query Commands
+### Tech Debt
 
-Create OpenCode command files that mirror Claude Code plugin commands:
+- [x] **DEBT-01**: Wire GetRankingStatus RPC to return current ranking configuration
+- [x] **DEBT-02**: Wire PruneVectorIndex RPC to trigger vector index cleanup
+- [x] **DEBT-03**: Wire PruneBm25Index RPC to trigger BM25 index cleanup
+- [x] **DEBT-04**: Fix ListAgents session_count via event scanning (currently 0 from TOC only)
+- [x] **DEBT-05**: Add agent field to TeleportResult proto message and populate from event metadata
+- [x] **DEBT-06**: Add agent field to VectorTeleportMatch proto message and populate from event metadata
 
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R1.1.1 | `/memory-search` command | P0 | Topic/keyword search with period filter |
-| R1.1.2 | `/memory-recent` command | P0 | Recent summaries with day count |
-| R1.1.3 | `/memory-context` command | P0 | Expand grip excerpts with context |
-| R1.1.4 | Command frontmatter with parameters | P0 | YAML header with name, description, parameters |
-| R1.1.5 | `$ARGUMENTS` variable substitution | P0 | OpenCode-specific argument handling |
+### CI/CD
 
-**Format:** `.opencode/command/memory-*.md` with YAML frontmatter.
+- [ ] **CI-01**: E2E test suite runs in GitHub Actions CI pipeline
+- [ ] **CI-02**: E2E tests run on PR submissions (not just main branch pushes)
+- [ ] **CI-03**: CI reports test count and pass/fail status for E2E suite separately
 
-### R1.2: Skills
+## v2 Requirements
 
-Port Claude Code skills to OpenCode skill format:
+Deferred to future release.
 
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R1.2.1 | `memory-query` skill | P0 | Core retrieval with tier detection |
-| R1.2.2 | `retrieval-policy` skill | P1 | Intent classification and routing |
-| R1.2.3 | `topic-graph` skill | P1 | Topic-based discovery (Tier 1) |
-| R1.2.4 | `bm25-search` skill | P1 | Keyword search teleport |
-| R1.2.5 | `vector-search` skill | P1 | Semantic search teleport |
-| R1.2.6 | Skill YAML frontmatter | P0 | name, description, metadata.version |
-| R1.2.7 | Reference subdirectories | P2 | references/ for command-reference.md |
+### Performance
+- **PERF-01**: Ingest throughput benchmark (events/sec)
+- **PERF-02**: Query latency benchmark (p50/p95/p99)
+- **PERF-03**: Index rebuild time benchmark
 
-**Format:** `.opencode/skill/{skill-name}/SKILL.md` with references/.
+### Cross-Project
+- **XPROJ-01**: Shared memory across projects
+- **XPROJ-02**: Project-scoped vs global memory queries
 
-### R1.3: Agent Definition
+## Out of Scope
 
-Port memory-navigator agent to OpenCode format:
+| Feature | Reason |
+|---------|--------|
+| Performance benchmarks | Deferred to v2.3; not needed for production readiness |
+| Cross-project memory | Future milestone; requires architectural changes |
+| MCP server | Future milestone; different deployment model |
+| New adapter plugins | v2.1 shipped 4 adapters; sufficient for now |
+| UI/dashboard | CLI-only tool, no UI planned |
 
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R1.3.1 | `memory-navigator` agent | P0 | Autonomous retrieval with tier routing |
-| R1.3.2 | Trigger patterns | P0 | Message patterns for activation |
-| R1.3.3 | Skill dependencies | P0 | Links to required skills |
-| R1.3.4 | Agent process documentation | P0 | Step-by-step execution workflow |
+## Traceability
 
-**Format:** `.opencode/agent/memory-navigator.md` with YAML frontmatter.
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| E2E-01 | Phase 25 | Pending |
+| E2E-02 | Phase 25 | Pending |
+| E2E-03 | Phase 25 | Pending |
+| E2E-04 | Phase 25 | Pending |
+| E2E-05 | Phase 26 | Pending |
+| E2E-06 | Phase 26 | Pending |
+| E2E-07 | Phase 25 | Pending |
+| E2E-08 | Phase 26 | Pending |
+| DEBT-01 | Phase 24 | Done |
+| DEBT-02 | Phase 24 | Done |
+| DEBT-03 | Phase 24 | Done |
+| DEBT-04 | Phase 24 | Done |
+| DEBT-05 | Phase 24 | Done |
+| DEBT-06 | Phase 24 | Done |
+| CI-01 | Phase 27 | Pending |
+| CI-02 | Phase 27 | Pending |
+| CI-03 | Phase 27 | Pending |
 
-### R1.4: Event Capture
-
-Hook into OpenCode lifecycle for automatic memory capture:
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R1.4.1 | Session end capture | P0 | Trigger ingest on session completion |
-| R1.4.2 | Checkpoint capture | P1 | Optional mid-session ingestion |
-| R1.4.3 | Agent identifier tagging | P0 | Tag events with `agent:opencode` |
-| R1.4.4 | Project context preservation | P0 | Maintain project directory in events |
-
-**Integration:** OpenCode uses CLOD format or shell hooks in `.opencode/hooks/`.
-
----
-
-## R2: Gemini CLI Hook Adapter
-
-**Goal:** Gemini CLI integration with full Claude parity using Gemini's hook system.
-
-### R2.1: Hook Configuration
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R2.1.1 | Session start hook | P0 | Initialize memory context |
-| R2.1.2 | Pre-tool hook | P1 | Context injection before tool use |
-| R2.1.3 | Post-tool hook | P1 | Capture tool outputs |
-| R2.1.4 | Session end hook | P0 | Trigger memory ingest |
-| R2.1.5 | Hook configuration file | P0 | Gemini-specific format |
-
-### R2.2: Command Adapters
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R2.2.1 | `/memory-search` equivalent | P0 | Map to Gemini command format |
-| R2.2.2 | `/memory-recent` equivalent | P0 | Recent summaries |
-| R2.2.3 | `/memory-context` equivalent | P0 | Grip expansion |
-| R2.2.4 | CLI wrapper scripts | P1 | Shell scripts for memory-daemon calls |
-
-### R2.3: Event Capture
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R2.3.1 | Conversation transcript capture | P0 | Capture Gemini session history |
-| R2.3.2 | Agent identifier tagging | P0 | Tag events with `agent:gemini` |
-| R2.3.3 | Cross-agent query support | P0 | Query memories from other agents |
+**Coverage:**
+- v1 requirements: 17 total
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
-
-## R3: GitHub Copilot CLI Hook Adapter
-
-**Goal:** Copilot CLI integration with full Claude parity using Copilot's hook system.
-
-### R3.1: Hook Configuration
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R3.1.1 | Session lifecycle hooks | P0 | Start/end capture |
-| R3.1.2 | Context injection hooks | P1 | Pre-tool context |
-| R3.1.3 | Hook configuration file | P0 | Copilot-specific format |
-
-### R3.2: Command Adapters
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R3.2.1 | `/memory-search` equivalent | P0 | Map to Copilot command format |
-| R3.2.2 | `/memory-recent` equivalent | P0 | Recent summaries |
-| R3.2.3 | `/memory-context` equivalent | P0 | Grip expansion |
-
-### R3.3: Event Capture
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R3.3.1 | Conversation transcript capture | P0 | Capture Copilot session history |
-| R3.3.2 | Agent identifier tagging | P0 | Tag events with `agent:copilot` |
-| R3.3.3 | Cross-agent query support | P0 | Query memories from other agents |
-
----
-
-## R4: Cross-Agent Memory Sharing
-
-**Goal:** Enable unified memory access across all agents with filtering by source.
-
-### R4.1: Agent Tagging
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R4.1.1 | Agent identifier field in events | P0 | `agent` field in Event proto |
-| R4.1.2 | Automatic agent detection | P0 | Detect source agent on ingest |
-| R4.1.3 | Agent metadata in TOC nodes | P0 | Track which agents contributed |
-
-### R4.2: Unified Queries
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R4.2.1 | Query all agents (default) | P0 | Unified view across agents |
-| R4.2.2 | Filter by agent | P0 | `--agent claude` filter |
-| R4.2.3 | Agent-aware ranking | P1 | Weight by agent affinity |
-
-### R4.3: Cross-Agent Discovery
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R4.3.1 | List contributing agents | P1 | Show which agents have memories |
-| R4.3.2 | Agent activity timeline | P2 | When each agent was active |
-| R4.3.3 | Cross-agent topic linking | P2 | Topics span agent boundaries |
-
----
-
-## R5: Shared Infrastructure
-
-**Goal:** Common components used by all adapters.
-
-### R5.1: CLOD Format Support
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R5.1.1 | CLOD parser | P1 | Parse universal command format |
-| R5.1.2 | CLOD generator | P1 | Generate adapter-specific configs |
-| R5.1.3 | Bidirectional conversion | P2 | Claude ↔ OpenCode ↔ Gemini ↔ Copilot |
-
-### R5.2: Adapter SDK
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R5.2.1 | Adapter trait definition | P0 | Common interface for all adapters |
-| R5.2.2 | Event normalization | P0 | Convert agent-specific to unified format |
-| R5.2.3 | Configuration loading | P0 | Load adapter-specific configs |
-| R5.2.4 | CLI argument mapping | P1 | Translate CLI args to daemon calls |
-
-### R5.3: Documentation
-
-| ID | Requirement | Priority | Notes |
-|----|-------------|----------|-------|
-| R5.3.1 | Adapter installation guides | P0 | Per-agent setup instructions |
-| R5.3.2 | Cross-agent usage guide | P1 | How to query across agents |
-| R5.3.3 | Plugin authoring guide | P2 | How to add new agent adapters |
-
----
-
-## Acceptance Criteria
-
-### OpenCode Plugin (R1)
-- [ ] `/memory-search`, `/memory-recent`, `/memory-context` commands work in OpenCode
-- [ ] memory-query skill loads and functions correctly
-- [ ] memory-navigator agent activates on matching queries
-- [ ] Sessions are captured and tagged with `agent:opencode`
-
-### Gemini Adapter (R2)
-- [ ] Hook configuration file documented and functional
-- [ ] Commands mapped to Gemini-compatible format
-- [ ] Sessions captured with `agent:gemini` tag
-- [ ] Cross-agent queries include Gemini memories
-
-### Copilot Adapter (R3)
-- [ ] Hook configuration file documented and functional
-- [ ] Commands mapped to Copilot-compatible format
-- [ ] Sessions captured with `agent:copilot` tag
-- [ ] Cross-agent queries include Copilot memories
-
-### Cross-Agent Sharing (R4)
-- [ ] Events include `agent` field
-- [ ] `--agent <name>` filter works on all query commands
-- [ ] Default queries return results from all agents
-- [ ] TOC nodes show contributing agents
-
----
-
-## Phase Mapping
-
-| Phase | Requirements | Focus |
-|-------|--------------|-------|
-| 18 | R4.1, R5.2 | Agent tagging infrastructure + adapter SDK |
-| 19 | R1.1, R1.2, R1.3 | OpenCode commands, skills, agent |
-| 20 | R1.4, R4.2 | OpenCode event capture + unified queries |
-| 21 | R2.1, R2.2, R2.3 | Gemini CLI adapter |
-| 22 | R3.1, R3.2, R3.3 | Copilot CLI adapter |
-| 23 | R4.3, R5.1, R5.3 | Cross-agent discovery, CLOD, documentation |
-
----
-
-*Created: 2026-02-08*
-*Milestone: v2.1 Multi-Agent Ecosystem*
+*Requirements defined: 2026-02-10*
+*Last updated: 2026-02-10 after roadmap creation*

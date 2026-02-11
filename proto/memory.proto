@@ -102,6 +102,14 @@ service MemoryService {
 
     // Route a query through the retrieval policy
     rpc RouteQuery(RouteQueryRequest) returns (RouteQueryResponse);
+
+    // ===== Agent Discovery RPCs (Phase 23 - R4.3.1, R4.3.2) =====
+
+    // List all contributing agents with summary statistics
+    rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+
+    // Get agent activity bucketed by time period
+    rpc GetAgentActivity(GetAgentActivityRequest) returns (GetAgentActivityResponse);
 }
 
 // Role of the message author
@@ -529,6 +537,8 @@ message TeleportSearchResult {
     optional string keywords = 4;
     // Timestamp in milliseconds
     optional int64 timestamp_ms = 5;
+    // Phase 24: Agent that produced this result (from TocNode.contributing_agents)
+    optional string agent = 6;
 }
 
 // Response from teleport search
@@ -585,6 +595,8 @@ message VectorMatch {
     string text_preview = 4;
     // Document timestamp in milliseconds
     int64 timestamp_ms = 5;
+    // Phase 24: Agent that produced this result (from vector metadata)
+    optional string agent = 6;
 }
 
 // Response from vector search
@@ -737,6 +749,8 @@ message GetTopTopicsRequest {
     uint32 limit = 1;
     // Look back window in days for importance calculation (default: 30)
     uint32 days = 2;
+    // Phase 23: Filter topics by contributing agent (optional, omit for all agents)
+    optional string agent_filter = 201;
 }
 
 // Response with top topics
@@ -968,4 +982,38 @@ message RouteQueryResponse {
 
     // Layers that were attempted
     repeated RetrievalLayer layers_attempted = 4;
+}
+
+// ===== Agent Discovery Messages (Phase 23) =====
+
+message AgentSummary {
+    string agent_id = 1;
+    uint64 event_count = 2;
+    uint64 session_count = 3;
+    int64 first_seen_ms = 4;
+    int64 last_seen_ms = 5;
+}
+
+message ListAgentsRequest {}
+
+message ListAgentsResponse {
+    repeated AgentSummary agents = 1;
+}
+
+message GetAgentActivityRequest {
+    optional string agent_id = 1;
+    optional int64 from_ms = 2;
+    optional int64 to_ms = 3;
+    string bucket = 4; // "day" or "week"
+}
+
+message ActivityBucket {
+    int64 start_ms = 1;
+    int64 end_ms = 2;
+    uint64 event_count = 3;
+    string agent_id = 4;
+}
+
+message GetAgentActivityResponse {
+    repeated ActivityBucket buckets = 1;
 }

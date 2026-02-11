@@ -401,7 +401,7 @@ impl Storage {
             let node_id = key_str.trim_start_matches("latest:");
             if value.len() >= 4 {
                 let version = u32::from_be_bytes([value[0], value[1], value[2], value[3]]);
-                let versioned_key = format!("{}:v{:06}", node_id, version);
+                let versioned_key = format!("toc:{}:v{:06}", node_id, version);
 
                 if let Some(bytes) = self.db.get_cf(&nodes_cf, versioned_key.as_bytes())? {
                     let node = memory_types::TocNode::from_bytes(&bytes)

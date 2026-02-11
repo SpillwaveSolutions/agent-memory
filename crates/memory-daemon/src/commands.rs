@@ -33,8 +33,8 @@ use memory_toc::summarizer::MockSummarizer;
 use memory_types::Settings;
 
 use crate::cli::{
-    AdminCommands, QueryCommands, RetrievalCommand, SchedulerCommands, TeleportCommand,
-    TopicsCommand,
+    AdminCommands, AgentsCommand, ClodCliCommand, QueryCommands, RetrievalCommand,
+    SchedulerCommands, TeleportCommand, TopicsCommand,
 };
 
 /// Get the PID file path
@@ -2077,8 +2077,8 @@ pub async fn handle_retrieval_command(cmd: RetrievalCommand) -> Result<()> {
             limit,
             mode,
             timeout_ms,
+            agent,
             addr,
-            ..
         } => {
             retrieval_route(
                 &query,
@@ -2086,6 +2086,7 @@ pub async fn handle_retrieval_command(cmd: RetrievalCommand) -> Result<()> {
                 limit,
                 mode.as_deref(),
                 timeout_ms,
+                agent.as_deref(),
                 &addr,
             )
             .await
@@ -2237,6 +2238,7 @@ async fn retrieval_route(
     limit: u32,
     mode_override: Option<&str>,
     timeout_ms: Option<u64>,
+    agent_filter: Option<&str>,
     addr: &str,
 ) -> Result<()> {
     use memory_service::pb::memory_service_client::MemoryServiceClient;
@@ -2284,7 +2286,7 @@ async fn retrieval_route(
             stop_conditions,
             mode_override,
             limit: limit as i32,
-            agent_filter: None,
+            agent_filter: agent_filter.map(|s| s.to_string()),
         })
         .await
         .context("Failed to route query")?
@@ -2375,6 +2377,9 @@ async fn retrieval_route(
             }
 
             println!("   Type: {}", result.doc_type);
+            if let Some(ref agent) = result.agent {
+                println!("   Agent: {}", agent);
+            }
             println!();
         }
     }
@@ -2397,6 +2402,265 @@ async fn retrieval_route(
     }
 
     Ok(())
+}
+
+/// Handle agent discovery commands.
+///
+/// Per Phase 23: Cross-agent discovery.
+pub async fn handle_agents_command(cmd: AgentsCommand) -> Result<()> {
+    match cmd {
+        AgentsCommand::List { addr } => agents_list(&addr).await,
+        AgentsCommand::Activity {
+            agent,
+            from,
+            to,
+            bucket,
+            addr,
+        } => {
+            agents_activity(
+                agent.as_deref(),
+                from.as_deref(),
+                to.as_deref(),
+                &bucket,
+                &addr,
+            )
+            .await
+        }
+        AgentsCommand::Topics { agent, limit, addr } => agents_topics(&agent, limit, &addr).await,
+    }
+}
+
+/// List all contributing agents with summary statistics.
+async fn agents_list(addr: &str) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+    use memory_service::pb::ListAgentsRequest;
+
+    let mut client = MemoryServiceClient::connect(addr.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    let response = client
+        .list_agents(ListAgentsRequest {})
+        .await
+        .context("ListAgents RPC failed")?
+        .into_inner();
+
+    if response.agents.is_empty() {
+        println!("No contributing agents found.");
+        return Ok(());
+    }
+
+    println!("Contributing Agents:");
+    println!(
+        "  {:<16} {:<24} {:<24} {:>6}",
+        "AGENT", "FIRST SEEN", "LAST SEEN", "NODES"
+    );
+
+    for agent in &response.agents {
+        let first_seen = format_utc_timestamp(agent.first_seen_ms);
+        let last_seen = format_utc_timestamp(agent.last_seen_ms);
+
+        println!(
+            "  {:<16} {:<24} {:<24} {:>6}",
+            agent.agent_id, first_seen, last_seen, agent.event_count
+        );
+    }
+
+    Ok(())
+}
+
+/// Show agent activity timeline.
+async fn agents_activity(
+    agent: Option<&str>,
+    from: Option<&str>,
+    to: Option<&str>,
+    bucket: &str,
+    addr: &str,
+) -> Result<()> {
+    use memory_service::pb::memory_service_client::MemoryServiceClient;
+    use memory_service::pb::GetAgentActivityRequest;
+
+    let mut client = MemoryServiceClient::connect(addr.to_string())
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Parse --from/--to: if matches YYYY-MM-DD, convert to epoch ms; if numeric, use as-is
+    let from_ms = from.map(parse_time_arg).transpose()?;
+    let to_ms = to.map(parse_time_arg).transpose()?;
+
+    let response = client
+        .get_agent_activity(GetAgentActivityRequest {
+            agent_id: agent.map(|s| s.to_string()),
+            from_ms,
+            to_ms,
+            bucket: bucket.to_string(),
+        })
+        .await
+        .context("GetAgentActivity RPC failed")?
+        .into_inner();
+
+    if response.buckets.is_empty() {
+        println!("No agent activity found.");
+        return Ok(());
+    }
+
+    println!("Agent Activity ({} buckets):", bucket);
+    println!("  {:<14} {:<16} {:>8}", "DATE", "AGENT", "EVENTS");
+
+    for b in &response.buckets {
+        let date_str = format_utc_date(b.start_ms);
+        println!("  {:<14} {:<16} {:>8}", date_str, b.agent_id, b.event_count);
+    }
+
+    Ok(())
+}
+
+/// Show top topics for a specific agent.
+async fn agents_topics(agent: &str, limit: u32, addr: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(addr)
+        .await
+        .context("Failed to connect to daemon")?;
+
+    let topics = client
+        .get_top_topics_for_agent(limit, 30, agent)
+        .await
+        .context("Failed to get topics for agent")?;
+
+    if topics.is_empty() {
+        println!("No topics found for agent '{}'.", agent);
+        return Ok(());
+    }
+
+    println!("Top Topics for agent \"{}\":", agent);
+    println!(
+        "  {:<4} {:<30} {:>10}  KEYWORDS",
+        "#", "TOPIC", "IMPORTANCE"
+    );
+
+    for (i, topic) in topics.iter().enumerate() {
+        let keywords = if topic.keywords.is_empty() {
+            String::new()
+        } else {
+            topic.keywords.join(", ")
+        };
+        println!(
+            "  {:<4} {:<30} {:>10.4}  {}",
+            i + 1,
+            truncate_text(&topic.label, 28),
+            topic.importance_score,
+            truncate_text(&keywords, 40),
+        );
+    }
+
+    Ok(())
+}
+
+/// Parse a time argument that can be either YYYY-MM-DD or Unix epoch milliseconds.
+fn parse_time_arg(s: &str) -> Result<i64> {
+    // Try parsing as integer (epoch ms) first
+    if let Ok(ms) = s.parse::<i64>() {
+        return Ok(ms);
+    }
+
+    // Try parsing as YYYY-MM-DD
+    let date = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").context(format!(
+        "Invalid time format: {}. Use YYYY-MM-DD or epoch ms",
+        s
+    ))?;
+    let datetime = date.and_hms_opt(0, 0, 0).unwrap();
+    Ok(chrono::Utc.from_utc_datetime(&datetime).timestamp_millis())
+}
+
+/// Format a Unix timestamp in milliseconds as a human-readable UTC string.
+fn format_utc_timestamp(ms: i64) -> String {
+    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+        .map(|t| t.format("%Y-%m-%d %H:%M UTC").to_string())
+        .unwrap_or_else(|| "Invalid".to_string())
+}
+
+/// Handle CLOD format commands (convert and validate).
+pub async fn handle_clod_command(cmd: ClodCliCommand) -> Result<()> {
+    use crate::clod;
+    use std::path::Path;
+
+    match cmd {
+        ClodCliCommand::Convert { input, target, out } => {
+            let input_path = Path::new(&input);
+            let out_path = Path::new(&out);
+
+            let def = clod::parse_clod(input_path)?;
+
+            let files = match target.to_lowercase().as_str() {
+                "claude" => vec![clod::generate_claude(&def, out_path)?],
+                "opencode" => vec![clod::generate_opencode(&def, out_path)?],
+                "gemini" => vec![clod::generate_gemini(&def, out_path)?],
+                "copilot" => vec![clod::generate_copilot(&def, out_path)?],
+                "all" => clod::generate_all(&def, out_path)?,
+                other => anyhow::bail!(
+                    "Unknown target '{}'. Use: claude, opencode, gemini, copilot, all",
+                    other
+                ),
+            };
+
+            println!(
+                "Generated {} file(s) from CLOD definition '{}':",
+                files.len(),
+                def.command.name
+            );
+            for f in &files {
+                println!("  {}", f);
+            }
+        }
+        ClodCliCommand::Validate { input } => {
+            let input_path = Path::new(&input);
+            let def = clod::parse_clod(input_path)?;
+
+            let required_count = def.command.parameters.iter().filter(|p| p.required).count();
+            let optional_count = def.command.parameters.len() - required_count;
+            let step_count = def.process.as_ref().map_or(0, |p| p.steps.len());
+
+            // Collect configured adapters
+            let mut adapter_names = Vec::new();
+            if let Some(ref adapters) = def.adapters {
+                if adapters.claude.is_some() {
+                    adapter_names.push("claude");
+                }
+                if adapters.opencode.is_some() {
+                    adapter_names.push("opencode");
+                }
+                if adapters.gemini.is_some() {
+                    adapter_names.push("gemini");
+                }
+                if adapters.copilot.is_some() {
+                    adapter_names.push("copilot");
+                }
+            }
+
+            println!(
+                "Valid CLOD definition: {} v{}",
+                def.command.name, def.command.version
+            );
+            println!(
+                "  Parameters: {} ({} required, {} optional)",
+                def.command.parameters.len(),
+                required_count,
+                optional_count
+            );
+            println!("  Steps: {}", step_count);
+            if !adapter_names.is_empty() {
+                println!("  Adapters: {}", adapter_names.join(", "));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Format a Unix timestamp in milliseconds as a date-only UTC string.
+fn format_utc_date(ms: i64) -> String {
+    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+        .map(|t| t.format("%Y-%m-%d").to_string())
+        .unwrap_or_else(|| "Invalid".to_string())
 }
 
 #[cfg(test)]
@@ -2432,5 +2696,34 @@ mod tests {
     fn test_truncate_text() {
         assert_eq!(truncate_text("hello", 10), "hello");
         assert_eq!(truncate_text("hello world!", 5), "hello...");
+    }
+
+    #[test]
+    fn test_parse_time_arg_epoch_ms() {
+        assert_eq!(parse_time_arg("1707350400000").unwrap(), 1707350400000);
+    }
+
+    #[test]
+    fn test_parse_time_arg_date() {
+        let ms = parse_time_arg("2024-02-08").unwrap();
+        // 2024-02-08 00:00:00 UTC = 1707350400000
+        assert_eq!(ms, 1707350400000);
+    }
+
+    #[test]
+    fn test_parse_time_arg_invalid() {
+        assert!(parse_time_arg("not-a-date").is_err());
+    }
+
+    #[test]
+    fn test_format_utc_timestamp() {
+        let s = format_utc_timestamp(1707350400000);
+        assert_eq!(s, "2024-02-08 00:00 UTC");
+    }
+
+    #[test]
+    fn test_format_utc_date() {
+        let s = format_utc_date(1707350400000);
+        assert_eq!(s, "2024-02-08");
     }
 }

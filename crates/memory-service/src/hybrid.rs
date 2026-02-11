@@ -184,6 +184,7 @@ impl HybridSearchHandler {
                 score: e.rrf_score,
                 text_preview: e.text_preview,
                 timestamp_ms: e.timestamp_ms,
+                agent: e.agent,
             })
             .collect())
     }
@@ -195,6 +196,7 @@ struct RrfEntry {
     doc_type: String,
     text_preview: String,
     timestamp_ms: i64,
+    agent: Option<String>,
     rrf_score: f32,
 }
 
@@ -205,6 +207,7 @@ impl From<&VectorMatch> for RrfEntry {
             doc_type: m.doc_type.clone(),
             text_preview: m.text_preview.clone(),
             timestamp_ms: m.timestamp_ms,
+            agent: m.agent.clone(),
             rrf_score: 0.0,
         }
     }
@@ -228,6 +231,7 @@ mod tests {
             score: 0.95,
             text_preview: "Test preview".to_string(),
             timestamp_ms: 1234567890,
+            agent: None,
         };
 
         let entry = RrfEntry::from(&m);

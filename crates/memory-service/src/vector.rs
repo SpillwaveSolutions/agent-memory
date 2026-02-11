@@ -37,6 +37,11 @@ impl VectorTeleportHandler {
         }
     }
 
+    /// Get a reference to the vector metadata store.
+    pub fn metadata(&self) -> &Arc<VectorMetadata> {
+        &self.metadata
+    }
+
     /// Check if the vector index is available for search.
     pub fn is_available(&self) -> bool {
         let index = self.index.read().unwrap();
@@ -123,6 +128,7 @@ impl VectorTeleportHandler {
                     score: result.score,
                     text_preview: entry.text_preview,
                     timestamp_ms: entry.created_at,
+                    agent: entry.agent,
                 });
             }
         }
@@ -196,6 +202,7 @@ impl VectorTeleportHandler {
                     score: result.score,
                     text_preview: entry.text_preview,
                     timestamp_ms: entry.created_at,
+                    agent: entry.agent.clone(),
                 });
             }
         }
@@ -211,6 +218,8 @@ pub struct VectorSearchResult {
     pub score: f32,
     pub text_preview: String,
     pub timestamp_ms: i64,
+    /// Agent attribution (from VectorEntry metadata)
+    pub agent: Option<String>,
 }
 
 #[cfg(test)]

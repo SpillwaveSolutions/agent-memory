@@ -2,20 +2,20 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-08)
+See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.1 Multi-Agent Ecosystem — OpenCode plugin, Gemini/Copilot adapters, cross-agent sharing
+**Current focus:** v2.2 Production Hardening — Phase 24 complete, ready for Phase 25
 
 ## Current Position
 
-Milestone: v2.1 Multi-Agent Ecosystem
-Phase: 18 — Agent Tagging Infrastructure — COMPLETE
-Plan: All 4 plans executed
-Status: Phase 18 complete, ready for Phase 19-22 (parallel)
-Last activity: 2026-02-08 — Phase 18 executed (4 plans, 3 waves)
+Milestone: v2.2 Production Hardening
+Phase: 24 of 27 (Proto & Service Debt Cleanup) -- COMPLETE
+Plan: 3 of 3 in current phase (all done)
+Status: Phase Complete
+Last activity: 2026-02-11 — Completed 24-03 Prune RPCs
 
-Progress v2.1: [███░░░░░░░░░░░░░░░░░] 17% (1/6 phases)
+Progress: [##########] 100% (Phase 24)
 
 ## Milestone History
 
@@ -23,82 +23,54 @@ See: .planning/MILESTONES.md for complete history
 
 - v1.0.0 MVP: Shipped 2026-01-30 (8 phases, 20 plans)
 - v2.0.0 Scheduler+Teleport: Shipped 2026-02-07 (9 phases, 42 plans)
+- v2.1 Multi-Agent Ecosystem: Shipped 2026-02-10 (6 phases, 22 plans)
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 3 (v2.2)
+- Average duration: 27min
+- Total execution time: 81min
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 24 | 3 | 81min | 27min |
 
 ## Accumulated Context
 
-### Key Decisions (from v2.0)
+### Decisions
 
-Full decision log in PROJECT.md Key Decisions table.
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
 
-- Indexes are accelerators, not dependencies (graceful degradation)
-- Skills are the control plane (executive function)
-- Local embeddings via Candle (no API dependency)
-- Tier detection enables fallback chains
-- Index lifecycle automation via scheduler
+- v2.2: E2E tests use cargo test infrastructure (not separate framework)
+- v2.2: Tech debt resolved before E2E tests (agent fields needed for assertions)
+- 24-01: Use SalienceConfig/NoveltyConfig defaults as truth for GetRankingStatus
+- 24-01: Bound session event scan to 365 days for performance
+- 24-01: BM25 lifecycle reported as false (no persistent config storage)
+- 24-02: First contributing_agents entry used as primary agent for BM25 index
+- 24-02: serde(default) on VectorEntry.agent for backward-compatible deserialization
+- 24-02: with_agent() builder on VectorEntry to avoid breaking existing callers
+- 24-03: Vector prune removes metadata only; orphaned HNSW vectors harmless until rebuild-index
+- 24-03: BM25 prune is report-only (TeleportSearcher is read-only; deletion requires SearchIndexer)
+- 24-03: Level matching for vectors uses doc_id prefix pattern (:day:, :week:, :segment:)
 
-### v2.1 Context
+### Technical Debt (target of this milestone)
 
-**Research findings (2026-02-08):**
+- ~~GetRankingStatus stub~~ (DONE - 24-01)
+- ~~2 stub RPCs: PruneVectorIndex, PruneBm25Index~~ (DONE - 24-03)
+- ~~session_count = 0 in ListAgents~~ (DONE - 24-01)
+- ~~TeleportResult/VectorTeleportMatch lack agent field~~ (DONE - 24-02)
+- No automated E2E tests in CI
 
-1. **Claude Code Plugin Format:**
-   - `.claude-plugin/marketplace.json` — Plugin manifest
-   - `commands/*.md` — YAML frontmatter with name, description, parameters, skills
-   - `skills/{name}/SKILL.md` — Skill with YAML frontmatter + references/
-   - `agents/*.md` — Agent with triggers and skill dependencies
+### Blockers/Concerns
 
-2. **OpenCode Plugin Format:**
-   - `.opencode/command/*.md` — Commands with `$ARGUMENTS` substitution
-   - `.opencode/skill/{name}/SKILL.md` — Same skill format as Claude
-   - `.opencode/agent/*.md` — Agent definitions (not hooks)
-   - Skills are portable: same SKILL.md works in both
+None yet.
 
-3. **Hook System Comparison:**
-   - Claude Code: `.claude/hooks.yaml` via CCH binary
-   - OpenCode: Uses plugins (commands/skills), not hooks for behavior
-   - Gemini/Copilot: Hook systems similar to Claude (TBD research)
+## Session Continuity
 
-4. **Cross-Agent Strategy:**
-   - Add `agent` field to Event proto
-   - Auto-detect agent on ingest
-   - Default queries return all agents
-   - `--agent <name>` filter for single-agent queries
-
-### Technical Debt (Accepted)
-
-- 3 stub RPCs: GetRankingStatus, PruneVectorIndex, PruneBm25Index (admin features)
-- Missing SUMMARY.md files for some phases
-
-## v2.1 Phase Summary
-
-| Phase | Name | Status |
-|-------|------|--------|
-| 18 | Agent Tagging Infrastructure | ✓ Complete |
-| 19 | OpenCode Commands and Skills | Ready |
-| 20 | OpenCode Event Capture + Unified Queries | Blocked by 19 |
-| 21 | Gemini CLI Adapter | Ready |
-| 22 | Copilot CLI Adapter | Ready |
-| 23 | Cross-Agent Discovery + Documentation | Blocked by 21, 22 |
-
-## Next Steps
-
-1. `/gsd:plan-phase 19` — Plan OpenCode commands and skills
-2. `/gsd:plan-phase 21` — Plan Gemini CLI adapter (can run parallel with 19)
-3. `/gsd:plan-phase 22` — Plan Copilot CLI adapter (can run parallel with 19)
-
-## Phase 18 Summary
-
-**Completed:** 2026-02-08
-
-**Artifacts created:**
-- `proto/memory.proto` — Event.agent field, query request agent_filter fields
-- `crates/memory-types/src/event.rs` — Event.agent with serde(default)
-- `crates/memory-types/src/toc.rs` — TocNode.contributing_agents
-- `crates/memory-adapters/` — New crate with AgentAdapter trait, AdapterConfig, AdapterError
-- `crates/memory-daemon/src/cli.rs` — --agent filter on teleport and retrieval commands
-- `crates/memory-retrieval/src/types.rs` — StopConditions.agent_filter
-- `crates/memory-service/src/ingest.rs` — Agent extraction from proto Event
-
-**Tests:** 61 memory-types + 19 memory-adapters + 53 memory-retrieval = 133 tests passing
-
----
-*Updated: 2026-02-08 after Phase 18 execution*
+Last session: 2026-02-11
+Stopped at: Completed 24-03-PLAN.md (Phase 24 complete)
+Resume file: None

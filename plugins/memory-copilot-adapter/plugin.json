@@ -1,0 +1,7 @@
+{
+  "name": "memory-copilot-adapter",
+  "version": "2.1.0",
+  "description": "Agent memory adapter for GitHub Copilot CLI - enables intelligent memory retrieval and automatic event capture",
+  "author": "SpillwaveSolutions",
+  "repository": "https://github.com/SpillwaveSolutions/agent-memory"
+}

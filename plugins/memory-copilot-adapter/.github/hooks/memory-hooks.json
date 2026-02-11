@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": ".github/hooks/scripts/memory-capture.sh sessionStart",
+        "timeoutSec": 10,
+        "comment": "Capture session start into agent-memory with synthesized session ID"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": ".github/hooks/scripts/memory-capture.sh sessionEnd",
+        "timeoutSec": 10,
+        "comment": "Capture session end into agent-memory and clean up session temp file"
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": ".github/hooks/scripts/memory-capture.sh userPromptSubmitted",
+        "timeoutSec": 10,
+        "comment": "Capture user prompts into agent-memory"
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": ".github/hooks/scripts/memory-capture.sh preToolUse",
+        "timeoutSec": 10,
+        "comment": "Capture tool invocations into agent-memory"
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": ".github/hooks/scripts/memory-capture.sh postToolUse",
+        "timeoutSec": 10,
+        "comment": "Capture tool results into agent-memory"
+      }
+    ]
+  }
+}

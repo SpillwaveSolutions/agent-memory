@@ -1,0 +1,96 @@
+{
+  "_comment": [
+    "Gemini CLI hook configuration for agent-memory event capture.",
+    "",
+    "Precedence: project .gemini/settings.json > user ~/.gemini/settings.json > system /etc/gemini-cli/settings.json",
+    "The GEMINI_CONFIG env var can override the default path.",
+    "",
+    "Default install path: ~/.gemini/settings.json (global, captures all projects).",
+    "Use --project flag on install skill for per-project installation.",
+    "",
+    "The command path uses $HOME for global install. The install skill (Plan 03) will",
+    "adjust paths as needed for project-level installs."
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "memory-capture-session-start",
+            "type": "command",
+            "command": "$HOME/.gemini/hooks/memory-capture.sh",
+            "timeout": 5000,
+            "description": "Capture session start into agent-memory for cross-agent conversation history"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "name": "memory-capture-session-end",
+            "type": "command",
+            "command": "$HOME/.gemini/hooks/memory-capture.sh",
+            "timeout": 5000,
+            "description": "Capture session end into agent-memory to mark conversation boundaries"
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "name": "memory-capture-user-prompt",
+            "type": "command",
+            "command": "$HOME/.gemini/hooks/memory-capture.sh",
+            "timeout": 5000,
+            "description": "Capture user prompts into agent-memory for conversation recall"
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "name": "memory-capture-assistant-response",
+            "type": "command",
+            "command": "$HOME/.gemini/hooks/memory-capture.sh",
+            "timeout": 5000,
+            "description": "Capture assistant responses into agent-memory for conversation recall"
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "memory-capture-pre-tool-use",
+            "type": "command",
+            "command": "$HOME/.gemini/hooks/memory-capture.sh",
+            "timeout": 5000,
+            "description": "Capture tool invocations into agent-memory for action tracking"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "memory-capture-post-tool-result",
+            "type": "command",
+            "command": "$HOME/.gemini/hooks/memory-capture.sh",
+            "timeout": 5000,
+            "description": "Capture tool results into agent-memory for action tracking"
+          }
+        ]
+      }
+    ]
+  }
+}

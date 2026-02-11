@@ -7,32 +7,35 @@
 
 use std::sync::Arc;
 
-use chrono::{TimeZone, Utc};
+use chrono::{Duration, TimeZone, Utc};
 use tonic::{Request, Response, Status};
 use tracing::{debug, error, info};
 
 use memory_scheduler::SchedulerService;
 use memory_search::TeleportSearcher;
 use memory_storage::Storage;
-use memory_types::{Event, EventRole, EventType, OutboxEntry};
+use memory_types::{Event, EventRole, EventType, NoveltyConfig, OutboxEntry, SalienceConfig};
 
+use crate::agents::AgentDiscoveryHandler;
 use crate::hybrid::HybridSearchHandler;
 use crate::pb::{
     memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
     ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, Event as ProtoEvent,
     EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
-    ExpandGripResponse, GetEventsRequest, GetEventsResponse, GetNodeRequest, GetNodeResponse,
-    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
-    GetRelatedTopicsResponse, GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse,
-    GetSchedulerStatusRequest, GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse,
-    GetTopTopicsRequest, GetTopTopicsResponse, GetTopicGraphStatusRequest,
-    GetTopicGraphStatusResponse, GetTopicsByQueryRequest, GetTopicsByQueryResponse,
-    GetVectorIndexStatusRequest, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
-    IngestEventResponse, PauseJobRequest, PauseJobResponse, PruneBm25IndexRequest,
-    PruneBm25IndexResponse, PruneVectorIndexRequest, PruneVectorIndexResponse, ResumeJobRequest,
-    ResumeJobResponse, RouteQueryRequest, RouteQueryResponse, SearchChildrenRequest,
-    SearchChildrenResponse, SearchNodeRequest, SearchNodeResponse, TeleportSearchRequest,
-    TeleportSearchResponse, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
+    ExpandGripResponse, GetAgentActivityRequest, GetAgentActivityResponse, GetEventsRequest,
+    GetEventsResponse, GetNodeRequest, GetNodeResponse, GetRankingStatusRequest,
+    GetRankingStatusResponse, GetRelatedTopicsRequest, GetRelatedTopicsResponse,
+    GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse, GetSchedulerStatusRequest,
+    GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest,
+    GetTopTopicsResponse, GetTopicGraphStatusRequest, GetTopicGraphStatusResponse,
+    GetTopicsByQueryRequest, GetTopicsByQueryResponse, GetVectorIndexStatusRequest,
+    HybridSearchRequest, HybridSearchResponse, IngestEventRequest, IngestEventResponse,
+    ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
+    PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
+    PruneVectorIndexResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
+    RouteQueryResponse, SearchChildrenRequest, SearchChildrenResponse, SearchNodeRequest,
+    SearchNodeResponse, TeleportSearchRequest, TeleportSearchResponse, VectorIndexStatus,
+    VectorTeleportRequest, VectorTeleportResponse,
 };
 use crate::query;
 use crate::retrieval::RetrievalHandler;
@@ -51,12 +54,14 @@ pub struct MemoryServiceImpl {
     hybrid_service: Option<Arc<HybridSearchHandler>>,
     topic_service: Option<Arc<TopicGraphHandler>>,
     retrieval_service: Option<Arc<RetrievalHandler>>,
+    agent_service: Arc<AgentDiscoveryHandler>,
 }
 
 impl MemoryServiceImpl {
     /// Create a new MemoryServiceImpl with the given storage.
     pub fn new(storage: Arc<Storage>) -> Self {
         let retrieval = Arc::new(RetrievalHandler::new(storage.clone()));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -65,6 +70,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -74,6 +80,7 @@ impl MemoryServiceImpl {
     /// (GetSchedulerStatus, PauseJob, ResumeJob) will be functional.
     pub fn with_scheduler(storage: Arc<Storage>, scheduler: Arc<SchedulerService>) -> Self {
         let retrieval = Arc::new(RetrievalHandler::new(storage.clone()));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -82,6 +89,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -99,6 +107,7 @@ impl MemoryServiceImpl {
             None,
             None,
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -107,6 +116,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -118,6 +128,7 @@ impl MemoryServiceImpl {
             None,
             None,
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -126,6 +137,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -140,6 +152,7 @@ impl MemoryServiceImpl {
             Some(vector_handler.clone()),
             None,
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -148,6 +161,7 @@ impl MemoryServiceImpl {
             hybrid_service: Some(hybrid_handler),
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -161,6 +175,7 @@ impl MemoryServiceImpl {
             None,
             Some(topic_handler.clone()),
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: None,
@@ -169,6 +184,7 @@ impl MemoryServiceImpl {
             hybrid_service: None,
             topic_service: Some(topic_handler),
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -186,6 +202,7 @@ impl MemoryServiceImpl {
             Some(vector_handler.clone()),
             None,
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -194,6 +211,7 @@ impl MemoryServiceImpl {
             hybrid_service: Some(hybrid_handler),
             topic_service: None,
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -212,6 +230,7 @@ impl MemoryServiceImpl {
             Some(vector_handler.clone()),
             Some(topic_handler.clone()),
         ));
+        let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
             scheduler_service: Some(SchedulerGrpcService::new(scheduler)),
@@ -220,6 +239,7 @@ impl MemoryServiceImpl {
             hybrid_service: Some(hybrid_handler),
             topic_service: Some(topic_handler),
             retrieval_service: Some(retrieval),
+            agent_service: agent_svc,
         }
     }
 
@@ -613,58 +633,309 @@ impl MemoryService for MemoryServiceImpl {
     }
 
     /// Prune old vectors per lifecycle policy (FR-08).
+    ///
+    /// Removes vector metadata entries older than the retention cutoff.
+    /// Orphaned HNSW vectors are harmless (metadata lookup will miss) and
+    /// can be compacted by a full rebuild-index later.
     async fn prune_vector_index(
         &self,
-        _request: Request<PruneVectorIndexRequest>,
+        request: Request<PruneVectorIndexRequest>,
     ) -> Result<Response<PruneVectorIndexResponse>, Status> {
-        // TODO: Implement vector lifecycle pruning
+        let vector_service = match &self.vector_service {
+            Some(svc) => svc,
+            None => {
+                return Ok(Response::new(PruneVectorIndexResponse {
+                    success: true,
+                    segments_pruned: 0,
+                    grips_pruned: 0,
+                    days_pruned: 0,
+                    weeks_pruned: 0,
+                    message: "Vector index not configured".to_string(),
+                }));
+            }
+        };
+
+        let req = request.into_inner();
+        let level_filter = if req.level.is_empty() {
+            None
+        } else {
+            Some(req.level.as_str())
+        };
+        let dry_run = req.dry_run;
+
+        let config = memory_vector::VectorLifecycleConfig::default();
+        let ret_map = memory_vector::lifecycle::retention_map(&config);
+
+        let pruneable_levels: Vec<&str> = if let Some(level) = level_filter {
+            if memory_vector::is_protected_level(level) {
+                return Ok(Response::new(PruneVectorIndexResponse {
+                    success: true,
+                    segments_pruned: 0,
+                    grips_pruned: 0,
+                    days_pruned: 0,
+                    weeks_pruned: 0,
+                    message: format!("Level '{}' is protected and cannot be pruned", level),
+                }));
+            }
+            vec![level]
+        } else {
+            vec!["segment", "grip", "day", "week"]
+        };
+
+        let metadata = vector_service.metadata();
+        let all_entries = metadata.get_all().map_err(|e| {
+            error!("Failed to read vector metadata: {}", e);
+            Status::internal(format!("Failed to read vector metadata: {}", e))
+        })?;
+
+        let mut stats = memory_vector::PruneStats::new();
+
+        for level in &pruneable_levels {
+            let retention_days = if req.age_days_override > 0 {
+                req.age_days_override
+            } else {
+                match ret_map.get(level) {
+                    Some(&days) => days,
+                    None => continue,
+                }
+            };
+
+            let cutoff_ms = (Utc::now() - Duration::days(retention_days as i64)).timestamp_millis();
+
+            for entry in &all_entries {
+                // Match entries to the current level by doc_type and doc_id prefix
+                let matches_level = match *level {
+                    "grip" => entry.doc_type == memory_vector::DocType::Grip,
+                    "segment" => {
+                        entry.doc_type == memory_vector::DocType::TocNode
+                            && entry.doc_id.contains(":segment:")
+                    }
+                    "day" => {
+                        entry.doc_type == memory_vector::DocType::TocNode
+                            && entry.doc_id.contains(":day:")
+                    }
+                    "week" => {
+                        entry.doc_type == memory_vector::DocType::TocNode
+                            && entry.doc_id.contains(":week:")
+                    }
+                    _ => false,
+                };
+
+                if !matches_level {
+                    continue;
+                }
+
+                if entry.created_at < cutoff_ms {
+                    if !dry_run {
+                        if let Err(e) = metadata.delete(entry.vector_id) {
+                            stats.errors.push(format!(
+                                "Failed to delete vector {}: {}",
+                                entry.vector_id, e
+                            ));
+                            continue;
+                        }
+                    }
+                    stats.add(level, 1);
+                }
+            }
+        }
+
+        let action = if dry_run {
+            "eligible for pruning"
+        } else {
+            "pruned"
+        };
+        let message = if stats.total() == 0 {
+            format!(
+                "No vector metadata entries {} (retention policy applied). \
+                 Note: HNSW vectors remain until a full rebuild-index compacts them.",
+                action
+            )
+        } else {
+            format!(
+                "{} {} vector metadata entries (segments={}, grips={}, days={}, weeks={}). \
+                 Note: HNSW vectors remain until a full rebuild-index compacts them.",
+                stats.total(),
+                action,
+                stats.segments_pruned,
+                stats.grips_pruned,
+                stats.days_pruned,
+                stats.weeks_pruned,
+            )
+        };
+
         Ok(Response::new(PruneVectorIndexResponse {
-            success: true,
-            segments_pruned: 0,
-            grips_pruned: 0,
-            days_pruned: 0,
-            weeks_pruned: 0,
-            message: "Vector pruning not yet implemented".to_string(),
+            success: !stats.has_errors(),
+            segments_pruned: stats.segments_pruned,
+            grips_pruned: stats.grips_pruned,
+            days_pruned: stats.days_pruned,
+            weeks_pruned: stats.weeks_pruned,
+            message,
         }))
     }
 
     /// Prune old BM25 documents per lifecycle policy (FR-09).
+    ///
+    /// Reports documents eligible for pruning based on lifecycle retention policy.
+    /// Actual deletion requires the `SearchIndexer` (writer) which is not available
+    /// from the service layer. Use rebuild-toc-index for compaction.
     async fn prune_bm25_index(
         &self,
-        _request: Request<PruneBm25IndexRequest>,
+        request: Request<PruneBm25IndexRequest>,
     ) -> Result<Response<PruneBm25IndexResponse>, Status> {
-        // TODO: Implement BM25 lifecycle pruning
+        let searcher = match &self.teleport_searcher {
+            Some(s) => s,
+            None => {
+                return Ok(Response::new(PruneBm25IndexResponse {
+                    success: true,
+                    segments_pruned: 0,
+                    grips_pruned: 0,
+                    days_pruned: 0,
+                    weeks_pruned: 0,
+                    optimized: false,
+                    message: "BM25 index not configured".to_string(),
+                }));
+            }
+        };
+
+        let req = request.into_inner();
+        let level_filter = if req.level.is_empty() {
+            None
+        } else {
+            Some(req.level.as_str())
+        };
+        let dry_run = req.dry_run;
+
+        let config = memory_search::Bm25LifecycleConfig::default();
+        let ret_map = memory_search::retention_map(&config);
+
+        let pruneable_levels: Vec<&str> = if let Some(level) = level_filter {
+            if memory_search::is_protected_level(level) {
+                return Ok(Response::new(PruneBm25IndexResponse {
+                    success: true,
+                    segments_pruned: 0,
+                    grips_pruned: 0,
+                    days_pruned: 0,
+                    weeks_pruned: 0,
+                    optimized: false,
+                    message: format!("Level '{}' is protected and cannot be pruned", level),
+                }));
+            }
+            vec![level]
+        } else {
+            vec!["segment", "grip", "day", "week"]
+        };
+
+        // Build cutoff timestamps for each level
+        let mut cutoffs = std::collections::HashMap::new();
+        for level in &pruneable_levels {
+            let retention_days = if req.age_days_override > 0 {
+                req.age_days_override
+            } else {
+                match ret_map.get(level) {
+                    Some(&days) => days,
+                    None => continue,
+                }
+            };
+            let cutoff_ms = (Utc::now() - Duration::days(retention_days as i64)).timestamp_millis();
+            cutoffs.insert(*level, cutoff_ms);
+        }
+
+        let counts = searcher.count_docs_before_cutoff(&cutoffs).map_err(|e| {
+            error!("Failed to scan BM25 index: {}", e);
+            Status::internal(format!("Failed to scan BM25 index: {}", e))
+        })?;
+
+        let segments_count = *counts.get("segment").unwrap_or(&0);
+        let grips_count = *counts.get("grip").unwrap_or(&0);
+        let days_count = *counts.get("day").unwrap_or(&0);
+        let weeks_count = *counts.get("week").unwrap_or(&0);
+        let total = segments_count + grips_count + days_count + weeks_count;
+
+        let mode = if dry_run { "Dry run: " } else { "" };
+        let message = if total == 0 {
+            format!(
+                "{}No BM25 documents eligible for pruning (retention policy applied). \
+                 Total indexed: {} docs.",
+                mode,
+                searcher.num_docs()
+            )
+        } else {
+            format!(
+                "{}{} BM25 documents eligible for pruning \
+                 (segments={}, grips={}, days={}, weeks={}). \
+                 Note: Actual deletion requires rebuild-toc-index. \
+                 Total indexed: {} docs.",
+                mode,
+                total,
+                segments_count,
+                grips_count,
+                days_count,
+                weeks_count,
+                searcher.num_docs()
+            )
+        };
+
         Ok(Response::new(PruneBm25IndexResponse {
             success: true,
-            segments_pruned: 0,
-            grips_pruned: 0,
-            days_pruned: 0,
-            weeks_pruned: 0,
+            segments_pruned: segments_count,
+            grips_pruned: grips_count,
+            days_pruned: days_count,
+            weeks_pruned: weeks_count,
             optimized: false,
-            message: "BM25 pruning not yet implemented".to_string(),
+            message,
         }))
     }
 
     /// Get ranking and novelty status.
+    ///
+    /// Returns actual configuration values from SalienceConfig and NoveltyConfig defaults.
+    /// Usage decay is always enabled (Phase 16 design).
+    /// Vector/BM25 lifecycle status reflects whether the respective services are configured.
     async fn get_ranking_status(
         &self,
         _request: Request<GetRankingStatusRequest>,
     ) -> Result<Response<GetRankingStatusResponse>, Status> {
-        // TODO: Implement ranking status reporting
+        let salience_config = SalienceConfig::default();
+        let novelty_config = NoveltyConfig::default();
+
         Ok(Response::new(GetRankingStatusResponse {
-            salience_enabled: false,
-            usage_decay_enabled: false,
-            novelty_enabled: false,
+            salience_enabled: salience_config.enabled,
+            usage_decay_enabled: true, // Always active per Phase 16 design
+            novelty_enabled: novelty_config.enabled,
+            // In-memory only counters; return 0 for a fresh/stateless query
             novelty_checked_total: 0,
             novelty_rejected_total: 0,
             novelty_skipped_total: 0,
-            vector_lifecycle_enabled: false,
-            vector_last_prune_timestamp: 0,
+            // Vector lifecycle: enabled if vector service is configured
+            vector_lifecycle_enabled: self.vector_service.is_some(),
+            vector_last_prune_timestamp: 0, // No persistent prune history yet
             vector_last_prune_count: 0,
+            // BM25 lifecycle: disabled by default per Bm25LifecycleConfig
             bm25_lifecycle_enabled: false,
             bm25_last_prune_timestamp: 0,
             bm25_last_prune_count: 0,
         }))
+    }
+
+    /// List all contributing agents with summary statistics.
+    ///
+    /// Per R4.3.1: Cross-agent discovery.
+    async fn list_agents(
+        &self,
+        request: Request<ListAgentsRequest>,
+    ) -> Result<Response<ListAgentsResponse>, Status> {
+        self.agent_service.list_agents(request).await
+    }
+
+    /// Get agent activity bucketed by time period.
+    ///
+    /// Per R4.3.2: Agent activity timeline.
+    async fn get_agent_activity(
+        &self,
+        request: Request<GetAgentActivityRequest>,
+    ) -> Result<Response<GetAgentActivityResponse>, Status> {
+        self.agent_service.get_agent_activity(request).await
     }
 }
 
@@ -821,6 +1092,85 @@ mod tests {
         let resp = response.into_inner();
 
         assert!(resp.created);
+    }
+
+    #[tokio::test]
+    async fn test_get_ranking_status_returns_defaults() {
+        let (service, _temp) = create_test_service();
+
+        let response = service
+            .get_ranking_status(Request::new(GetRankingStatusRequest {}))
+            .await
+            .unwrap();
+
+        let resp = response.into_inner();
+
+        // Salience is enabled by default (SalienceConfig::default().enabled == true)
+        assert!(resp.salience_enabled);
+
+        // Usage decay is always active per Phase 16 design
+        assert!(resp.usage_decay_enabled);
+
+        // Novelty is disabled by default (NoveltyConfig::default().enabled == false)
+        assert!(!resp.novelty_enabled);
+
+        // Novelty counters are in-memory only, should be 0
+        assert_eq!(resp.novelty_checked_total, 0);
+        assert_eq!(resp.novelty_rejected_total, 0);
+        assert_eq!(resp.novelty_skipped_total, 0);
+
+        // Vector/BM25 lifecycle: no services configured in basic test service
+        assert!(!resp.vector_lifecycle_enabled);
+        assert!(!resp.bm25_lifecycle_enabled);
+        assert_eq!(resp.vector_last_prune_timestamp, 0);
+        assert_eq!(resp.vector_last_prune_count, 0);
+        assert_eq!(resp.bm25_last_prune_timestamp, 0);
+        assert_eq!(resp.bm25_last_prune_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_prune_bm25_index_no_service() {
+        let (service, _temp) = create_test_service();
+
+        let response = service
+            .prune_bm25_index(Request::new(PruneBm25IndexRequest {
+                level: String::new(),
+                age_days_override: 0,
+                dry_run: false,
+            }))
+            .await
+            .unwrap();
+
+        let resp = response.into_inner();
+        assert!(resp.success);
+        assert_eq!(resp.segments_pruned, 0);
+        assert_eq!(resp.grips_pruned, 0);
+        assert_eq!(resp.days_pruned, 0);
+        assert_eq!(resp.weeks_pruned, 0);
+        assert!(!resp.optimized);
+        assert!(resp.message.contains("not configured"));
+    }
+
+    #[tokio::test]
+    async fn test_prune_vector_index_no_service() {
+        let (service, _temp) = create_test_service();
+
+        let response = service
+            .prune_vector_index(Request::new(PruneVectorIndexRequest {
+                level: String::new(),
+                age_days_override: 0,
+                dry_run: false,
+            }))
+            .await
+            .unwrap();
+
+        let resp = response.into_inner();
+        assert!(resp.success);
+        assert_eq!(resp.segments_pruned, 0);
+        assert_eq!(resp.grips_pruned, 0);
+        assert_eq!(resp.days_pruned, 0);
+        assert_eq!(resp.weeks_pruned, 0);
+        assert!(resp.message.contains("not configured"));
     }
 
     #[test]
