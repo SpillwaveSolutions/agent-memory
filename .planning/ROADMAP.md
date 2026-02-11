@@ -63,7 +63,7 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
 - [x] **Phase 24: Proto & Service Debt Cleanup** (3/3 plans) -- completed 2026-02-11
 - [x] **Phase 25: E2E Core Pipeline Tests** (3/3 plans) -- completed 2026-02-11
 - [x] **Phase 26: E2E Advanced Scenario Tests** (3/3 plans) -- completed 2026-02-11
-- [ ] **Phase 27: CI/CD E2E Integration** - E2E tests running in GitHub Actions on every PR
+- [x] **Phase 27: CI/CD E2E Integration** (1/1 plan) -- completed 2026-02-11
 
 ## Phase Details
 
@@ -136,7 +136,7 @@ Plans:
 | 24. Proto & Service Debt Cleanup | v2.2 | 3/3 | Complete | 2026-02-11 |
 | 25. E2E Core Pipeline Tests | v2.2 | 3/3 | Complete | 2026-02-11 |
 | 26. E2E Advanced Scenario Tests | v2.2 | 3/3 | Complete | 2026-02-11 |
-| 27. CI/CD E2E Integration | v2.2 | 0/1 | Not started | - |
+| 27. CI/CD E2E Integration | v2.2 | 1/1 | Complete | 2026-02-11 |
 
 ---
 

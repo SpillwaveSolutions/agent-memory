@@ -29,9 +29,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### CI/CD
 
-- [ ] **CI-01**: E2E test suite runs in GitHub Actions CI pipeline
-- [ ] **CI-02**: E2E tests run on PR submissions (not just main branch pushes)
-- [ ] **CI-03**: CI reports test count and pass/fail status for E2E suite separately
+- [x] **CI-01**: E2E test suite runs in GitHub Actions CI pipeline
+- [x] **CI-02**: E2E tests run on PR submissions (not just main branch pushes)
+- [x] **CI-03**: CI reports test count and pass/fail status for E2E suite separately
 
 ## v2 Requirements
 
@@ -74,9 +74,9 @@ Deferred to future release.
 | DEBT-04 | Phase 24 | Done |
 | DEBT-05 | Phase 24 | Done |
 | DEBT-06 | Phase 24 | Done |
-| CI-01 | Phase 27 | Pending |
-| CI-02 | Phase 27 | Pending |
-| CI-03 | Phase 27 | Pending |
+| CI-01 | Phase 27 | Done |
+| CI-02 | Phase 27 | Done |
+| CI-03 | Phase 27 | Done |
 
 **Coverage:**
 - v1 requirements: 17 total
