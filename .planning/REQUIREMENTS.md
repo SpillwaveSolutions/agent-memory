@@ -9,13 +9,13 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### E2E Testing
 
-- [ ] **E2E-01**: Full pipeline test: ingest events -> TOC segment build -> grip creation -> query route returns correct results
-- [ ] **E2E-02**: Teleport index test: ingest -> BM25 index build -> bm25_search returns matching events
-- [ ] **E2E-03**: Vector teleport test: ingest -> vector index build -> vector_search returns semantically similar events
-- [ ] **E2E-04**: Topic graph test: ingest -> topic clustering -> get_top_topics returns relevant topics
+- [x] **E2E-01**: Full pipeline test: ingest events -> TOC segment build -> grip creation -> query route returns correct results
+- [x] **E2E-02**: Teleport index test: ingest -> BM25 index build -> bm25_search returns matching events
+- [x] **E2E-03**: Vector teleport test: ingest -> vector index build -> vector_search returns semantically similar events
+- [x] **E2E-04**: Topic graph test: ingest -> topic clustering -> get_top_topics returns relevant topics
 - [ ] **E2E-05**: Multi-agent test: ingest from multiple agents -> cross-agent query returns all -> filtered query returns one
 - [ ] **E2E-06**: Graceful degradation test: query with missing indexes still returns results via TOC fallback
-- [ ] **E2E-07**: Grip provenance test: ingest -> segment with grips -> expand_grip returns source events with context
+- [x] **E2E-07**: Grip provenance test: ingest -> segment with grips -> expand_grip returns source events with context
 - [ ] **E2E-08**: Error path test: malformed events handled gracefully, invalid queries return useful errors
 
 ### Tech Debt
@@ -60,13 +60,13 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| E2E-01 | Phase 25 | Pending |
-| E2E-02 | Phase 25 | Pending |
-| E2E-03 | Phase 25 | Pending |
-| E2E-04 | Phase 25 | Pending |
+| E2E-01 | Phase 25 | Done |
+| E2E-02 | Phase 25 | Done |
+| E2E-03 | Phase 25 | Done |
+| E2E-04 | Phase 25 | Done |
 | E2E-05 | Phase 26 | Pending |
 | E2E-06 | Phase 26 | Pending |
-| E2E-07 | Phase 25 | Pending |
+| E2E-07 | Phase 25 | Done |
 | E2E-08 | Phase 26 | Pending |
 | DEBT-01 | Phase 24 | Done |
 | DEBT-02 | Phase 24 | Done |

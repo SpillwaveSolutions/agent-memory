@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.2 Production Hardening — Phase 25 in progress (E2E Core Pipeline Tests)
+**Current focus:** v2.2 Production Hardening — Phase 25 complete, ready for Phase 26
 
 ## Current Position
 
