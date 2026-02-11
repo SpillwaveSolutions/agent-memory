@@ -123,6 +123,7 @@ impl VectorTeleportHandler {
                     score: result.score,
                     text_preview: entry.text_preview,
                     timestamp_ms: entry.created_at,
+                    agent: entry.agent,
                 });
             }
         }

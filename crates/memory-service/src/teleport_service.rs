@@ -62,6 +62,7 @@ pub async fn handle_teleport_search(
             score: r.score,
             keywords: r.keywords,
             timestamp_ms: r.timestamp_ms,
+            agent: r.agent,
         })
         .collect();
 

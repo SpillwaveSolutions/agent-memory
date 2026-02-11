@@ -14,7 +14,7 @@ use tracing::{debug, error, info};
 use memory_scheduler::SchedulerService;
 use memory_search::TeleportSearcher;
 use memory_storage::Storage;
-use memory_types::{Event, EventRole, EventType, OutboxEntry};
+use memory_types::{Event, EventRole, EventType, NoveltyConfig, OutboxEntry, SalienceConfig};
 
 use crate::hybrid::HybridSearchHandler;
 use crate::agents::AgentDiscoveryHandler;
@@ -666,21 +666,30 @@ impl MemoryService for MemoryServiceImpl {
     }
 
     /// Get ranking and novelty status.
+    ///
+    /// Returns actual configuration values from SalienceConfig and NoveltyConfig defaults.
+    /// Usage decay is always enabled (Phase 16 design).
+    /// Vector/BM25 lifecycle status reflects whether the respective services are configured.
     async fn get_ranking_status(
         &self,
         _request: Request<GetRankingStatusRequest>,
     ) -> Result<Response<GetRankingStatusResponse>, Status> {
-        // TODO: Implement ranking status reporting
+        let salience_config = SalienceConfig::default();
+        let novelty_config = NoveltyConfig::default();
+
         Ok(Response::new(GetRankingStatusResponse {
-            salience_enabled: false,
-            usage_decay_enabled: false,
-            novelty_enabled: false,
+            salience_enabled: salience_config.enabled,
+            usage_decay_enabled: true, // Always active per Phase 16 design
+            novelty_enabled: novelty_config.enabled,
+            // In-memory only counters; return 0 for a fresh/stateless query
             novelty_checked_total: 0,
             novelty_rejected_total: 0,
             novelty_skipped_total: 0,
-            vector_lifecycle_enabled: false,
-            vector_last_prune_timestamp: 0,
+            // Vector lifecycle: enabled if vector service is configured
+            vector_lifecycle_enabled: self.vector_service.is_some(),
+            vector_last_prune_timestamp: 0, // No persistent prune history yet
             vector_last_prune_count: 0,
+            // BM25 lifecycle: disabled by default per Bm25LifecycleConfig
             bm25_lifecycle_enabled: false,
             bm25_last_prune_timestamp: 0,
             bm25_last_prune_count: 0,
@@ -861,6 +870,40 @@ mod tests {
         let resp = response.into_inner();
 
         assert!(resp.created);
+    }
+
+    #[tokio::test]
+    async fn test_get_ranking_status_returns_defaults() {
+        let (service, _temp) = create_test_service();
+
+        let response = service
+            .get_ranking_status(Request::new(GetRankingStatusRequest {}))
+            .await
+            .unwrap();
+
+        let resp = response.into_inner();
+
+        // Salience is enabled by default (SalienceConfig::default().enabled == true)
+        assert!(resp.salience_enabled);
+
+        // Usage decay is always active per Phase 16 design
+        assert!(resp.usage_decay_enabled);
+
+        // Novelty is disabled by default (NoveltyConfig::default().enabled == false)
+        assert!(!resp.novelty_enabled);
+
+        // Novelty counters are in-memory only, should be 0
+        assert_eq!(resp.novelty_checked_total, 0);
+        assert_eq!(resp.novelty_rejected_total, 0);
+        assert_eq!(resp.novelty_skipped_total, 0);
+
+        // Vector/BM25 lifecycle: no services configured in basic test service
+        assert!(!resp.vector_lifecycle_enabled);
+        assert!(!resp.bm25_lifecycle_enabled);
+        assert_eq!(resp.vector_last_prune_timestamp, 0);
+        assert_eq!(resp.vector_last_prune_count, 0);
+        assert_eq!(resp.bm25_last_prune_timestamp, 0);
+        assert_eq!(resp.bm25_last_prune_count, 0);
     }
 
     #[test]
