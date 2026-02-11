@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-10)
 
 Milestone: v2.2 Production Hardening
 Phase: 26 of 27 (E2E Advanced Scenario Tests)
-Plan: 2 of 3 in current phase (26-02 done)
+Plan: 2 of 3 in current phase (26-01 and 26-02 done)
 Status: In Progress
-Last activity: 2026-02-11 — Completed 26-02 Graceful Degradation E2E Tests
+Last activity: 2026-02-11 — Completed 26-01 Multi-Agent E2E Tests
 
 Progress: [######----] 67% (Phase 26)
 
@@ -28,9 +28,9 @@ See: .planning/MILESTONES.md for complete history
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (v2.2)
-- Average duration: 19min
-- Total execution time: 132min
+- Total plans completed: 8 (v2.2)
+- Average duration: 20min
+- Total execution time: 157min
 
 **By Phase:**
 
@@ -38,7 +38,7 @@ See: .planning/MILESTONES.md for complete history
 |-------|-------|-------|----------|
 | 24 | 3 | 81min | 27min |
 | 25 | 3 | 29min | 10min |
-| 26 | 1 | 22min | 22min |
+| 26 | 2 | 47min | 24min |
 
 ## Accumulated Context
 
@@ -65,6 +65,9 @@ Recent decisions affecting current work:
 - 25-03: OnceLock<Arc<CandleEmbedder>> shared across tests to prevent concurrent model loading race
 - 25-03: Vector E2E tests use #[ignore] due to ~80MB model download; topic tests run without ignore
 - 25-03: Topic tests use direct TopicStorage::save_topic instead of full HDBSCAN clustering
+- 26-01: build_toc_with_agent wrapper sets contributing_agents after TocBuilder (TocBuilder does not propagate agent from events)
+- 26-01: Discovery test uses recent-timestamp events for session counting within 365-day window
+- 26-01: Filtered query test verifies BM25 agent attribution directly; agent_filter not yet implemented in route_query handler
 - 26-02: All four degradation scenarios tested without #[ignore] since they require no external resources
 - 26-02: Agentic layer returns empty results (expected behavior per TOC navigation TODO); tests verify no-panic, not result content
 
@@ -83,5 +86,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 26-02-PLAN.md — Graceful Degradation E2E Tests
+Stopped at: Completed 26-01-PLAN.md — Multi-Agent E2E Tests
 Resume file: None
