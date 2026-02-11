@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.2 Production Hardening — Phase 24: Proto & Service Debt Cleanup
+**Current focus:** v2.2 Production Hardening — Phase 24 complete, ready for Phase 25
 
 ## Current Position
 
 Milestone: v2.2 Production Hardening
-Phase: 24 of 27 (Proto & Service Debt Cleanup)
-Plan: 2 of 3 in current phase
-Status: Executing
-Last activity: 2026-02-11 — Completed 24-02 Agent Attribution
+Phase: 24 of 27 (Proto & Service Debt Cleanup) -- COMPLETE
+Plan: 3 of 3 in current phase (all done)
+Status: Phase Complete
+Last activity: 2026-02-11 — Completed 24-03 Prune RPCs
 
-Progress: [######░░░░] 67%
+Progress: [##########] 100% (Phase 24)
 
 ## Milestone History
 
@@ -28,15 +28,15 @@ See: .planning/MILESTONES.md for complete history
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2 (v2.2)
-- Average duration: 35min
-- Total execution time: 70min
+- Total plans completed: 3 (v2.2)
+- Average duration: 27min
+- Total execution time: 81min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 24 | 2 | 70min | 35min |
+| 24 | 3 | 81min | 27min |
 
 ## Accumulated Context
 
@@ -53,11 +53,14 @@ Recent decisions affecting current work:
 - 24-02: First contributing_agents entry used as primary agent for BM25 index
 - 24-02: serde(default) on VectorEntry.agent for backward-compatible deserialization
 - 24-02: with_agent() builder on VectorEntry to avoid breaking existing callers
+- 24-03: Vector prune removes metadata only; orphaned HNSW vectors harmless until rebuild-index
+- 24-03: BM25 prune is report-only (TeleportSearcher is read-only; deletion requires SearchIndexer)
+- 24-03: Level matching for vectors uses doc_id prefix pattern (:day:, :week:, :segment:)
 
 ### Technical Debt (target of this milestone)
 
 - ~~GetRankingStatus stub~~ (DONE - 24-01)
-- 2 stub RPCs: PruneVectorIndex, PruneBm25Index
+- ~~2 stub RPCs: PruneVectorIndex, PruneBm25Index~~ (DONE - 24-03)
 - ~~session_count = 0 in ListAgents~~ (DONE - 24-01)
 - ~~TeleportResult/VectorTeleportMatch lack agent field~~ (DONE - 24-02)
 - No automated E2E tests in CI
@@ -69,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 24-02-PLAN.md
+Stopped at: Completed 24-03-PLAN.md (Phase 24 complete)
 Resume file: None
