@@ -60,7 +60,7 @@ See: `.planning/milestones/v2.1-ROADMAP.md`
 
 **Milestone Goal:** Make Agent Memory CI-verified and production-ready by closing all tech debt, adding E2E pipeline tests, and strengthening CI/CD.
 
-- [ ] **Phase 24: Proto & Service Debt Cleanup** - Wire stub RPCs, fix session_count, add agent fields to teleport results
+- [x] **Phase 24: Proto & Service Debt Cleanup** (3/3 plans) -- completed 2026-02-11
 - [ ] **Phase 25: E2E Core Pipeline Tests** - Full pipeline, index teleport, topic, and grip provenance tests
 - [ ] **Phase 26: E2E Advanced Scenario Tests** - Multi-agent, graceful degradation, and error path tests
 - [ ] **Phase 27: CI/CD E2E Integration** - E2E tests running in GitHub Actions on every PR
@@ -123,7 +123,7 @@ Plans:
 | 1-9 | v1.0 | 20/20 | Complete | 2026-01-30 |
 | 10-17 | v2.0 | 42/42 | Complete | 2026-02-07 |
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
-| 24. Proto & Service Debt Cleanup | v2.2 | 0/3 | Planned | - |
+| 24. Proto & Service Debt Cleanup | v2.2 | 3/3 | Complete | 2026-02-11 |
 | 25. E2E Core Pipeline Tests | v2.2 | 0/TBD | Not started | - |
 | 26. E2E Advanced Scenario Tests | v2.2 | 0/TBD | Not started | - |
 | 27. CI/CD E2E Integration | v2.2 | 0/TBD | Not started | - |

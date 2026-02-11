@@ -20,12 +20,12 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Tech Debt
 
-- [ ] **DEBT-01**: Wire GetRankingStatus RPC to return current ranking configuration
-- [ ] **DEBT-02**: Wire PruneVectorIndex RPC to trigger vector index cleanup
-- [ ] **DEBT-03**: Wire PruneBm25Index RPC to trigger BM25 index cleanup
-- [ ] **DEBT-04**: Fix ListAgents session_count via event scanning (currently 0 from TOC only)
-- [ ] **DEBT-05**: Add agent field to TeleportResult proto message and populate from event metadata
-- [ ] **DEBT-06**: Add agent field to VectorTeleportMatch proto message and populate from event metadata
+- [x] **DEBT-01**: Wire GetRankingStatus RPC to return current ranking configuration
+- [x] **DEBT-02**: Wire PruneVectorIndex RPC to trigger vector index cleanup
+- [x] **DEBT-03**: Wire PruneBm25Index RPC to trigger BM25 index cleanup
+- [x] **DEBT-04**: Fix ListAgents session_count via event scanning (currently 0 from TOC only)
+- [x] **DEBT-05**: Add agent field to TeleportResult proto message and populate from event metadata
+- [x] **DEBT-06**: Add agent field to VectorTeleportMatch proto message and populate from event metadata
 
 ### CI/CD
 
@@ -68,12 +68,12 @@ Deferred to future release.
 | E2E-06 | Phase 26 | Pending |
 | E2E-07 | Phase 25 | Pending |
 | E2E-08 | Phase 26 | Pending |
-| DEBT-01 | Phase 24 | Pending |
-| DEBT-02 | Phase 24 | Pending |
-| DEBT-03 | Phase 24 | Pending |
-| DEBT-04 | Phase 24 | Pending |
-| DEBT-05 | Phase 24 | Pending |
-| DEBT-06 | Phase 24 | Pending |
+| DEBT-01 | Phase 24 | Done |
+| DEBT-02 | Phase 24 | Done |
+| DEBT-03 | Phase 24 | Done |
+| DEBT-04 | Phase 24 | Done |
+| DEBT-05 | Phase 24 | Done |
+| DEBT-06 | Phase 24 | Done |
 | CI-01 | Phase 27 | Pending |
 | CI-02 | Phase 27 | Pending |
 | CI-03 | Phase 27 | Pending |
