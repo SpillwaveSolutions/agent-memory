@@ -120,7 +120,9 @@ Plans:
   1. GitHub Actions CI pipeline includes an E2E test job that runs the full E2E suite
   2. The E2E job triggers on pull requests to main (not just pushes to main)
   3. CI output shows E2E test count and individual pass/fail status separately from unit/integration tests
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 27-01-PLAN.md -- Add dedicated E2E test job to CI with separate reporting and gate
 
 ## Progress
 
@@ -134,7 +136,7 @@ Plans:
 | 24. Proto & Service Debt Cleanup | v2.2 | 3/3 | Complete | 2026-02-11 |
 | 25. E2E Core Pipeline Tests | v2.2 | 3/3 | Complete | 2026-02-11 |
 | 26. E2E Advanced Scenario Tests | v2.2 | 3/3 | Complete | 2026-02-11 |
-| 27. CI/CD E2E Integration | v2.2 | 0/TBD | Not started | - |
+| 27. CI/CD E2E Integration | v2.2 | 0/1 | Not started | - |
 
 ---
 
