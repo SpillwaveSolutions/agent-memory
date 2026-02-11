@@ -108,6 +108,48 @@ pub fn create_test_events(session_id: &str, count: usize, base_text: &str) -> Ve
     events
 }
 
+/// Create N test events for a specific agent with sequential timestamps.
+///
+/// Like `create_test_events` but allows specifying the agent name.
+/// Uses realistic agent names (e.g., "claude", "copilot", "gemini").
+pub fn create_test_events_for_agent(
+    session_id: &str,
+    count: usize,
+    base_text: &str,
+    agent: &str,
+) -> Vec<Event> {
+    let base_ts: i64 = 1_706_540_400_000; // 2024-01-29 approx
+    let mut events = Vec::with_capacity(count);
+
+    for i in 0..count {
+        let ts_ms = base_ts + (i as i64 * 100);
+        let ulid = ulid::Ulid::from_parts(ts_ms as u64, rand::random());
+        let timestamp: DateTime<Utc> = Utc.timestamp_millis_opt(ts_ms).unwrap();
+
+        let (event_type, role) = if i % 2 == 0 {
+            (EventType::UserMessage, EventRole::User)
+        } else {
+            (EventType::AssistantMessage, EventRole::Assistant)
+        };
+
+        let text = format!("{} (message {})", base_text, i);
+
+        let event = Event::new(
+            ulid.to_string(),
+            session_id.to_string(),
+            timestamp,
+            event_type,
+            role,
+            text,
+        )
+        .with_agent(agent);
+
+        events.push(event);
+    }
+
+    events
+}
+
 /// Build a TOC segment from events using MockSummarizer.
 ///
 /// Segments the events, then processes the first segment through the
