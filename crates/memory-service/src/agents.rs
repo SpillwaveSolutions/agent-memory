@@ -6,7 +6,7 @@
 //!
 //! Per R4.3.1, R4.3.2: Cross-agent discovery and activity timeline.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use chrono::{DateTime, Datelike, Utc};
@@ -34,7 +34,8 @@ impl AgentDiscoveryHandler {
 
     /// Handle ListAgents RPC.
     ///
-    /// Aggregates agents from TocNode.contributing_agents (O(k) over TOC nodes).
+    /// Aggregates agents from TocNode.contributing_agents (O(k) over TOC nodes)
+    /// and computes session_count from event scanning (bounded to last 365 days).
     /// Returns agent summaries sorted by last_seen_ms descending.
     pub async fn list_agents(
         &self,
@@ -61,15 +62,26 @@ impl AgentDiscoveryHandler {
             }
         }
 
+        // Scan events for distinct session_ids per agent (bounded to last 365 days)
+        let session_counts = self.count_sessions_per_agent().map_err(|e| {
+            Status::internal(format!("Failed to count sessions: {}", e))
+        })?;
+
         // Convert to proto summaries, sorted by last_seen descending
         let mut agents: Vec<AgentSummary> = agent_map
             .into_values()
-            .map(|b| AgentSummary {
-                agent_id: b.agent_id,
-                event_count: b.node_count, // Approximate: number of TOC nodes
-                session_count: 0,          // Not available from TOC alone
-                first_seen_ms: b.first_seen_ms,
-                last_seen_ms: b.last_seen_ms,
+            .map(|b| {
+                let session_count = session_counts
+                    .get(&b.agent_id)
+                    .copied()
+                    .unwrap_or(0);
+                AgentSummary {
+                    agent_id: b.agent_id,
+                    event_count: b.node_count, // Approximate: number of TOC nodes
+                    session_count,
+                    first_seen_ms: b.first_seen_ms,
+                    last_seen_ms: b.last_seen_ms,
+                }
             })
             .collect();
 
@@ -170,6 +182,46 @@ impl AgentDiscoveryHandler {
         );
 
         Ok(Response::new(GetAgentActivityResponse { buckets }))
+    }
+
+    /// Count distinct session_ids per agent from events (bounded to last 365 days).
+    ///
+    /// Returns a map of agent_id -> session count.
+    /// This is an O(n) scan over events, bounded to keep it performant.
+    fn count_sessions_per_agent(&self) -> Result<HashMap<String, u64>, String> {
+        let now_ms = Utc::now().timestamp_millis();
+        let one_year_ms = 365_i64 * 24 * 60 * 60 * 1000;
+        let from_ms = now_ms - one_year_ms;
+
+        let raw_events = self
+            .storage
+            .get_events_in_range(from_ms, now_ms)
+            .map_err(|e| e.to_string())?;
+
+        let mut agent_sessions: HashMap<String, HashSet<String>> = HashMap::new();
+
+        for (_key, bytes) in &raw_events {
+            let event: Event = match serde_json::from_slice(bytes) {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+
+            let agent_id = event
+                .agent
+                .as_deref()
+                .unwrap_or("unknown")
+                .to_string();
+
+            agent_sessions
+                .entry(agent_id)
+                .or_default()
+                .insert(event.session_id.clone());
+        }
+
+        Ok(agent_sessions
+            .into_iter()
+            .map(|(agent_id, sessions)| (agent_id, sessions.len() as u64))
+            .collect())
     }
 
     /// Iterate all TOC nodes from storage.
@@ -351,6 +403,70 @@ mod tests {
             .find(|a| a.agent_id == "opencode")
             .unwrap();
         assert_eq!(opencode.event_count, 1);
+
+        // session_count should be 0 since no events were stored (only TOC nodes)
+        assert_eq!(claude.session_count, 0);
+        assert_eq!(opencode.session_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_agents_session_count_from_events() {
+        let (handler, storage, _temp) = create_test_handler();
+
+        let now_ms = Utc::now().timestamp_millis();
+
+        // Create events with different session_ids and agents
+        // claude: 3 events across 2 sessions
+        // opencode: 2 events across 1 session
+        let events = vec![
+            create_test_event("session-A", now_ms - 100_000, Some("claude")),
+            create_test_event("session-A", now_ms - 90_000, Some("claude")),
+            create_test_event("session-B", now_ms - 80_000, Some("claude")),
+            create_test_event("session-C", now_ms - 70_000, Some("opencode")),
+            create_test_event("session-C", now_ms - 60_000, Some("opencode")),
+        ];
+
+        for event in &events {
+            let bytes = event.to_bytes().unwrap();
+            let outbox = memory_types::OutboxEntry::for_toc(
+                event.event_id.clone(),
+                event.timestamp_ms(),
+            );
+            let outbox_bytes = outbox.to_bytes().unwrap();
+            storage
+                .put_event(&event.event_id, &bytes, &outbox_bytes)
+                .unwrap();
+        }
+
+        // Create TOC nodes so agents appear in the list
+        let node = TocNode::new(
+            "toc:day:test-session-count".to_string(),
+            TocLevel::Day,
+            "Test day".to_string(),
+            Utc::now() - chrono::Duration::hours(2),
+            Utc::now(),
+        )
+        .with_contributing_agents(vec!["claude".to_string(), "opencode".to_string()]);
+
+        storage.put_toc_node(&node).unwrap();
+
+        let response = handler
+            .list_agents(Request::new(ListAgentsRequest {}))
+            .await
+            .unwrap();
+
+        let resp = response.into_inner();
+        assert_eq!(resp.agents.len(), 2);
+
+        let claude = resp.agents.iter().find(|a| a.agent_id == "claude").unwrap();
+        assert_eq!(claude.session_count, 2); // session-A and session-B
+
+        let opencode = resp
+            .agents
+            .iter()
+            .find(|a| a.agent_id == "opencode")
+            .unwrap();
+        assert_eq!(opencode.session_count, 1); // session-C only
     }
 
     #[tokio::test]
