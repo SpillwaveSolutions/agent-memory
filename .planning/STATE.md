@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-10)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.2 Production Hardening — Phase 26 in progress
+**Current focus:** v2.2 Production Hardening — Phase 26 complete, ready for Phase 27
 
 ## Current Position
 
 Milestone: v2.2 Production Hardening
 Phase: 26 of 27 (E2E Advanced Scenario Tests)
-Plan: 2 of 3 in current phase (26-01 and 26-02 done)
-Status: In Progress
-Last activity: 2026-02-11 — Completed 26-01 Multi-Agent E2E Tests
+Plan: 3 of 3 in current phase (26-03 done)
+Status: Phase Complete
+Last activity: 2026-02-11 — Completed 26-03 Error Path E2E Tests
 
-Progress: [######----] 67% (Phase 26)
+Progress: [##########] 100% (Phase 26)
 
 ## Milestone History
 
@@ -28,9 +28,9 @@ See: .planning/MILESTONES.md for complete history
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (v2.2)
-- Average duration: 20min
-- Total execution time: 157min
+- Total plans completed: 9 (v2.2)
+- Average duration: 21min
+- Total execution time: 186min
 
 **By Phase:**
 
@@ -38,7 +38,7 @@ See: .planning/MILESTONES.md for complete history
 |-------|-------|-------|----------|
 | 24 | 3 | 81min | 27min |
 | 25 | 3 | 29min | 10min |
-| 26 | 2 | 47min | 24min |
+| 26 | 3 | 76min | 25min |
 
 ## Accumulated Context
 
@@ -70,6 +70,9 @@ Recent decisions affecting current work:
 - 26-01: Filtered query test verifies BM25 agent attribution directly; agent_filter not yet implemented in route_query handler
 - 26-02: All four degradation scenarios tested without #[ignore] since they require no external resources
 - 26-02: Agentic layer returns empty results (expected behavior per TOC navigation TODO); tests verify no-panic, not result content
+- 26-03: Used i64::MAX for invalid timestamp test (chrono rejects overflow, -999999999999999 is valid ancient date)
+- 26-03: Direct service-level testing (no gRPC server) matches Phase 25 pattern for E2E tests
+- 26-03: RetrievalHandler used directly for route_query/classify_intent tests; MemoryServiceImpl for remaining
 
 ### Technical Debt (target of this milestone)
 
@@ -86,5 +89,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 26-01-PLAN.md — Multi-Agent E2E Tests
+Stopped at: Completed 26-03-PLAN.md — Phase 26 fully done
 Resume file: None
