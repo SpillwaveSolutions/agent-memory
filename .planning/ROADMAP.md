@@ -106,7 +106,11 @@ Plans:
   1. A test ingests events from multiple agents, verifies cross-agent query returns all results, and filtered query returns only the specified agent's results
   2. A test queries with missing indexes and verifies the system degrades gracefully to TOC-based fallback, still returning useful results
   3. A test sends malformed events and invalid queries, verifying graceful error responses (no panics, useful error messages)
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 26-01-PLAN.md -- Multi-agent cross-query and filtered-query E2E tests
+- [ ] 26-02-PLAN.md -- Graceful degradation E2E tests for missing indexes
+- [ ] 26-03-PLAN.md -- Error path E2E tests for malformed inputs and invalid queries
 
 ### Phase 27: CI/CD E2E Integration
 **Goal**: E2E tests run automatically in GitHub Actions on every PR, with clear pass/fail reporting
@@ -129,7 +133,7 @@ Plans:
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24. Proto & Service Debt Cleanup | v2.2 | 3/3 | Complete | 2026-02-11 |
 | 25. E2E Core Pipeline Tests | v2.2 | 3/3 | Complete | 2026-02-11 |
-| 26. E2E Advanced Scenario Tests | v2.2 | 0/TBD | Not started | - |
+| 26. E2E Advanced Scenario Tests | v2.2 | 0/3 | Not started | - |
 | 27. CI/CD E2E Integration | v2.2 | 0/TBD | Not started | - |
 
 ---
