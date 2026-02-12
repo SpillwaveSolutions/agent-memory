@@ -26,7 +26,6 @@
 **What's next:** Cross-project memory, semantic deduplication, or v2.4 enhancements
 
 ---
-
 ## v2.2 Production Hardening (Shipped: 2026-02-11)
 
 **Delivered:** Production-hardened system with all stub RPCs wired, 29 E2E tests across 7 files, and dedicated E2E CI job in GitHub Actions required for PR merge.
@@ -137,6 +136,3 @@
 **Git range:** `feat(01-00)` → `feat(08-01)`
 
 **What's next:** Teleport indexes (BM25/vector search), additional hook adapters (OpenCode, Gemini CLI), or production hardening
-
-
-
