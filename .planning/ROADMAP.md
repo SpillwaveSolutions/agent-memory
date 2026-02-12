@@ -94,9 +94,9 @@ Plans:
 **Requirements:** PERF-01
 **Success Criteria** (what must be TRUE):
   1. TBD
-**Plans:** 1 plan (placeholder)
+**Plans:** 1 plan
 Plans:
-- [ ] 29-01-PLAN.md -- Baseline benchmark suite and reporting
+- [ ] 29-01-PLAN.md -- Perf benchmark harness + baseline reporting
 
 ## Progress
 
