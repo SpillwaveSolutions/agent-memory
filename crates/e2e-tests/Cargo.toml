@@ -16,6 +16,8 @@ memory-vector = { workspace = true }
 memory-embeddings = { workspace = true }
 memory-topics = { workspace = true }
 memory-retrieval = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
 tokio = { workspace = true }
 chrono = { workspace = true }
 ulid = { workspace = true }
@@ -23,7 +25,7 @@ serde_json = { workspace = true }
 async-trait = { workspace = true }
 tempfile = { workspace = true }
 rand = { workspace = true }
+tonic = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "1"
-tonic = { workspace = true }
