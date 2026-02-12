@@ -74,6 +74,7 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 **Milestone Goal:** Improve installation, configuration, and user-facing setup guidance with agent skills and step-by-step docs.
 
 - [ ] **Phase 28: Install & Configuration Skills + User Guides** (0/1 plans) -- not started
+- [ ] **Phase 29: Performance Benchmarks** (0/1 plans) -- not started
 
 ## Phase Details
 
@@ -87,6 +88,16 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 Plans:
 - [ ] 28-01-PLAN.md -- Quickstart + Full Guide + agent setup guide + install/config/verify/troubleshoot skills
 
+### Phase 29: Performance Benchmarks
+**Goal:** Establish baseline ingest throughput and query latency across core retrieval layers.
+**Depends on:** 24-proto-service-debt-cleanup, 25-e2e-core-pipeline-tests, 26-e2e-advanced-scenario-tests
+**Requirements:** PERF-01
+**Success Criteria** (what must be TRUE):
+  1. TBD
+**Plans:** 1 plan (placeholder)
+Plans:
+- [ ] 29-01-PLAN.md -- Baseline benchmark suite and reporting
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -96,6 +107,7 @@ Plans:
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24-27 | v2.2 | 10/10 | Complete | 2026-02-11 |
 | 28. Install & Configuration Skills + User Guides | v2.3 | 0/1 | Planned | — |
+| 29. Performance Benchmarks | v2.3 | 0/1 | Planned | — |
 
 ---
 
