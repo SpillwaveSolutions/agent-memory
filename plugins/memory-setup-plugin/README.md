@@ -99,6 +99,20 @@ Triggered by patterns like:
    /memory-recent                 # Recent summaries
    ```
 
+## Skills
+
+Use these dedicated skills for focused setup tasks:
+
+| Skill | When to Use | Notes |
+|-------|-------------|-------|
+| `memory-install` | Install binaries and set PATH | Wizard-style, confirms before edits, provides verify commands only |
+| `memory-configure` | Create or update single-agent config | Shows defaults + full sample config, dry-run check step |
+| `memory-verify` | Validate install/config/daemon/ingest | Commands only, no auto-run |
+| `memory-troubleshoot` | Diagnose common setup failures | Safe fixes with confirmation before changes |
+
+Agent-specific setup (Claude Code, OpenCode, Gemini CLI, Copilot CLI) lives in
+separate guides and is intentionally outside the core install flow.
+
 ## Architecture
 
 ```
