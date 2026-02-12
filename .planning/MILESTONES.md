@@ -1,5 +1,32 @@
 # Project Milestones: Agent Memory
 
+## v2.3 Install & Setup Experience (Shipped: 2026-02-12)
+
+**Delivered:** Step-by-step install/config documentation with wizard-style setup skills, plus a performance benchmark harness with baseline metrics across all retrieval layers.
+
+**Phases completed:** 28-29 (2 plans total)
+
+**Key accomplishments:**
+
+- Quickstart, Full Guide, and agent setup documentation for all 4 adapters (Claude Code, OpenCode, Gemini CLI, Copilot CLI)
+- Four setup skills (install/configure/verify/troubleshoot) with wizard-style confirmation flows
+- Performance benchmark harness (`perf_bench`) measuring ingest, TOC, BM25, vector, topic graph latency
+- Baseline metrics for all tier/mode combinations (small/medium x cold/warm) with p50/p90/p99 percentiles
+- Benchmark documentation with usage, outputs, and baseline update workflow
+
+**Stats:**
+
+- 44,912 total LOC Rust
+- 2 phases, 2 plans, 9 commits
+- 25 files changed, 3,210 lines added
+- 1 day from start to ship (2026-02-12)
+
+**Git range:** `docs(28-01)` → `feat(benchmarks)`
+
+**What's next:** Cross-project memory, semantic deduplication, or v2.4 enhancements
+
+---
+
 ## v2.2 Production Hardening (Shipped: 2026-02-11)
 
 **Delivered:** Production-hardened system with all stub RPCs wired, 29 E2E tests across 7 files, and dedicated E2E CI job in GitHub Actions required for PR merge.
@@ -110,3 +137,6 @@
 **Git range:** `feat(01-00)` → `feat(08-01)`
 
 **What's next:** Teleport indexes (BM25/vector search), additional hook adapters (OpenCode, Gemini CLI), or production hardening
+
+
+

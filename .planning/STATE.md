@@ -2,26 +2,25 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-11)
+See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Milestone planning — v2.3 TBD
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Milestone: v2.3 TBD (PLANNING)
-Phase: 28-install-configuration-skills-user-guides
-**Current Plan:** 1
-**Total Plans in Phase:** 1
-**Status:** Phase complete — ready for verification
+Milestone: v2.3 Install & Setup Experience (SHIPPED)
+Phase: —
+**Current Plan:** —
+**Total Plans in Phase:** —
+**Status:** v2.3 milestone complete — planning next milestone
 **Last Activity:** 2026-02-12
 
-**Progress:** [███████░░░] 66%
+**Progress:** [██████████] 100%
 
 ## Decisions
 
-- None
-- [Phase 28-install-configuration-skills-user-guides]: None - followed plan as specified
+- None pending
 
 ## Blockers
 
@@ -32,6 +31,7 @@ Phase: 28-install-configuration-skills-user-guides
 | Phase | Duration | Tasks | Files |
 |-------|----------|-------|-------|
 | Phase 28-install-configuration-skills-user-guides P01 | 4 min | 3 tasks | 10 files |
+| Phase 29-performance-benchmarks P01 | — | 3 tasks | 3 files |
 
 ## Milestone History
 
@@ -41,16 +41,19 @@ See: .planning/MILESTONES.md for complete history
 - v2.0.0 Scheduler+Teleport: Shipped 2026-02-07 (9 phases, 42 plans)
 - v2.1 Multi-Agent Ecosystem: Shipped 2026-02-10 (6 phases, 22 plans)
 - v2.2 Production Hardening: Shipped 2026-02-11 (4 phases, 10 plans)
+- v2.3 Install & Setup Experience: Shipped 2026-02-12 (2 phases, 2 plans)
 
 ## Cumulative Stats
 
-- 43,932 LOC Rust across 14 crates
+- 44,912 LOC Rust across 14 crates
 - 4 adapter plugins (Claude Code, OpenCode, Gemini CLI, Copilot CLI)
+- 4 setup skills (install, configure, verify, troubleshoot)
 - 29 E2E tests, dedicated CI job
-- 27 phases, 94 plans across 4 milestones
+- Performance benchmark harness with baselines
+- 29 phases, 96 plans across 5 milestones
 
 ## Session Continuity
 
-**Last Session:** 2026-02-12T15:19:00.700Z
-**Stopped At:** Completed 28-install-configuration-skills-user-guides-01-PLAN.md
+**Last Session:** 2026-02-12
+**Stopped At:** Completed v2.3 milestone
 **Resume File:** None

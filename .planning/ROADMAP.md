@@ -6,7 +6,7 @@
 - ✅ **v2.0 Scheduler+Teleport** — Phases 10-17 (shipped 2026-02-07)
 - ✅ **v2.1 Multi-Agent Ecosystem** — Phases 18-23 (shipped 2026-02-10)
 - ✅ **v2.2 Production Hardening** — Phases 24-27 (shipped 2026-02-11)
-- **v2.3 TBD** — Phase 28 (planning)
+- ✅ **v2.3 Install & Setup Experience** — Phases 28-29 (shipped 2026-02-12)
 
 ## Phases
 
@@ -69,34 +69,15 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 
 </details>
 
-### v2.3 Install & Setup Experience (Planning)
+<details>
+<summary>v2.3 Install & Setup Experience (Phases 28-29) -- SHIPPED 2026-02-12</summary>
 
-**Milestone Goal:** Improve installation, configuration, and user-facing setup guidance with agent skills and step-by-step docs.
+- [x] Phase 28: Install & Configuration Skills + User Guides (1/1 plan) -- completed 2026-02-12
+- [x] Phase 29: Performance Benchmarks (1/1 plan) -- completed 2026-02-12
 
-- [ ] **Phase 28: Install & Configuration Skills + User Guides** (0/1 plans) -- not started
-- [ ] **Phase 29: Performance Benchmarks** (0/1 plans) -- not started
+See: `.planning/milestones/v2.3-ROADMAP.md`
 
-## Phase Details
-
-### Phase 28: Install & Configuration Skills + User Guides
-**Goal:** Deliver step-by-step install/config user guides and agent skills that help users set up and validate the system.
-**Depends on:** 19-opencode-commands-and-skills, 21-gemini-cli-adapter, 22-copilot-cli-adapter
-**Requirements:** SETUP-01
-**Success Criteria** (what must be TRUE):
-  1. TBD
-**Plans:** 1 plan
-Plans:
-- [ ] 28-01-PLAN.md -- Quickstart + Full Guide + agent setup guide + install/config/verify/troubleshoot skills
-
-### Phase 29: Performance Benchmarks
-**Goal:** Establish baseline ingest throughput and query latency across core retrieval layers.
-**Depends on:** 24-proto-service-debt-cleanup, 25-e2e-core-pipeline-tests, 26-e2e-advanced-scenario-tests
-**Requirements:** PERF-01
-**Success Criteria** (what must be TRUE):
-  1. TBD
-**Plans:** 1 plan
-Plans:
-- [ ] 29-01-PLAN.md -- Perf benchmark harness + baseline reporting
+</details>
 
 ## Progress
 
@@ -106,9 +87,8 @@ Plans:
 | 10-17 | v2.0 | 42/42 | Complete | 2026-02-07 |
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24-27 | v2.2 | 10/10 | Complete | 2026-02-11 |
-| 28. Install & Configuration Skills + User Guides | v2.3 | 0/1 | Planned | — |
-| 29. Performance Benchmarks | v2.3 | 0/1 | Planned | — |
+| 28-29 | v2.3 | 2/2 | Complete | 2026-02-12 |
 
 ---
 
-*Updated: 2026-02-11 after v2.3 milestone initialization*
+*Updated: 2026-02-12 after v2.3 milestone completion*
