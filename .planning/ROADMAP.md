@@ -83,9 +83,9 @@ See: `.planning/milestones/v2.2-ROADMAP.md`
 **Requirements:** SETUP-01
 **Success Criteria** (what must be TRUE):
   1. TBD
-**Plans:** 1 plan (placeholder)
+**Plans:** 1 plan
 Plans:
-- [ ] 28-01-PLAN.md -- Install/config guides and setup skills
+- [ ] 28-01-PLAN.md -- Quickstart + Full Guide + agent setup guide + install/config/verify/troubleshoot skills
 
 ## Progress
 
