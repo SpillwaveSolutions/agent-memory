@@ -12,6 +12,12 @@ Agent Memory enables AI agents to answer questions like "what were we talking ab
 - **Hook-based Ingestion**: Passive capture from Claude Code, OpenCode, Gemini CLI hooks
 - **gRPC API**: High-performance interface for agent integration
 
+## Setup Guides
+
+- [Quickstart (macOS + Linux)](setup/quickstart.md)
+- [Full Guide (macOS + Linux)](setup/full-guide.md)
+- [Agent Setup (Claude Code, OpenCode, Gemini CLI, Copilot CLI)](setup/agent-setup.md)
+
 ## Core Value: Agentic Search Through Progressive Disclosure
 
 The fundamental insight behind Agent Memory is that **agents should search memory the same way they search codebases** - through intelligent, hierarchical exploration rather than brute-force scanning.
