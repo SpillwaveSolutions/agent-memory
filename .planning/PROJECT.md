@@ -2,10 +2,10 @@
 
 ## Current State
 
-**Version:** v2.2 (Shipped 2026-02-11)
-**Status:** Production-hardened — all RPCs wired, 29 E2E tests, CI/CD with dedicated E2E job
+**Version:** v2.3 (Shipped 2026-02-12)
+**Status:** Production-ready with install docs, setup skills, and performance benchmarks
 
-The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, and production verification:
+The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, production verification, and user-facing setup experience:
 - Layer 0: Raw Events (RocksDB) — agent-tagged
 - Layer 1: TOC Hierarchy (time-based navigation) — contributing_agents tracking
 - Layer 2: Agentic TOC Search (index-free, always works)
@@ -18,8 +18,10 @@ The system implements a complete 6-layer cognitive stack with control plane, mul
 - Discovery: ListAgents, GetAgentActivity, agent-filtered topics
 - Testing: 29 E2E tests covering all layers + multi-agent + degradation + error paths
 - CI/CD: Dedicated E2E job in GitHub Actions, required for PR merge
+- Setup: Quickstart, full guide, agent setup docs + 4 wizard-style setup skills
+- Benchmarks: perf_bench harness with baseline metrics across all retrieval layers
 
-43,932 LOC Rust across 14 crates. 4 adapter plugins. 3 documentation guides. 29 E2E tests.
+44,912 LOC Rust across 14 crates. 4 adapter plugins. 4 setup skills. 29 E2E tests. Performance baselines.
 
 ## What This Is
 
@@ -170,11 +172,19 @@ Agent Memory implements a layered cognitive architecture:
 - [x] Dedicated E2E CI job in GitHub Actions with separate pass/fail reporting — v2.2
 - [x] E2E tests run on every PR, required for merge via ci-success gate — v2.2
 
+### Validated (v2.3 - Shipped 2026-02-12)
+
+**Install & Setup Experience (v2.3)**
+- [x] Quickstart, full guide, and agent setup documentation — v2.3
+- [x] Four setup skills (install/configure/verify/troubleshoot) with wizard-style flows — v2.3
+- [x] Performance benchmark harness with ingest, TOC, BM25, vector, topic graph latency — v2.3
+- [x] Baseline metrics for all tier/mode combinations with p50/p90/p99 percentiles — v2.3
+
 ### Active (future)
 
 **Deferred**
-- Performance benchmarks (ingest throughput, query latency)
 - Cross-project unified memory
+- Semantic deduplication
 
 ### Out of Scope
 
@@ -254,6 +264,9 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Direct handler testing | tonic::Request without gRPC server; faster, simpler | ✓ Validated v2.2 |
 | Dedicated E2E CI job | Separate from unit tests; clear reporting per CI-03 | ✓ Validated v2.2 |
 | BM25 prune report-only | TeleportSearcher is read-only; deletion needs SearchIndexer | — Design decision v2.2 |
+| Wizard-style setup skills | Confirm before edits, verification-only commands | ✓ Validated v2.3 |
+| perf_bench as binary | Standalone binary in e2e-tests crate; not unit tests | ✓ Validated v2.3 |
+| Baseline JSON with thresholds | warning/severe thresholds per step for regression detection | ✓ Validated v2.3 |
 
 ---
-*Last updated: 2026-02-11 after v2.2 milestone completion*
+*Last updated: 2026-02-12 after v2.3 milestone completion*

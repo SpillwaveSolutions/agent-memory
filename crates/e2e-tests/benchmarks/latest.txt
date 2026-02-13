@@ -1,0 +1,14 @@
+Benchmark Results (tier=medium, mode=warm, iterations=3)
+step	p50_ms	p90_ms	p99_ms	throughput_eps
+multi.bm25	247.45	272.24	277.82	-
+multi.ingest	5.93	6.06	6.09	40483.56
+multi.route_query	2.65	3.57	3.77	-
+multi.toc	64732.55	67491.81	68112.65	-
+multi.topics	1.91	2.59	2.74	-
+multi.vector	7371.71	7406.27	7414.04	-
+single.bm25	244.62	248.54	249.43	-
+single.ingest	5.79	5.86	5.87	41451.97
+single.route_query	2.33	3.01	3.16	-
+single.toc	64576.71	65290.78	65451.45	-
+single.topics	1.89	2.51	2.64	-
+single.vector	7171.03	7752.53	7883.37	-
