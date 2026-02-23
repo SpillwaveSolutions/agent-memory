@@ -11,12 +11,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 Milestone: v2.4 Headless CLI Testing
 Phase: 30 of 34 (Claude Code CLI Harness)
-**Current Plan:** 02 of 04 (complete)
+**Current Plan:** 3
 **Total Plans in Phase:** 4
-**Status:** Plan 02 complete — ready for plan 03
-**Last Activity:** 2026-02-23 — Completed 30-02 (Fixtures + CI Workflow)
+**Status:** Ready to execute
+**Last Activity:** 2026-02-23
 
-**Progress:** [█████░░░░░] 50%
+**Progress:** [███████░░░] 66%
 
 ## Decisions
 
@@ -30,6 +30,7 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 - Fixtures match CchEvent struct fields from memory-ingest for compatibility
 - Bats helpers installed via git clone in CI (cross-platform reliable)
 - Missing CLI test dir triggers skip annotation, not failure
+- [Phase 30-01]: Random port selection instead of --port 0 (daemon logs requested addr not bound addr)
 
 ## Blockers
 
@@ -44,6 +45,7 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 | Phase | Duration | Tasks | Files |
 |-------|----------|-------|-------|
 | 30-02 | 1min | 2 | 11 |
+| Phase 30-01 P01 | 3min | 2 tasks | 3 files |
 
 ## Milestone History
 
@@ -66,6 +68,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-23
-**Stopped At:** Completed 30-02-PLAN.md (Fixtures + CI Workflow)
+**Last Session:** 2026-02-23T06:40:25.966Z
+**Stopped At:** Completed 30-01-PLAN.md (Shared Test Helper Library)
 **Resume File:** None
