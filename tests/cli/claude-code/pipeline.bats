@@ -3,20 +3,15 @@
 #
 # These tests prove the complete pipeline: fire hook event via memory-ingest,
 # daemon ingests via gRPC, events are queryable via memory-daemon query.
-#
-# NOTE: memory-ingest connects to hardcoded http://127.0.0.1:50051 (DEFAULT_ENDPOINT),
-# so the daemon MUST be started on port 50051 for pipeline ingest to succeed.
+# Uses OS-assigned random port for full workspace isolation.
 
 load '../lib/common'
 load '../lib/cli_wrappers'
 
-# Force port 50051 because memory-ingest hardcodes DEFAULT_ENDPOINT
-PIPELINE_PORT=50051
-
 setup_file() {
   build_daemon_if_needed
   setup_workspace
-  start_daemon "${PIPELINE_PORT}"
+  start_daemon
 }
 
 teardown_file() {
