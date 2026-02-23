@@ -11,12 +11,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 Milestone: v2.4 Headless CLI Testing
 Phase: 30 of 34 (Claude Code CLI Harness)
-**Current Plan:** 4
-**Total Plans in Phase:** 4
-**Status:** Phase complete — ready for verification
+**Current Plan:** 6
+**Total Plans in Phase:** 6
+**Status:** Executing plan 6
 **Last Activity:** 2026-02-23
 
-**Progress:** [███████░░░] 68%
+**Progress:** [███████░░░] 67%
 
 ## Decisions
 
@@ -36,6 +36,7 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 - [Phase 30-03]: Build-resilient setup: fallback to existing binary when cargo build fails
 - [Phase 30-04]: DEFAULT_ENDPOINT changed from [::1] to 127.0.0.1 to match daemon 0.0.0.0 bind address
 - [Phase 30-04]: Removed short flag from global --log-level to fix clap conflict with --limit
+- [Phase 30-05]: No unit tests for env var read -- validated by E2E bats tests
 
 ## Blockers
 
@@ -53,6 +54,7 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 | Phase 30-01 P01 | 3min | 2 tasks | 3 files |
 | Phase 30-03 P03 | 11min | 2 tasks | 4 files |
 | Phase 30-04 P04 | 17min | 2 tasks | 4 files |
+| Phase 30-05 P05 | 5min | 2 tasks | 2 files |
 
 ## Milestone History
 
@@ -75,6 +77,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-23T07:00:21.377Z
-**Stopped At:** Completed 30-04-PLAN.md (Pipeline and Negative Tests)
+**Last Session:** 2026-02-23T20:28:00Z
+**Stopped At:** Completed 30-05-PLAN.md (MEMORY_DAEMON_ADDR Gap Closure)
 **Resume File:** None
