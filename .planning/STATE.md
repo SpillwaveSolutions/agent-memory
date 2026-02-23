@@ -13,10 +13,10 @@ Milestone: v2.4 Headless CLI Testing
 Phase: 30 of 34 (Claude Code CLI Harness)
 **Current Plan:** 6
 **Total Plans in Phase:** 6
-**Status:** Executing plan 6
+**Status:** Phase complete — ready for verification
 **Last Activity:** 2026-02-23
 
-**Progress:** [███████░░░] 67%
+**Progress:** [███████░░░] 68%
 
 ## Decisions
 
@@ -37,6 +37,7 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 - [Phase 30-04]: DEFAULT_ENDPOINT changed from [::1] to 127.0.0.1 to match daemon 0.0.0.0 bind address
 - [Phase 30-04]: Removed short flag from global --log-level to fix clap conflict with --limit
 - [Phase 30-05]: No unit tests for env var read -- validated by E2E bats tests
+- [Phase 30]: bash -n not valid for bats files; use bats --count for syntax validation
 
 ## Blockers
 
@@ -55,6 +56,7 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 | Phase 30-03 P03 | 11min | 2 tasks | 4 files |
 | Phase 30-04 P04 | 17min | 2 tasks | 4 files |
 | Phase 30-05 P05 | 5min | 2 tasks | 2 files |
+| Phase 30 P06 | 2min | 2 tasks | 2 files |
 
 ## Milestone History
 
@@ -77,6 +79,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-23T20:28:00Z
-**Stopped At:** Completed 30-05-PLAN.md (MEMORY_DAEMON_ADDR Gap Closure)
+**Last Session:** 2026-02-23T20:32:36.724Z
+**Stopped At:** Completed 30-06-PLAN.md (Phase 30 complete: 6/6 plans)
 **Resume File:** None
