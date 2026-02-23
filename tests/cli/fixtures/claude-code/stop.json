@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "Stop",
+  "session_id": "test-session-001",
+  "timestamp": "2026-02-22T10:00:30Z",
+  "cwd": "/tmp/test-workspace",
+  "agent": "claude"
+}

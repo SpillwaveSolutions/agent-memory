@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "PreToolUse",
+  "session_id": "test-session-001",
+  "tool_name": "Read",
+  "tool_input": {"file_path": "/tmp/test-workspace/README.md"},
+  "timestamp": "2026-02-22T10:00:10Z",
+  "cwd": "/tmp/test-workspace",
+  "agent": "claude"
+}

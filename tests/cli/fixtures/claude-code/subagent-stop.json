@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "SubagentStop",
+  "session_id": "test-session-001",
+  "message": "Code review subagent completed",
+  "timestamp": "2026-02-22T10:00:25Z",
+  "cwd": "/tmp/test-workspace",
+  "agent": "claude"
+}
