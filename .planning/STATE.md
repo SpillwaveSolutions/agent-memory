@@ -11,12 +11,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 Milestone: v2.4 Headless CLI Testing
 Phase: 30 of 34 (Claude Code CLI Harness)
-**Current Plan:** 3
+**Current Plan:** 4
 **Total Plans in Phase:** 4
 **Status:** Ready to execute
 **Last Activity:** 2026-02-23
 
-**Progress:** [███████░░░] 66%
+**Progress:** [███████░░░] 67%
 
 ## Decisions
 
@@ -31,6 +31,9 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 - Bats helpers installed via git clone in CI (cross-platform reliable)
 - Missing CLI test dir triggers skip annotation, not failure
 - [Phase 30-01]: Random port selection instead of --port 0 (daemon logs requested addr not bound addr)
+- [Phase 30-03]: IPv4 (127.0.0.1) for daemon connectivity: daemon binds 0.0.0.0, not [::1]
+- [Phase 30-03]: TCP nc check preferred over grpcurl for daemon health (no grpc.health service)
+- [Phase 30-03]: Build-resilient setup: fallback to existing binary when cargo build fails
 
 ## Blockers
 
@@ -46,6 +49,7 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 |-------|----------|-------|-------|
 | 30-02 | 1min | 2 | 11 |
 | Phase 30-01 P01 | 3min | 2 tasks | 3 files |
+| Phase 30-03 P03 | 11min | 2 tasks | 4 files |
 
 ## Milestone History
 
@@ -68,6 +72,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-23T06:40:25.966Z
-**Stopped At:** Completed 30-01-PLAN.md (Shared Test Helper Library)
+**Last Session:** 2026-02-23T06:54:29.405Z
+**Stopped At:** Completed 30-03-PLAN.md (Smoke Tests and Hook Capture Tests)
 **Resume File:** None
