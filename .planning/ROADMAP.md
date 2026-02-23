@@ -102,7 +102,12 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
   3. Claude Code hook fires produce events visible via gRPC query in the same test workspace
   4. JUnit XML report is generated and CI matrix job uploads failure artifacts (logs, workspace tarballs)
   5. A `test_helper/common.bash` library exists that other CLI test phases can source for workspace setup, daemon lifecycle, and CLI wrappers
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+- [ ] 30-01-PLAN.md — Common helper library (common.bash + cli_wrappers.bash) + workspace/daemon lifecycle
+- [ ] 30-02-PLAN.md — Fixture JSON payloads + e2e-cli.yml CI workflow with 5-CLI matrix
+- [ ] 30-03-PLAN.md — Smoke tests + hook capture tests (all event types via stdin pipe)
+- [ ] 30-04-PLAN.md — E2E pipeline tests + negative tests (daemon down, malformed, timeout)
 
 ### Phase 31: Gemini CLI Tests
 **Goal**: Developers can run isolated shell-based E2E tests for Gemini CLI that validate hook capture and the full ingest-to-query pipeline
@@ -157,7 +162,7 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24-27 | v2.2 | 10/10 | Complete | 2026-02-11 |
 | 28-29 | v2.3 | 2/2 | Complete | 2026-02-12 |
-| 30 | v2.4 | 0/TBD | Not started | - |
+| 30 | v2.4 | 0/4 | Planned | - |
 | 31 | v2.4 | 0/TBD | Not started | - |
 | 32 | v2.4 | 0/TBD | Not started | - |
 | 33 | v2.4 | 0/TBD | Not started | - |
