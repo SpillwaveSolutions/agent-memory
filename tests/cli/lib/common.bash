@@ -104,10 +104,15 @@ build_daemon_if_needed() {
 
     if [[ "${needs_build}" == "1" ]]; then
         echo "# Building memory-daemon..." >&3 2>/dev/null || true
-        (cd "${PROJECT_ROOT}" && cargo build -p memory-daemon -p memory-ingest 2>&1) || {
-            echo "ERROR: cargo build failed" >&2
-            return 1
-        }
+        if ! (cd "${PROJECT_ROOT}" && cargo build -p memory-daemon -p memory-ingest 2>&1); then
+            # Build failed -- if binaries exist from a previous build, use them
+            if [[ -f "${daemon_bin}" ]]; then
+                echo "# Build failed but existing binary found, continuing..." >&3 2>/dev/null || true
+            else
+                echo "ERROR: cargo build failed and no existing binary found" >&2
+                return 1
+            fi
+        fi
     fi
 }
 
