@@ -75,7 +75,7 @@ run_claude_with_hooks() {
     # Usage: run_claude_with_hooks <prompt> [extra args...]
     # Same as run_claude but ensures hook env vars point at the test workspace.
     export MEMORY_INGEST_PATH="${MEMORY_INGEST_BIN:-${PROJECT_ROOT}/target/debug/memory-ingest}"
-    export MEMORY_DAEMON_ADDR="http://[::1]:${MEMORY_DAEMON_PORT:-50051}"
+    export MEMORY_DAEMON_ADDR="http://127.0.0.1:${MEMORY_DAEMON_PORT:-50051}"
 
     run_claude "$@"
 }
@@ -93,7 +93,7 @@ run_hook_stdin() {
         return 1
     fi
 
-    MEMORY_DAEMON_ADDR="http://[::1]:${MEMORY_DAEMON_PORT:-50051}" "${ingest_bin}"
+    MEMORY_DAEMON_ADDR="http://127.0.0.1:${MEMORY_DAEMON_PORT:-50051}" "${ingest_bin}"
 }
 
 run_hook_stdin_dry() {
@@ -107,7 +107,7 @@ run_hook_stdin_dry() {
     fi
 
     MEMORY_INGEST_DRY_RUN=1 \
-    MEMORY_DAEMON_ADDR="http://[::1]:${MEMORY_DAEMON_PORT:-50051}" \
+    MEMORY_DAEMON_ADDR="http://127.0.0.1:${MEMORY_DAEMON_PORT:-50051}" \
         "${ingest_bin}"
 }
 

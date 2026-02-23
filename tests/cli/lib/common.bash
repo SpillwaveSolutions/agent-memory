@@ -137,7 +137,7 @@ start_daemon() {
 
     MEMORY_DAEMON_PORT="${port}"
     export MEMORY_DAEMON_PORT
-    export MEMORY_DAEMON_ADDR="http://[::1]:${MEMORY_DAEMON_PORT}"
+    export MEMORY_DAEMON_ADDR="http://127.0.0.1:${MEMORY_DAEMON_PORT}"
 
     # Start daemon in foreground mode, in background
     "${MEMORY_DAEMON_BIN}" start \
@@ -187,19 +187,21 @@ stop_daemon() {
 }
 
 daemon_health_check() {
-    # Use grpc health check via grpcurl if available, otherwise try the daemon status
-    if command -v grpcurl &>/dev/null; then
-        grpcurl -plaintext "[::1]:${MEMORY_DAEMON_PORT}" grpc.health.v1.Health/Check &>/dev/null
+    # Try TCP connectivity check first (most reliable, no protocol dependency)
+    if command -v nc &>/dev/null; then
+        nc -z 127.0.0.1 "${MEMORY_DAEMON_PORT}" &>/dev/null
         return $?
     fi
 
-    # Fallback: try connecting to the port with a simple TCP check
-    if command -v nc &>/dev/null; then
-        nc -z "::1" "${MEMORY_DAEMON_PORT}" &>/dev/null
+    # Use grpcurl to list services (daemon exposes reflection, not grpc.health)
+    if command -v grpcurl &>/dev/null; then
+        grpcurl -plaintext "127.0.0.1:${MEMORY_DAEMON_PORT}" list &>/dev/null
         return $?
-    elif command -v bash &>/dev/null; then
-        # Bash /dev/tcp fallback
-        (echo >/dev/tcp/::1/"${MEMORY_DAEMON_PORT}") &>/dev/null
+    fi
+
+    # Bash /dev/tcp fallback
+    if command -v bash &>/dev/null; then
+        (echo >/dev/tcp/127.0.0.1/"${MEMORY_DAEMON_PORT}") &>/dev/null
         return $?
     fi
 
@@ -240,7 +242,7 @@ grpc_query() {
     fi
 
     "${MEMORY_DAEMON_BIN}" query \
-        --endpoint "http://[::1]:${MEMORY_DAEMON_PORT}" \
+        --endpoint "http://127.0.0.1:${MEMORY_DAEMON_PORT}" \
         "$@"
 }
 
@@ -256,7 +258,7 @@ ingest_event() {
         return 1
     fi
 
-    echo "${json}" | MEMORY_DAEMON_ADDR="http://[::1]:${MEMORY_DAEMON_PORT}" "${MEMORY_INGEST_BIN}"
+    echo "${json}" | MEMORY_DAEMON_ADDR="http://127.0.0.1:${MEMORY_DAEMON_PORT}" "${MEMORY_INGEST_BIN}"
 }
 
 # --- Assertions ---
