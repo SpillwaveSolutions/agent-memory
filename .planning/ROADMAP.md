@@ -7,6 +7,7 @@
 - ✅ **v2.1 Multi-Agent Ecosystem** — Phases 18-23 (shipped 2026-02-10)
 - ✅ **v2.2 Production Hardening** — Phases 24-27 (shipped 2026-02-11)
 - ✅ **v2.3 Install & Setup Experience** — Phases 28-29 (shipped 2026-02-12)
+- 🚧 **v2.4 Headless CLI Testing** — Phases 30-34 (in progress)
 
 ## Phases
 
@@ -79,6 +80,74 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
 
 </details>
 
+### v2.4 Headless CLI Testing (In Progress)
+
+**Milestone Goal:** Build a shell-based E2E test harness that spawns real CLI processes in headless mode, validating integration behavior across 5 AI coding CLIs with isolated workspaces and matrix reporting.
+
+- [ ] **Phase 30: Claude Code CLI Harness** - Build bats-core framework + all Claude Code headless tests
+- [ ] **Phase 31: Gemini CLI Tests** - Apply harness to Gemini CLI with JSON stdin hooks
+- [ ] **Phase 32: OpenCode CLI Tests** - Apply harness to OpenCode CLI with headless quirk handling
+- [ ] **Phase 33: Copilot CLI Tests** - Apply harness to Copilot CLI with session ID synthesis
+- [ ] **Phase 34: Codex CLI Adapter + Tests + Matrix Report** - New adapter, hook-excluded tests, cross-CLI matrix
+
+## Phase Details
+
+### Phase 30: Claude Code CLI Harness
+**Goal**: Developers can run isolated shell-based E2E tests for Claude Code that validate the full hook-to-query pipeline, with reusable framework infrastructure for all subsequent CLI phases
+**Depends on**: Phase 29 (v2.3 complete)
+**Requirements**: HARN-01, HARN-02, HARN-03, HARN-04, HARN-05, HARN-06, HARN-07, CLDE-01, CLDE-02, CLDE-03, CLDE-04
+**Success Criteria** (what must be TRUE):
+  1. Running `bats tests/cli/claude-code/` executes all Claude Code tests in isolated temp workspaces, each with its own daemon on an OS-assigned port
+  2. Tests that require `claude` binary skip gracefully with informative message when binary is not installed
+  3. Claude Code hook fires produce events visible via gRPC query in the same test workspace
+  4. JUnit XML report is generated and CI matrix job uploads failure artifacts (logs, workspace tarballs)
+  5. A `test_helper/common.bash` library exists that other CLI test phases can source for workspace setup, daemon lifecycle, and CLI wrappers
+**Plans**: TBD
+
+### Phase 31: Gemini CLI Tests
+**Goal**: Developers can run isolated shell-based E2E tests for Gemini CLI that validate hook capture and the full ingest-to-query pipeline
+**Depends on**: Phase 30 (framework)
+**Requirements**: GEMI-01, GEMI-02, GEMI-03, GEMI-04
+**Success Criteria** (what must be TRUE):
+  1. Running `bats tests/cli/gemini/` executes all Gemini tests in isolated workspaces, reusing Phase 30 common helpers
+  2. Gemini CLI binary detection and graceful skip works when `gemini` is not installed
+  3. Gemini hook handler correctly captures events with agent field set to "gemini" and events are queryable via gRPC
+  4. Negative tests verify daemon-down and malformed-input handling without test failures leaking
+**Plans**: TBD
+
+### Phase 32: OpenCode CLI Tests
+**Goal**: Developers can run isolated shell-based E2E tests for OpenCode CLI, handling its less mature headless mode with appropriate skip/warn patterns
+**Depends on**: Phase 30 (framework)
+**Requirements**: OPEN-01, OPEN-02, OPEN-03, OPEN-04
+**Success Criteria** (what must be TRUE):
+  1. Running `bats tests/cli/opencode/` executes all OpenCode tests in isolated workspaces, reusing Phase 30 common helpers
+  2. OpenCode invocation uses `-p -q -f json` flags and timeout guards prevent hangs from headless mode quirks
+  3. OpenCode hook capture produces events with agent field "opencode" queryable via gRPC pipeline test
+  4. Negative tests cover daemon-down and timeout scenarios specific to OpenCode's headless behavior
+**Plans**: TBD
+
+### Phase 33: Copilot CLI Tests
+**Goal**: Developers can run isolated shell-based E2E tests for Copilot CLI that validate session ID synthesis and the hook-to-query pipeline
+**Depends on**: Phase 30 (framework)
+**Requirements**: CPLT-01, CPLT-02, CPLT-03, CPLT-04
+**Success Criteria** (what must be TRUE):
+  1. Running `bats tests/cli/copilot/` executes all Copilot tests in isolated workspaces, reusing Phase 30 common helpers
+  2. Copilot binary detection uses correct binary name and `--yes --allow-all-tools` prevents interactive prompts
+  3. Copilot session ID synthesis produces deterministic session IDs from workspace context, verified in captured events
+  4. Negative tests verify daemon-down and malformed-input handling for Copilot-specific edge cases
+**Plans**: TBD
+
+### Phase 34: Codex CLI Adapter + Tests + Matrix Report
+**Goal**: Codex CLI adapter exists with commands and skills (no hooks), Codex headless tests pass with hook tests skipped, and a cross-CLI matrix report aggregates results from all 5 CLIs
+**Depends on**: Phase 30 (framework), Phases 31-33 (all CLI tests for matrix)
+**Requirements**: CDEX-01, CDEX-02, CDEX-03, CDEX-04, CDEX-05
+**Success Criteria** (what must be TRUE):
+  1. A Codex CLI adapter directory exists under `adapters/codex-cli/` with commands, skills, and sandbox workaround documentation (no hook handler)
+  2. Running `bats tests/cli/codex/` executes Codex tests with hook-dependent scenarios explicitly skipped and annotated
+  3. Codex command invocation tests use `codex exec -q --full-auto` with timeout guards
+  4. A matrix report script aggregates JUnit XML from all 5 CLIs into a CLI x scenario pass/fail/skipped summary viewable in CI
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -88,7 +157,12 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24-27 | v2.2 | 10/10 | Complete | 2026-02-11 |
 | 28-29 | v2.3 | 2/2 | Complete | 2026-02-12 |
+| 30 | v2.4 | 0/TBD | Not started | - |
+| 31 | v2.4 | 0/TBD | Not started | - |
+| 32 | v2.4 | 0/TBD | Not started | - |
+| 33 | v2.4 | 0/TBD | Not started | - |
+| 34 | v2.4 | 0/TBD | Not started | - |
 
 ---
 
-*Updated: 2026-02-12 after v2.3 milestone completion*
+*Updated: 2026-02-22 after v2.4 roadmap creation*

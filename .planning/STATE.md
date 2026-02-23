@@ -5,26 +5,28 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.4 Headless CLI Testing
+**Current focus:** v2.4 Headless CLI Testing — Phase 30 (Claude Code CLI Harness)
 
 ## Current Position
 
 Milestone: v2.4 Headless CLI Testing
-Phase: Not started (defining requirements)
+Phase: 30 of 34 (Claude Code CLI Harness)
 **Current Plan:** —
-**Total Plans in Phase:** —
-**Status:** Defining requirements
-**Last Activity:** 2026-02-22 — Milestone v2.4 started
+**Total Plans in Phase:** TBD
+**Status:** Ready to plan
+**Last Activity:** 2026-02-22 — Roadmap created for v2.4
 
 **Progress:** [░░░░░░░░░░] 0%
 
 ## Decisions
 
-- Shell-first harness (Python/Bun for validation only)
-- Real CLI processes in headless mode
-- One phase per CLI, Claude Code first (builds framework)
-- Codex CLI gets new adapter (no hook support)
-- Keep existing 29 cargo E2E tests as separate layer
+- Shell-first harness using bats-core 1.12 (no Python/Bun unless validation)
+- Real CLI processes in headless mode, not simulated
+- Phase 30 builds all framework infra + Claude Code tests; phases 31-34 reuse it
+- Codex CLI gets new adapter with commands/skills only (no hooks)
+- Hook-dependent tests skipped for Codex
+- Existing 29 cargo E2E tests remain as separate test layer
+- Codex adapter includes sandbox workaround documentation
 
 ## Blockers
 
@@ -62,5 +64,5 @@ See: .planning/MILESTONES.md for complete history
 ## Session Continuity
 
 **Last Session:** 2026-02-22
-**Stopped At:** Defining v2.4 requirements
+**Stopped At:** Roadmap created for v2.4 — ready to plan Phase 30
 **Resume File:** None
