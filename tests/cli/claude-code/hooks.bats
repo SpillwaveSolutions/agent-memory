@@ -72,10 +72,12 @@ query_events() {
   local result
   result="$(query_events)"
 
-  # Layer 2: verify event appears in query (if ingest reached the daemon)
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"$sid"* ]] || [[ "$result" == *"SessionStart"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 2: UserPromptSubmit event ---
@@ -91,9 +93,17 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"project structure"* ]] || [[ "$result" == *"$sid"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
+  [[ "$result" == *"project structure"* ]] || {
+    echo "Expected 'project structure' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 3: PreToolUse event ---
@@ -109,9 +119,17 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"Read"* ]] || [[ "$result" == *"$sid"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
+  [[ "$result" == *"Read"* ]] || {
+    echo "Expected 'Read' tool name in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 4: PostToolUse event ---
@@ -127,9 +145,17 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"Read"* ]] || [[ "$result" == *"$sid"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
+  [[ "$result" == *"Read"* ]] || {
+    echo "Expected 'Read' tool name in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 5: AssistantResponse event ---
@@ -145,9 +171,17 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"project structure"* ]] || [[ "$result" == *"$sid"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
+  [[ "$result" == *"project structure"* ]] || {
+    echo "Expected 'project structure' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 6: SubagentStart event ---
@@ -163,9 +197,12 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"$sid"* ]] || [[ "$result" == *"subagent"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 7: SubagentStop event ---
@@ -181,9 +218,12 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"$sid"* ]] || [[ "$result" == *"subagent"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 8: Stop event ---
@@ -199,9 +239,12 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"$sid"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 9: SessionEnd maps to Stop event ---
@@ -218,9 +261,12 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    [[ "$result" == *"$sid"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
 
 # --- Test 10: Multiple events in sequence maintain session coherence ---
@@ -248,8 +294,10 @@ query_events() {
   local result
   result="$(query_events)"
 
-  if [[ -n "$result" ]]; then
-    # If events were ingested, verify session appears
-    [[ "$result" == *"$sid"* ]] || true
-  fi
+  # Layer 2: verify event appears in gRPC query
+  [[ "$result" == *"$sid"* ]] || {
+    echo "Expected session_id '$sid' in gRPC query result"
+    echo "Query output: $result"
+    false
+  }
 }
