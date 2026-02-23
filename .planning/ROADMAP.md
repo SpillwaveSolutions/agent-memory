@@ -108,8 +108,8 @@ Plans:
 - [x] 30-02-PLAN.md — Fixture JSON payloads + e2e-cli.yml CI workflow with 5-CLI matrix
 - [x] 30-03-PLAN.md — Smoke tests + hook capture tests (all event types via stdin pipe)
 - [x] 30-04-PLAN.md — E2E pipeline tests + negative tests (daemon down, malformed, timeout)
-- [ ] 30-05-PLAN.md — Fix memory-ingest MEMORY_DAEMON_ADDR env var support
-- [ ] 30-06-PLAN.md — Fix hooks.bats Layer 2 assertions + ROADMAP path correction
+- [x] 30-05-PLAN.md — Fix memory-ingest MEMORY_DAEMON_ADDR env var support
+- [x] 30-06-PLAN.md — Fix hooks.bats Layer 2 assertions + ROADMAP path correction
 
 ### Phase 31: Gemini CLI Tests
 **Goal**: Developers can run isolated shell-based E2E tests for Gemini CLI that validate hook capture and the full ingest-to-query pipeline
@@ -164,7 +164,7 @@ Plans:
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24-27 | v2.2 | 10/10 | Complete | 2026-02-11 |
 | 28-29 | v2.3 | 2/2 | Complete | 2026-02-12 |
-| 30 | v2.4 | 0/4 | Planned | - |
+| 30 | v2.4 | 6/6 | In Progress | - |
 | 31 | v2.4 | 0/TBD | Not started | - |
 | 32 | v2.4 | 0/TBD | Not started | - |
 | 33 | v2.4 | 0/TBD | Not started | - |
