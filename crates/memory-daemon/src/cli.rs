@@ -17,7 +17,7 @@ pub struct Cli {
     pub config: Option<String>,
 
     /// Set log level (trace, debug, info, warn, error)
-    #[arg(short, long, global = true)]
+    #[arg(long, global = true)]
     pub log_level: Option<String>,
 
     #[command(subcommand)]
@@ -50,8 +50,8 @@ pub enum Commands {
 
     /// Query the memory system
     Query {
-        /// gRPC endpoint (default: `http://[::1]:50051`)
-        #[arg(short, long, default_value = "http://[::1]:50051")]
+        /// gRPC endpoint (default: `http://127.0.0.1:50051`)
+        #[arg(short, long, default_value = "http://127.0.0.1:50051")]
         endpoint: String,
 
         #[command(subcommand)]
@@ -70,8 +70,8 @@ pub enum Commands {
 
     /// Scheduler management commands
     Scheduler {
-        /// gRPC endpoint (default: `http://[::1]:50051`)
-        #[arg(short, long, default_value = "http://[::1]:50051")]
+        /// gRPC endpoint (default: `http://127.0.0.1:50051`)
+        #[arg(short, long, default_value = "http://127.0.0.1:50051")]
         endpoint: String,
 
         #[command(subcommand)]
@@ -318,7 +318,7 @@ pub enum TeleportCommand {
         agent: Option<String>,
 
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
@@ -345,7 +345,7 @@ pub enum TeleportCommand {
         agent: Option<String>,
 
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
@@ -380,28 +380,28 @@ pub enum TeleportCommand {
         agent: Option<String>,
 
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
     /// Show BM25 index statistics
     Stats {
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
     /// Show vector index statistics
     VectorStats {
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
     /// Rebuild the search index from storage
     Rebuild {
         /// gRPC server address (for triggering rebuild)
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 }
@@ -412,7 +412,7 @@ pub enum TopicsCommand {
     /// Show topic graph status and lifecycle stats
     Status {
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
@@ -426,7 +426,7 @@ pub enum TopicsCommand {
         limit: u32,
 
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
@@ -444,7 +444,7 @@ pub enum TopicsCommand {
         limit: u32,
 
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
@@ -459,7 +459,7 @@ pub enum TopicsCommand {
         days: u32,
 
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
@@ -492,7 +492,7 @@ pub enum RetrievalCommand {
     /// Show retrieval tier and layer availability
     Status {
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
@@ -506,7 +506,7 @@ pub enum RetrievalCommand {
         timeout_ms: Option<u64>,
 
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 
@@ -536,7 +536,7 @@ pub enum RetrievalCommand {
         agent: Option<String>,
 
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 }
@@ -547,7 +547,7 @@ pub enum AgentsCommand {
     /// List all contributing agents with summary stats
     List {
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
     /// Show agent activity timeline
@@ -565,7 +565,7 @@ pub enum AgentsCommand {
         #[arg(long, default_value = "day")]
         bucket: String,
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
     /// Show top topics for an agent
@@ -577,7 +577,7 @@ pub enum AgentsCommand {
         #[arg(long, short = 'n', default_value = "10")]
         limit: u32,
         /// gRPC server address
-        #[arg(long, default_value = "http://[::1]:50051")]
+        #[arg(long, default_value = "http://127.0.0.1:50051")]
         addr: String,
     },
 }
@@ -754,7 +754,7 @@ mod tests {
         let cli = Cli::parse_from(["memory-daemon", "teleport", "stats"]);
         match cli.command {
             Commands::Teleport(TeleportCommand::Stats { addr }) => {
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Teleport Stats command"),
         }
@@ -914,7 +914,7 @@ mod tests {
         let cli = Cli::parse_from(["memory-daemon", "teleport", "vector-stats"]);
         match cli.command {
             Commands::Teleport(TeleportCommand::VectorStats { addr }) => {
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Teleport VectorStats command"),
         }
@@ -1126,7 +1126,7 @@ mod tests {
         let cli = Cli::parse_from(["memory-daemon", "topics", "status"]);
         match cli.command {
             Commands::Topics(TopicsCommand::Status { addr }) => {
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Topics Status command"),
         }
@@ -1158,7 +1158,7 @@ mod tests {
             }) => {
                 assert_eq!(query, "rust memory");
                 assert_eq!(limit, 10);
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Topics Explore command"),
         }
@@ -1199,7 +1199,7 @@ mod tests {
                 assert_eq!(topic_id, "topic-123");
                 assert!(rel_type.is_none());
                 assert_eq!(limit, 10);
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Topics Related command"),
         }
@@ -1239,7 +1239,7 @@ mod tests {
             Commands::Topics(TopicsCommand::Top { limit, days, addr }) => {
                 assert_eq!(limit, 10);
                 assert_eq!(days, 30);
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Topics Top command"),
         }
@@ -1452,7 +1452,7 @@ mod tests {
         let cli = Cli::parse_from(["memory-daemon", "agents", "list"]);
         match cli.command {
             Commands::Agents(AgentsCommand::List { addr }) => {
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Agents List command"),
         }
@@ -1490,7 +1490,7 @@ mod tests {
                 assert!(from.is_none());
                 assert!(to.is_none());
                 assert_eq!(bucket, "day");
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Agents Activity command"),
         }
@@ -1551,7 +1551,7 @@ mod tests {
             Commands::Agents(AgentsCommand::Topics { agent, limit, addr }) => {
                 assert_eq!(agent, "claude");
                 assert_eq!(limit, 10);
-                assert_eq!(addr, "http://[::1]:50051");
+                assert_eq!(addr, "http://127.0.0.1:50051");
             }
             _ => panic!("Expected Agents Topics command"),
         }
