@@ -101,13 +101,15 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
   2. Tests that require `claude` binary skip gracefully with informative message when binary is not installed
   3. Claude Code hook fires produce events visible via gRPC query in the same test workspace
   4. JUnit XML report is generated and CI matrix job uploads failure artifacts (logs, workspace tarballs)
-  5. A `test_helper/common.bash` library exists that other CLI test phases can source for workspace setup, daemon lifecycle, and CLI wrappers
-**Plans:** 4 plans
+  5. A `tests/cli/lib/common.bash` library exists that other CLI test phases can source (via `load ../lib/common`) for workspace setup, daemon lifecycle, and CLI wrappers
+**Plans:** 6 plans
 Plans:
-- [ ] 30-01-PLAN.md — Common helper library (common.bash + cli_wrappers.bash) + workspace/daemon lifecycle
-- [ ] 30-02-PLAN.md — Fixture JSON payloads + e2e-cli.yml CI workflow with 5-CLI matrix
-- [ ] 30-03-PLAN.md — Smoke tests + hook capture tests (all event types via stdin pipe)
-- [ ] 30-04-PLAN.md — E2E pipeline tests + negative tests (daemon down, malformed, timeout)
+- [x] 30-01-PLAN.md — Common helper library (common.bash + cli_wrappers.bash) + workspace/daemon lifecycle
+- [x] 30-02-PLAN.md — Fixture JSON payloads + e2e-cli.yml CI workflow with 5-CLI matrix
+- [x] 30-03-PLAN.md — Smoke tests + hook capture tests (all event types via stdin pipe)
+- [x] 30-04-PLAN.md — E2E pipeline tests + negative tests (daemon down, malformed, timeout)
+- [ ] 30-05-PLAN.md — Fix memory-ingest MEMORY_DAEMON_ADDR env var support
+- [ ] 30-06-PLAN.md — Fix hooks.bats Layer 2 assertions + ROADMAP path correction
 
 ### Phase 31: Gemini CLI Tests
 **Goal**: Developers can run isolated shell-based E2E tests for Gemini CLI that validate hook capture and the full ingest-to-query pipeline
