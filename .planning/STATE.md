@@ -2,36 +2,43 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-12)
+See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Planning next milestone
+**Current focus:** v2.4 Headless CLI Testing
 
 ## Current Position
 
-Milestone: v2.3 Install & Setup Experience (SHIPPED)
-Phase: —
+Milestone: v2.4 Headless CLI Testing
+Phase: Not started (defining requirements)
 **Current Plan:** —
 **Total Plans in Phase:** —
-**Status:** v2.3 milestone complete — planning next milestone
-**Last Activity:** 2026-02-12
+**Status:** Defining requirements
+**Last Activity:** 2026-02-22 — Milestone v2.4 started
 
-**Progress:** [██████████] 100%
+**Progress:** [░░░░░░░░░░] 0%
 
 ## Decisions
 
-- None pending
+- Shell-first harness (Python/Bun for validation only)
+- Real CLI processes in headless mode
+- One phase per CLI, Claude Code first (builds framework)
+- Codex CLI gets new adapter (no hook support)
+- Keep existing 29 cargo E2E tests as separate layer
 
 ## Blockers
 
 - None
 
+## Reference Projects
+
+- `/Users/richardhightower/clients/spillwave/src/rulez_plugin` — hook implementation reference
+
 ## Performance Metrics
 
 | Phase | Duration | Tasks | Files |
 |-------|----------|-------|-------|
-| Phase 28-install-configuration-skills-user-guides P01 | 4 min | 3 tasks | 10 files |
-| Phase 29-performance-benchmarks P01 | — | 3 tasks | 3 files |
+| — | — | — | — |
 
 ## Milestone History
 
@@ -54,6 +61,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-12
-**Stopped At:** Completed v2.3 milestone
+**Last Session:** 2026-02-22
+**Stopped At:** Defining v2.4 requirements
 **Resume File:** None

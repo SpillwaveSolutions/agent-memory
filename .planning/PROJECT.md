@@ -1,5 +1,9 @@
 # Agent Memory
 
+## Current Milestone: v2.4 Headless CLI Testing
+
+**Goal:** Build a shell-based E2E test harness that spawns real CLI processes (Claude Code, OpenCode, Gemini, Copilot, Codex) in headless mode, validating integration behavior in isolated workspaces with matrix reporting.
+
 ## Current State
 
 **Version:** v2.3 (Shipped 2026-02-12)
@@ -180,7 +184,18 @@ Agent Memory implements a layered cognitive architecture:
 - [x] Performance benchmark harness with ingest, TOC, BM25, vector, topic graph latency — v2.3
 - [x] Baseline metrics for all tier/mode combinations with p50/p90/p99 percentiles — v2.3
 
-### Active (future)
+### Active (v2.4 — Headless CLI Testing)
+
+**Headless Multi-CLI E2E Harness**
+- [ ] Codex CLI adapter (new — no hook support, commands/skills only)
+- [ ] Shell-based E2E harness with isolated workspaces per test
+- [ ] Claude Code CLI headless tests (framework phase — builds isolation, reporting, fixtures)
+- [ ] OpenCode CLI headless tests
+- [ ] Gemini CLI headless tests
+- [ ] Copilot CLI headless tests
+- [ ] Codex CLI headless tests (hooks excluded)
+- [ ] Matrix reporting: CLI × scenario → pass/fail/skipped
+- [ ] CI integration with artifact retention on failure
 
 **Deferred**
 - Cross-project unified memory
@@ -267,6 +282,11 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Wizard-style setup skills | Confirm before edits, verification-only commands | ✓ Validated v2.3 |
 | perf_bench as binary | Standalone binary in e2e-tests crate; not unit tests | ✓ Validated v2.3 |
 | Baseline JSON with thresholds | warning/severe thresholds per step for regression detection | ✓ Validated v2.3 |
+| Shell-first E2E harness | Fits CLI testing model; Python/Bun for validation only | — v2.4 |
+| Real CLI processes | Spawn actual CLIs headless, not simulated behavior | — v2.4 |
+| One phase per CLI | Each CLI gets own harness phase; Claude Code first builds framework | — v2.4 |
+| Keep both test layers | Existing cargo E2E tests stay; CLI harness is separate layer | — v2.4 |
+| Codex adapter (no hooks) | Codex lacks hook support; skip hook-dependent tests | — v2.4 |
 
 ---
-*Last updated: 2026-02-12 after v2.3 milestone completion*
+*Last updated: 2026-02-22 after v2.4 milestone start*
