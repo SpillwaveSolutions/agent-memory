@@ -1,295 +1,208 @@
-# Feature Landscape: Conversational Memory System for AI Agents
+# Feature Landscape: Headless Multi-CLI E2E Testing Harness
 
-**Domain:** Conversational Memory for AI Coding Agents (Claude Code, OpenCode, Gemini CLI)
-**Researched:** 2026-01-29
-**Overall Confidence:** MEDIUM-HIGH (verified against current memory system research and production systems)
+**Domain:** Shell-based E2E integration testing for 5 AI coding CLI tools
+**Researched:** 2026-02-22
+**Overall Confidence:** HIGH
 
 ## Executive Summary
 
-This document maps the feature landscape for building a conversational memory system with the following characteristics:
-- Append-only conversation history storage
-- TOC-based navigation (Year/Month/Week/Day/Segment hierarchy)
-- Grips for provenance (excerpt + event pointer)
-- Teleports for index-based acceleration
-- Time-based queries ("what were we talking about last week?")
-- Hook-based passive capture (zero token overhead)
+This document maps the feature landscape for building a shell-first E2E testing harness that spawns real CLI processes (Claude Code, Gemini CLI, OpenCode, Copilot CLI, Codex CLI) in headless mode. The harness validates hook/event capture, skill/command invocation, and state persistence across the full CLI-to-daemon pipeline. It complements the existing 29 cargo E2E tests (which test handlers directly via tonic::Request) by adding a process-level integration layer.
 
-The analysis compares against existing systems (Letta/MemGPT, Mem0, LangGraph, Graphiti/Zep) to identify table stakes, differentiators, and anti-features.
+Codex CLI has NO hook/extension system, so hook-dependent test scenarios must be skipped for it.
 
 ---
 
 ## Table Stakes
 
-Features users/agents expect. Missing = product feels incomplete or unusable.
+Features the harness must have. Missing = harness is unreliable or unusable.
 
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| **Persistent storage across sessions** | Agents like Claude Code already have session resume; without cross-session persistence, the system adds no value | Low | Storage backend | Baseline requirement - every competitor has this |
-| **Conversation history append** | Core use case; must capture full conversation including tool calls and results | Low | None | JSONL format common (Claude Code uses .jsonl in ~/.claude/projects/) |
-| **Basic retrieval by time** | Users ask "what did we discuss yesterday?" - this is the primary navigation axis | Medium | Time indexing | Most systems support timestamps but not as primary navigation |
-| **Full-text search** | Standard expectation for any searchable system | Medium | Search index | Letta, Mem0, LangGraph all provide this |
-| **User/agent scoping** | Memory must be partitioned per-user or per-agent; multi-tenancy is expected | Low | Identity model | Mem0 has user_id, session_id, agent_id scopes |
-| **Read/query API** | Programmatic access to stored memories | Low | None | REST or tool-based access |
-| **Write/ingest API** | Programmatic way to store memories | Low | None | Hook integration point |
-| **Session context continuity** | Resume mid-conversation with full context | Medium | State management | Claude Code has --resume; LangGraph has checkpointers |
-| **Configurable retention** | Ability to set retention policies (30 days, 90 days, forever) | Low | Lifecycle management | Claude Code deletes after 1 month by default |
-| **Privacy controls** | User can view, export, and delete their data | Medium | Identity, storage | GDPR/compliance requirement |
-
-**Minimum Viable Product must include:** Persistent storage, append API, time-based retrieval, and basic search.
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Isolated workspace per test file | Tests must not pollute each other; fresh temp dir with its own RocksDB, config, and plugin files | Medium | bats `setup_file`/`teardown_file` with `mktemp -d` |
+| Process spawning with timeout | Real CLI binaries run headless with kill guard to prevent CI deadlock | Low | `timeout 120s` (gtimeout on macOS) wrapping every CLI invocation |
+| Exit code assertion | Verify CLI exits 0 on success, non-zero on failure | Low | bats built-in `[ "$status" -eq 0 ]` |
+| Stdout/stderr capture | Capture and assert on CLI output (JSON or text) | Low | bats `run` captures output and status automatically |
+| Environment variable injection | Set `MEMORY_INGEST_PATH`, API keys, config paths per test | Low | bats `export` in setup functions |
+| CLI availability detection | Skip tests gracefully when a CLI binary is not installed | Low | `command -v claude` check in `setup_file`, then `skip` |
+| Daemon lifecycle management | Start memory-daemon before tests, stop after; health check before test runs | Medium | Port 0 for OS-assigned port, health check loop |
+| Hook script unit tests | Test each adapter's memory-capture.sh in isolation with mock stdin | Low | Existing `MEMORY_INGEST_DRY_RUN=1` flag supports this |
+| Fixture data management | Predefined JSON payloads for hook events, prompts, expected outputs | Low | `tests/e2e-cli/fixtures/` directory |
+| JUnit XML reporting | CI-parseable test results | Low | bats `--report-formatter junit --output ./results/` |
+| Cleanup on failure preservation | Preserve workspace on failure for debugging, clean on success | Medium | Conditional cleanup in `teardown_file` based on `BATS_SUITE_TEST_FAILED` |
 
 ---
 
 ## Differentiators
 
-Features that set this system apart. Not expected, but create competitive advantage.
+Features that make this harness excellent rather than merely functional.
 
-### Tier 1: Core Differentiators (Unique to This System)
-
-| Feature | Value Proposition | Complexity | Dependencies | Comparison to Existing |
-|---------|-------------------|------------|--------------|------------------------|
-| **TOC hierarchy navigation (Year/Month/Week/Day/Segment)** | Deterministic navigation without LLM inference; agents can "drill down" like a file browser | Medium | Index structure | **Unique**: No existing system uses TOC-based navigation. Mem0/Letta rely on vector search. Graphiti uses graph traversal. |
-| **Grips (excerpt + event pointer)** | Provenance tracking with verifiable citations; agents can prove "where did I learn this?" | Medium | Event indexing | **Unique**: PROV-AGENT paper addresses provenance but not with excerpts. Vertex AI has grounding but for search, not memory. |
-| **Teleports (index-based jumps)** | O(1) access to specific points in history; no scan required | Low-Medium | Pointer system | **Unique**: Vector DBs use ANN (approximate); graphs use traversal. Direct indexing is novel. |
-| **Hook-based passive capture** | Zero token overhead during conversation; memory happens asynchronously | Medium | CLI integration | **Unique**: Most systems require explicit memory operations (tool calls) that consume tokens. |
-| **Time as primary axis** | Optimized for "last week" / "yesterday" queries that current systems handle poorly | Medium | Temporal indexing | **Differentiated**: TSM paper shows 22.56% improvement over dialogue-time approaches. Most systems treat time as metadata, not navigation. |
-
-### Tier 2: Competitive Differentiators (Better than Existing)
-
-| Feature | Value Proposition | Complexity | Dependencies | Comparison to Existing |
-|---------|-------------------|------------|--------------|------------------------|
-| **Append-only immutability** | Full audit trail; no data loss; conflict-free replication possible | Low | Storage design | Letta supports updates; Mem0 merges facts. Append-only is simpler and more auditable. |
-| **Controlled heavy scan as fallback** | When TOC/teleports fail, explicit full-scan with user consent | Medium | Scan limiter | Most systems silently degrade; explicit fallback is more transparent. |
-| **Event-centric vs fact-centric** | Stores conversations as events (who said what when) not extracted facts | Low | Data model | Mem0 extracts atomic facts; Letta summarizes. Event-centric preserves context and nuance. |
-| **Multi-agent conversation support** | Track which agent said what in multi-agent workflows | Medium | Agent identity | Letta supports multi-agent with shared blocks; this would track full provenance. |
-| **Segment-level granularity** | Subdivide days into logical conversation segments (morning, afternoon, by topic) | Medium | Segmentation logic | No existing system has sub-day granularity beyond session IDs. |
-
-### Tier 3: Nice-to-Have Differentiators (Future Phases)
-
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| **Cross-project memory sharing** | "Did I solve this in another project?" | High | Project model, privacy | Interesting but scope creep |
-| **Semantic clustering of segments** | Auto-group related conversations | High | ML model | Could layer on later |
-| **Memory decay/importance scoring** | Surface frequently-accessed memories | Medium | Usage tracking | Letta has sleep-time agents for this |
-| **Compression/summarization** | Reduce storage for old segments | Medium | LLM integration | Adds token cost; conflicts with append-only |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| CLI x Scenario test matrix | Same logical test across all 5 CLIs with skip rules (e.g., skip hooks for Codex) | Medium | GitHub Actions matrix: `cli: [claude, gemini, opencode, copilot, codex]` with `fail-fast: false` |
+| End-to-end hook pipeline verification | Spawn CLI headless -> hook fires -> memory-ingest receives -> verify in RocksDB via gRPC query | High | The "real" E2E test; proves entire pipeline works |
+| Structured JSON output parsing | Parse JSON from `--output-format json` for precise field assertions | Medium | `jq` for extraction, bats-assert for validation |
+| CI artifact retention on failure | Failed test workspace preserved as tar.gz and uploaded as GitHub Actions artifact | Medium | `actions/upload-artifact@v4` with `if: always()` |
+| Shared common.bash helper library | Reusable functions for workspace creation, daemon lifecycle, CLI wrappers, skip logic | Medium | Single source of truth for all test patterns |
+| Per-CLI wrapper functions | `run_claude`, `run_gemini`, etc. that encapsulate each CLI's headless flags | Low | Standardizes invocation across test files |
 
 ---
 
 ## Anti-Features
 
-Features to explicitly NOT build. Common mistakes in this domain.
+Features to explicitly NOT build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Vector search as primary retrieval** | Semantic similarity fails for temporal queries ("yesterday" doesn't embed well); 5-18% worse than structured approaches per research | Use TOC navigation + teleports; offer semantic search as optional enhancement |
-| **Automatic fact extraction** | LLM extracts facts = token cost + hallucination risk + lost context | Store raw events; let querying agent extract meaning at query time |
-| **Self-modifying memory** | Memory that edits itself is unpredictable; leads to ZombieAgent-style attacks | Append-only; deletions are tombstones if needed |
-| **Always-on context injection** | Injecting memories into every prompt wastes tokens and may inject irrelevant info | On-demand retrieval; agent asks when needed |
-| **Complex graph relationships** | Knowledge graphs require schema design, maintenance, and add query complexity | Simple parent-child hierarchy (Year > Month > Week > Day > Segment) |
-| **Real-time synchronization** | Eventual consistency is fine for memory; real-time adds latency and complexity | Async append; reads see committed state |
-| **LLM-in-the-loop for storage** | Using LLM to decide what to store adds token overhead and latency | Rule-based capture via hooks; store everything |
-| **Embedding-only storage** | Losing original text makes debugging impossible | Store original text; generate embeddings optionally as secondary index |
-| **Global memory sharing** | Privacy nightmare; mixing users' memories | Strict tenant isolation; sharing must be explicit |
-| **Heartbeat/continuous reasoning** | MemGPT's heartbeat pattern consumes tokens during idle time | Only process during explicit queries |
+| Mock CLI simulators | Simulating CLI behavior defeats E2E purpose; tests the mock, not the CLI | Spawn real CLI binaries; skip when unavailable |
+| Interactive/TUI test mode | Driving interactive sessions with keystroke simulation is extremely brittle | Only test headless/non-interactive modes |
+| Full LLM round-trip in every test | Real LLM calls are slow, expensive, and non-deterministic | Test mechanical pipeline (spawn -> hook -> ingest -> verify); LLM quality is out of scope |
+| API key management in tests | Hardcoding or committing keys is a security risk | Use CI secrets; skip tests locally when keys absent |
+| Custom test framework | Building a bespoke runner adds maintenance and breaks tool integration | Use bats-core with standard helpers |
+| Cross-platform shell abstraction | Windows cmd/PowerShell compatibility adds massive complexity | Target macOS/Linux only; Windows is out of scope for v2.4 |
+| Shared state between tests | Shared daemons or databases create ordering dependencies and flakiness | Each test file gets its own workspace and daemon |
+| Performance benchmarking | Response time measurement belongs in perf_bench, not E2E correctness tests | Keep existing perf_bench harness separate |
+| Testing CLI authentication | Auth (OAuth, API keys) is the CLI vendor's responsibility | Assume pre-authenticated; skip with message if auth fails |
 
 ---
 
 ## Feature Dependencies
 
 ```
-                    ┌─────────────────┐
-                    │ Storage Backend │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-              v              v              v
-        ┌─────────┐   ┌───────────┐   ┌──────────┐
-        │ Append  │   │ Indexing  │   │ Identity │
-        │   API   │   │  System   │   │  Model   │
-        └────┬────┘   └─────┬─────┘   └────┬─────┘
-             │              │              │
-             │         ┌────┴────┐         │
-             │         │         │         │
-             v         v         v         v
-        ┌─────────┐ ┌──────┐ ┌───────┐ ┌───────┐
-        │  Hooks  │ │ TOC  │ │Teleport│ │Scoping│
-        └────┬────┘ │ Hier │ │ Index │ └───┬───┘
-             │      └──┬───┘ └───┬───┘     │
-             │         │         │         │
-             └─────────┼─────────┼─────────┘
-                       │         │
-                       v         v
-                 ┌──────────────────┐
-                 │  Query Engine    │
-                 │  (TOC + Search)  │
-                 └────────┬─────────┘
-                          │
-                          v
-                 ┌──────────────────┐
-                 │     Grips        │
-                 │   (Provenance)   │
-                 └──────────────────┘
+CLI Detection (command -v)
+    |
+    +--- Workspace Isolation (mktemp -d)
+    |       |
+    |       +--- Daemon Lifecycle (start/stop/health)
+    |       |       |
+    |       |       +--- Hook Script Unit Tests
+    |       |       |
+    |       |       +--- CLI Headless Invocation
+    |       |               |
+    |       |               +--- E2E Pipeline Tests
+    |       |
+    |       +--- Fixture Data
+    |
+    +--- Per-CLI Wrapper Functions
+    |
+    +--- Common Helper Library (common.bash)
+            |
+            +--- JUnit Reporting (bats --report-formatter junit)
+            |
+            +--- CI Matrix (GitHub Actions)
+            |
+            +--- Artifact Retention (tar.gz on failure)
 ```
 
-**Critical Path:**
-1. Storage Backend (prerequisite for everything)
-2. Append API + Identity Model (enable basic writes)
-3. Indexing System (enable TOC hierarchy)
-4. Query Engine (enable reads)
-5. Hooks (enable passive capture)
-6. Grips (enable provenance)
+**Critical path (build order):**
+1. common.bash with workspace + daemon lifecycle helpers
+2. CLI detection + skip logic
+3. Per-CLI wrapper functions (run_claude, run_gemini, etc.)
+4. Hook script unit tests (mock stdin, verify output)
+5. Smoke tests (basic headless invocation per CLI)
+6. E2E pipeline tests (hook -> ingest -> query -> verify)
+7. JUnit reporting + CI matrix + artifact retention
 
 ---
 
-## Comparison to Existing Memory Systems
+## Test Scenario Categories
 
-### Letta (formerly MemGPT)
+### Category 1: Smoke Tests (All 5 CLIs)
 
-| Capability | Letta | This System | Notes |
-|------------|-------|-------------|-------|
-| Storage | Vector DB (Chroma, pgvector) + Memory Blocks | Append-only event log | Letta summarizes; we preserve raw events |
-| Navigation | Semantic search + conversation search | TOC hierarchy + teleports | We offer deterministic navigation |
-| Temporal queries | Limited (timestamp metadata) | Primary axis | Key differentiator |
-| Provenance | None explicit | Grips | Key differentiator |
-| Token overhead | High (heartbeats, tool calls for memory) | Zero (hooks) | Key differentiator |
-| Multi-agent | Shared memory blocks | Per-agent scopes + cross-reference | Similar capability |
-| Maturity | Production (2+ years) | Greenfield | Letta has ecosystem |
+Verify basic headless invocation works.
 
-**Verdict:** Letta is feature-rich but token-expensive. Our system trades sophistication for efficiency.
+| Scenario | What It Tests | Assertion | Skip Rule |
+|----------|--------------|-----------|-----------|
+| CLI binary exists | Binary is installed and on PATH | `command -v` succeeds | Skip file if not found |
+| Headless invocation | CLI runs with non-interactive flags and exits | Exit code 0, some stdout produced | Skip if CLI unavailable |
+| JSON output mode | CLI produces parseable JSON in headless mode | `jq empty` succeeds on stdout | Skip if CLI has no JSON output (Copilot, Codex) |
+| Plugin recognition | CLI recognizes memory adapter commands/skills | Output references memory commands | Skip if CLI unavailable |
 
-### Mem0
+### Category 2: Hook Capture Tests (Skip Codex -- NO hooks)
 
-| Capability | Mem0 | This System | Notes |
-|------------|------|-------------|-------|
-| Storage | Vector + Graph + Key-Value hybrid | Append-only event log | Mem0 extracts facts; we store events |
-| Navigation | Semantic search + graph traversal | TOC hierarchy | Different paradigms |
-| Temporal queries | Supports but not primary | Primary axis | We optimize for this |
-| Provenance | Entity linking | Grips (excerpt pointers) | Both support but differently |
-| Token overhead | Moderate (extraction cost) | Zero (hooks) | Key differentiator |
-| Graph features | Entity relationships | None (explicit anti-feature) | Simpler is better for our use case |
+Verify hook scripts fire and produce correct payloads.
 
-**Verdict:** Mem0 is more sophisticated for relationship tracking. We're better for "when did we discuss X?"
+| Scenario | What It Tests | Assertion | Skip Rule |
+|----------|--------------|-----------|-----------|
+| SessionStart payload | Hook produces valid SessionStart JSON | JSON has event, session_id, timestamp, agent fields | Skip Codex |
+| UserPromptSubmit payload | User message captured via hook | Payload contains message field | Skip Codex |
+| PostToolUse payload | Tool use event has tool_name and tool_input | JSON has tool_name field | Skip Codex |
+| Stop/SessionEnd payload | Session end produces Stop event | Correct event type | Skip Codex |
+| Fail-open on missing binary | Hook exits 0 when memory-ingest not on PATH | Exit code 0, safe output | Skip Codex |
+| Redaction filter | Sensitive fields (api_key, token) stripped | Payload lacks redacted keys | Skip Codex |
+| ANSI stripping | Input with escape sequences produces clean JSON | Valid JSON output | Skip Codex |
 
-### Graphiti/Zep
+### Category 3: E2E Pipeline Tests (Skip Codex for hook-dependent)
 
-| Capability | Graphiti | This System | Notes |
-|------------|----------|-------------|-------|
-| Storage | Neo4j/FalkorDB temporal graph | Append-only event log | Different paradigms |
-| Navigation | Graph traversal + hybrid search | TOC hierarchy | Graphiti requires graph queries |
-| Temporal queries | Bi-temporal model (excellent) | Time hierarchy (simpler) | Both strong; Graphiti more sophisticated |
-| Provenance | Timestamp tracking | Grips (richer) | We have excerpt-level provenance |
-| Token overhead | Low (no LLM for storage) | Zero (hooks) | Both efficient |
-| Complexity | High (graph schema design) | Low (hierarchy is fixed) | Key differentiator |
+Full pipeline: spawn CLI -> hook fires -> daemon ingests -> query verifies.
 
-**Verdict:** Graphiti is technically impressive but operationally complex. Our system is simpler to deploy and reason about.
+| Scenario | What It Tests | Assertion | Skip Rule |
+|----------|--------------|-----------|-----------|
+| Hook ingest -> daemon storage | Event via hook appears in gRPC query | Query returns ingested event | Skip Codex |
+| Agent tag propagation | Hook sets correct agent field per CLI | Event has correct agent tag | Skip Codex |
+| Command invocation via CLI | Memory commands work through CLI | Valid response from command | Skip if CLI unavailable |
 
-### LangGraph Memory
+### Category 4: Negative Tests (All 5 CLIs)
 
-| Capability | LangGraph | This System | Notes |
-|------------|-----------|-------------|-------|
-| Storage | Checkpointers (SQLite, Postgres) | Append-only event log | LangGraph stores state; we store events |
-| Navigation | Thread-based retrieval | TOC hierarchy | Different scoping |
-| Temporal queries | Weak (session-based) | Strong (primary axis) | Key differentiator |
-| Provenance | None | Grips | Key differentiator |
-| Integration | LangChain ecosystem | Standalone + hooks | LangGraph requires LangChain buy-in |
+Graceful error handling.
 
-**Verdict:** LangGraph is for LangChain users. Our system is agent-agnostic.
+| Scenario | What It Tests | Assertion | Skip Rule |
+|----------|--------------|-----------|-----------|
+| Daemon not running | CLI/hook handles missing daemon | Exit 0 (fail-open), error logged | Skip Codex for hook tests |
+| Malformed stdin to hook | Hook receives invalid JSON | Exit 0, no crash | Skip Codex |
+| Timeout enforcement | CLI with hung prompt is killed | Process terminated by timeout | Skip if CLI unavailable |
+
+---
+
+## CLI-Specific Skip Matrix
+
+| Scenario Category | Claude Code | Gemini CLI | OpenCode | Copilot CLI | Codex CLI |
+|-------------------|:-----------:|:----------:|:--------:|:-----------:|:---------:|
+| Smoke Tests | RUN | RUN | RUN | RUN | RUN |
+| Hook Capture | RUN | RUN | RUN | RUN | **SKIP** |
+| E2E Pipeline (hooks) | RUN | RUN | RUN | RUN | **SKIP** |
+| E2E Pipeline (commands) | RUN | RUN | RUN | RUN | RUN |
+| Negative Tests | RUN | RUN | RUN | RUN | PARTIAL |
 
 ---
 
 ## MVP Recommendation
 
-### Phase 1: Foundation (Must Have)
+### Phase 1 (Claude Code -- framework phase):
 
-1. **Append-only storage backend** (table stakes)
-   - JSONL files or SQLite
-   - User/agent scoping
-   - Retention policies
+Build in this order:
+1. **common.bash** -- workspace isolation, daemon lifecycle, CLI detection, skip helpers
+2. **Per-CLI wrappers** -- `run_claude` function encapsulating `-p --output-format json --allowedTools`
+3. **Hook script unit tests** -- mock stdin -> verify JSON output (uses existing `MEMORY_INGEST_DRY_RUN`)
+4. **Smoke tests** -- basic headless invocation
+5. **E2E pipeline test** -- hook capture -> daemon query verification
+6. **CI integration** -- JUnit reporting, artifact retention, matrix job
 
-2. **TOC hierarchy indexing** (core differentiator)
-   - Year/Month/Week/Day/Segment structure
-   - Fast navigation API
+### Defer to subsequent CLI phases:
+- CLI-specific quirk workarounds (Copilot session synthesis, OpenCode headless bugs)
+- Cross-CLI comparative tests
 
-3. **Basic query engine** (table stakes)
-   - Navigate by TOC
-   - Full-text search within scope
-
-4. **Hook integration for Claude Code** (core differentiator)
-   - Passive capture of conversations
-   - Zero token overhead
-
-### Phase 2: Enhanced Retrieval (Should Have)
-
-5. **Teleports** (differentiator)
-   - Direct pointers to specific events
-   - O(1) lookup
-
-6. **Grips** (differentiator)
-   - Excerpt + event pointer
-   - Provenance for agent responses
-
-7. **Time-based query DSL** (differentiator)
-   - "last week", "yesterday", "Tuesday morning"
-   - Relative and absolute time support
-
-### Phase 3: Polish (Nice to Have)
-
-8. **Multi-agent support**
-9. **Cross-session context handoff**
-10. **Optional semantic search enhancement**
-
-### Defer to Post-MVP
-
-- Knowledge graph relationships (anti-feature for this use case)
-- Automatic summarization (adds token cost)
-- Real-time sync (unnecessary complexity)
-- Cross-project memory sharing (privacy concerns)
+### Defer to post-v2.4:
+- Windows support
+- Performance regression tracking in shell tests
+- GUI/dashboard for results
 
 ---
 
 ## Sources
 
-### Research Papers
-- [Memory in the Age of AI Agents (arXiv:2512.13564)](https://arxiv.org/abs/2512.13564) - Survey of agent memory systems
-- [Agentic Memory (arXiv:2601.01885)](https://arxiv.org/pdf/2601.01885) - Unified LTM/STM management
-- [Mem0 Paper (arXiv:2504.19413)](https://arxiv.org/pdf/2504.19413) - Production memory architecture
-- [Temporal Semantic Memory (arXiv:2601.07468)](https://arxiv.org/html/2601.07468v1) - 22.56% improvement in temporal accuracy
-- [PROV-AGENT (arXiv:2508.02866)](https://arxiv.org/abs/2508.02866) - Provenance for agent interactions
-- [Zep/Graphiti (arXiv:2501.13956)](https://arxiv.org/abs/2501.13956) - Temporal knowledge graph architecture
-
-### Production Systems
-- [Letta Documentation](https://docs.letta.com/concepts/memgpt/) - MemGPT concepts and memory architecture
-- [Mem0 Platform](https://mem0.ai/) - Universal memory layer
-- [LangGraph Memory](https://docs.langchain.com/oss/python/langgraph/memory) - Checkpointer-based persistence
-- [Graphiti GitHub](https://github.com/getzep/graphiti) - Temporal knowledge graphs
-
-### Claude Code Memory
-- [Claude Code Memory Docs](https://code.claude.com/docs/en/memory) - CLAUDE.md hierarchy
-- [Claude Memory Tool API](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool) - Beta memory API
-
-### Architecture
-- [Survey of AI Agent Memory Frameworks](https://www.graphlit.com/blog/survey-of-ai-agent-memory-frameworks) - Comparison of approaches
-- [AI Memory Layer Guide](https://mem0.ai/blog/ai-memory-layer-guide) - Implementation patterns
-- [Building Smarter AI Agents (AWS)](https://aws.amazon.com/blogs/machine-learning/building-smarter-ai-agents-agentcore-long-term-memory-deep-dive/) - Production considerations
-
----
+- [Claude Code headless docs](https://code.claude.com/docs/en/headless) -- HIGH confidence
+- [Gemini CLI headless docs](https://google-gemini.github.io/gemini-cli/docs/cli/headless.html) -- HIGH confidence
+- [Codex CLI non-interactive docs](https://developers.openai.com/codex/noninteractive) -- HIGH confidence
+- [Copilot CLI docs](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli) -- HIGH confidence
+- [OpenCode CLI docs](https://opencode.ai/docs/cli/) -- MEDIUM confidence
+- [bats-core docs](https://bats-core.readthedocs.io/en/latest/usage.html) -- HIGH confidence
 
 ## Confidence Assessment
 
 | Area | Confidence | Reason |
 |------|------------|--------|
-| Table Stakes | HIGH | Verified against multiple production systems (Letta, Mem0, LangGraph) |
-| Differentiators | MEDIUM-HIGH | TOC/Grips/Teleports are novel; validated that no existing system uses this approach |
-| Anti-Features | HIGH | Clear research evidence on vector search limitations and token overhead concerns |
-| Comparisons | MEDIUM | Based on documentation and papers; no hands-on testing of competitors |
-| MVP Recommendation | MEDIUM | Logical sequencing but may need adjustment based on implementation complexity |
-
----
-
-## Open Questions for Later Research
-
-1. **Segment boundary detection**: How to automatically identify conversation segment breaks within a day?
-2. **Hook implementation details**: What's the exact integration point for Claude Code, OpenCode, Gemini CLI?
-3. **Storage scaling**: What happens at 1M+ events? Need to validate indexing performance.
-4. **Cross-agent queries**: How should "did any agent discuss X?" work across tenant boundaries?
-5. **Conflict resolution**: If same event captured twice (redundant hooks), how to deduplicate?
+| Table Stakes | HIGH | Standard CLI testing patterns; bats-core well-documented |
+| Test Scenarios | HIGH | Derived from existing adapter hook scripts in this repo |
+| Skip Matrix | HIGH | Codex no-hooks constraint documented; other CLIs have verified hooks |
+| Differentiators | HIGH | JUnit reporting, CI matrix, artifact retention are proven patterns |
+| Anti-Features | HIGH | Each backed by concrete reasoning and project constraints |

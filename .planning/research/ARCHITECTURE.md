@@ -1,678 +1,425 @@
-# Architecture Patterns
+# Architecture Patterns: Headless CLI E2E Testing Harness
 
-**Domain:** Hierarchical Conversational Memory System with Time-Based Navigation
-**Researched:** 2026-01-29
-
-## Executive Summary
-
-This document describes the architecture for a Rust-based conversational memory system with hierarchical time-based navigation. The system uses a Table of Contents (TOC) tree as its primary navigation mechanism, with append-only event storage in RocksDB. Teleport indexes (BM25/vector) serve as optional accelerators, not dependencies.
-
-The architecture draws from several established patterns:
-- **H-MEM (Hierarchical Memory)** patterns for multi-layer memory organization
-- **TimescaleDB continuous aggregates** for hierarchical rollup strategies
-- **Transactional outbox pattern** for reliable index updates
-- **RocksDB column families** for workload isolation
-
-**Confidence:** HIGH (patterns well-established, user design decisions clear)
-
----
+**Domain:** Shell-first headless CLI E2E testing harness for Agent Memory
+**Researched:** 2026-02-22
 
 ## Recommended Architecture
 
+The E2E harness is a **bats-core test framework** that sits alongside (not inside) the existing Rust workspace. It spawns real CLI processes in headless mode, validates that events flow through the memory-daemon pipeline, and reports results via JUnit XML in a CI matrix.
+
+### High-Level Architecture
+
 ```
-                                    +-----------------+
-                                    |   Agent/CLI     |
-                                    |   (Query)       |
-                                    +--------+--------+
-                                             |
-                                             | gRPC
-                                             v
-+---------------+    gRPC      +---------------------------+
-| Hook Handler  |------------->|      Memory Daemon        |
-| (Ingestion)   |              |                           |
-+---------------+              |  +---------------------+  |
-                               |  |    Service Layer    |  |
-                               |  | (tonic gRPC server) |  |
-                               |  +----------+----------+  |
-                               |             |              |
-                               |  +----------v----------+  |
-                               |  |   Domain Layer      |  |
-                               |  | (TOC, Events, Grips)|  |
-                               |  +----------+----------+  |
-                               |             |              |
-                               |  +----------v----------+  |
-                               |  |   Storage Layer     |  |
-                               |  |   (RocksDB)         |  |
-                               +--+---------+-----------+--+
-                                            |
-                          +-----------------+-----------------+
-                          |                 |                 |
-                    +-----v-----+     +-----v-----+     +-----v-----+
-                    |  Outbox   |     | Tantivy   |     |   HNSW    |
-                    |  Relay    |     |  (BM25)   |     |  (Vector) |
-                    +-----------+     +-----------+     +-----------+
+tests/e2e-cli/
+    test_helper/
+      bats-support/     (git clone, .gitignored)
+      bats-assert/      (git clone, .gitignored)
+      bats-file/        (git clone, .gitignored)
+      common.bash       (THE shared library -- workspace, daemon, CLI wrappers)
+    fixtures/
+      hook-payloads/    (JSON stdin for hook script testing)
+      plugin-files/     (minimal adapter configs per CLI)
+      hello-project/    (README + single source file)
+      rust-project/     (Cargo.toml, src/main.rs)
+    claude/
+      smoke.bats
+      hooks.bats
+      pipeline.bats
+    gemini/
+      smoke.bats
+      hooks.bats
+      pipeline.bats
+    opencode/
+      smoke.bats
+      hooks.bats
+      pipeline.bats
+    copilot/
+      smoke.bats
+      hooks.bats
+      pipeline.bats
+    codex/
+      smoke.bats
+      commands.bats     (no hooks -- commands/skills only)
+    setup-bats.sh       (installs bats + helpers locally)
 ```
+
+### Relationship to Existing Architecture
+
+```
+EXISTING (unchanged)                    NEW (additive)
+========================               ========================
+crates/e2e-tests/                      tests/e2e-cli/
+  tests/pipeline_test.rs                 claude/smoke.bats
+  tests/bm25_teleport_test.rs           claude/hooks.bats
+  tests/multi_agent_test.rs             claude/pipeline.bats
+  (29 Rust integration tests)           (Real CLI processes)
+  (Direct handler calls)                (Real daemon, real gRPC)
+  (No daemon, no gRPC)                  (bats-core + JUnit XML)
+
+plugins/                               tests/e2e-cli/fixtures/
+  memory-gemini-adapter/                 (copies adapter files into workspace)
+  memory-copilot-adapter/                (validates hook behavior E2E)
+  memory-opencode-plugin/
+
+crates/memory-daemon/                  tests/e2e-cli/test_helper/common.bash
+  (Production daemon)                    (Starts/stops daemon per test file)
+
+crates/memory-ingest/                  tests/e2e-cli/{cli}/pipeline.bats
+  (Production ingest binary)             (Validates ingest via real CLIs)
+```
+
+**Key principle:** The two test layers are complementary, not overlapping.
+
+| Layer | What it tests | How it tests | Speed |
+|-------|--------------|--------------|-------|
+| `crates/e2e-tests/` | Internal pipeline correctness | Direct Rust handler calls, no daemon | Fast (seconds) |
+| `tests/e2e-cli/` (new) | End-to-end CLI integration | Real daemon + real CLI processes via bats | Slow (minutes) |
 
 ### Component Boundaries
 
-| Component | Responsibility | Communicates With | Boundary Type |
-|-----------|----------------|-------------------|---------------|
-| **Hook Handler** | Captures agent events, forwards via gRPC | Memory Daemon (gRPC) | External process |
-| **Memory Daemon** | Central service: storage, TOC management, query | Hooks, CLI, Agents (gRPC) | Single binary |
-| **Service Layer** | gRPC endpoint handling, request validation | Domain Layer (Rust calls) | Module boundary |
-| **Domain Layer** | Business logic: TOC building, segmentation, rollup | Storage Layer (Rust calls) | Module boundary |
-| **Storage Layer** | RocksDB operations, key encoding, column families | RocksDB (FFI) | Module boundary |
-| **Outbox Relay** | Async index updates from outbox queue | Tantivy, HNSW (library calls) | Background task |
-| **Tantivy Index** | BM25 keyword search | Outbox Relay (writes), Domain (reads) | Embedded library |
-| **HNSW Index** | Vector similarity search | Outbox Relay (writes), Domain (reads) | Embedded library |
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| **common.bash** | Workspace isolation, daemon lifecycle, CLI wrappers, skip helpers | All .bats files source it |
+| **fixtures/** | Static test data: JSON payloads, plugin configs, project templates | Read by .bats files |
+| **{cli}/smoke.bats** | Basic headless invocation, binary detection, output validation | common.bash, CLI binary |
+| **{cli}/hooks.bats** | Hook script unit tests: mock stdin, verify JSON payload | Hook scripts, common.bash |
+| **{cli}/pipeline.bats** | Full E2E: CLI headless -> hook -> daemon -> gRPC query -> verify | CLI, daemon, hook scripts |
+| **{cli}/commands.bats** | Codex-only: command invocation without hooks | CLI binary, common.bash |
+| **setup-bats.sh** | One-time install of bats-core + helper libraries | git, filesystem |
+| **GitHub Actions CI** | Matrix runner: 5 CLIs, JUnit XML, artifact collection | bats, test-summary/action |
 
----
-
-## Data Flow
-
-### Ingestion Path (Hot Path)
+### Data Flow
 
 ```
-Hook Event
-    |
-    v
-[Hook Handler] --gRPC--> [IngestEvent RPC]
-                              |
-                              v
-                    [Validate & Transform]
-                              |
-                              v
-                    [Write to events CF]
-                              |
-                              +---> [Write to outbox CF] (for index updates)
-                              |
-                              v
-                    [Return EventId]
+1. bats tests/e2e-cli/claude/pipeline.bats
+   |
+2. setup_file() from common.bash:
+   |-- mktemp -d -> $TEST_WORKSPACE
+   |-- cp fixtures into workspace
+   |-- start_daemon (port 0 -> OS assigns)
+   |-- wait_for_daemon health check
+   |-- setup adapter hooks in workspace
+   |
+3. @test "headless prompt ingests events":
+   |-- run_claude "What files are in this project?"
+   |   |-- timeout 120s claude -p "..." --output-format json --allowedTools "Read"
+   |   |-- hooks fire in background -> memory-ingest -> daemon
+   |-- sleep 2  # allow async hook processing
+   |-- grpcurl query daemon for event count
+   |-- assert event_count >= 1
+   |-- assert agent field == "claude"
+   |
+4. teardown_file():
+   |-- kill daemon
+   |-- if BATS_SUITE_TEST_FAILED > 0: tar.gz workspace -> test-artifacts/
+   |-- else: rm -rf workspace
+   |
+5. bats outputs JUnit XML to test-results/claude/
+   |
+6. GitHub Actions: test-summary/action renders JUnit in PR checks
 ```
 
-**Key Properties:**
-- Single writer to RocksDB (daemon owns all writes)
-- Atomic write of event + outbox entry (same WriteBatch)
-- Hook handlers are fire-and-forget after acknowledgment
+## Per-CLI Wrapper Functions
 
-**Key Layout:**
-```
-events CF:     evt:{ts_ms}:{ulid}  ->  Event (protobuf/msgpack)
-outbox CF:     out:{seq}           ->  OutboxEntry
-```
+Each CLI has different headless flags. Wrappers centralize this in common.bash:
 
-### TOC Building Path (Background)
+```bash
+run_claude() {
+  local prompt="$1"; shift
+  timeout "${CLI_TIMEOUT:-120}" claude -p "$prompt" \
+    --output-format json \
+    --allowedTools "Read,Bash(echo *),Bash(ls *)" \
+    "$@" 2>>"$TEST_STDERR"
+}
 
-```
-[Periodic Timer or Event Threshold]
-    |
-    v
-[BuildToc Job]
-    |
-    +---> [Read events in time window]
-    |
-    +---> [Segment by threshold (30min or 4K tokens)]
-    |
-    +---> [Summarize via Summarizer trait]
-    |
-    +---> [Write segment TOC nodes]
-    |
-    +---> [Update parent nodes (day/week/month)]
-    |
-    +---> [Write checkpoint to checkpoints CF]
-    |
-    v
-[toc_nodes CF updated]
-```
+run_gemini() {
+  local prompt="$1"; shift
+  timeout "${CLI_TIMEOUT:-120}" gemini \
+    --yolo --sandbox=false \
+    --output-format json \
+    "$prompt" \
+    "$@" 2>>"$TEST_STDERR"
+}
 
-**Rollup Hierarchy:**
-```
-Year
-  |
-  +-- Month (rollup: week summaries)
-        |
-        +-- Week (rollup: day summaries)
-              |
-              +-- Day (rollup: segment summaries)
-                    |
-                    +-- Segment (30min or token-based, with overlap)
-                          |
-                          +-- [Events referenced by time_range]
+run_opencode() {
+  local prompt="$1"; shift
+  timeout "${CLI_TIMEOUT:-120}" opencode -p "$prompt" \
+    -q -f json \
+    "$@" 2>>"$TEST_STDERR"
+}
+
+run_copilot() {
+  local prompt="$1"; shift
+  timeout "${CLI_TIMEOUT:-120}" copilot -p "$prompt" \
+    --yes --allow-all-tools \
+    "$@" 2>>"$TEST_STDERR"
+}
+
+run_codex() {
+  local prompt="$1"; shift
+  timeout "${CLI_TIMEOUT:-120}" codex exec -q --full-auto \
+    "$prompt" \
+    "$@" 2>>"$TEST_STDERR"
+}
 ```
 
-**Key Layout:**
-```
-toc_nodes CF:   toc:{node_id}:{version}  ->  TocNode
-toc_latest CF:  latest:{node_id}         ->  version (for fast lookup)
-checkpoints CF: ckpt:{job_type}          ->  CheckpointState
-```
+### Headless Invocation Summary
 
-### Query Path (Agent Navigation)
+| CLI | Headless Command | JSON Output | Auto-Approve | Confidence |
+|-----|-----------------|-------------|--------------|------------|
+| Claude Code | `claude -p "prompt"` | `--output-format json` | `--allowedTools "..."` | HIGH |
+| Gemini CLI | `gemini "prompt"` | `--output-format json` | `--yolo --sandbox=false` | HIGH |
+| OpenCode | `opencode -p "prompt"` | `-f json -q` | Auto in non-interactive | MEDIUM |
+| Copilot CLI | `copilot -p "prompt"` | N/A (text only) | `--yes --allow-all-tools` | HIGH |
+| Codex CLI | `codex exec "prompt"` | N/A (text only) | `-q --full-auto` | HIGH |
 
-```
-[Agent Query: "what did we discuss yesterday?"]
-    |
-    v
-[GetTocRoot RPC] --> returns Year/Month nodes
-    |
-    v
-[Agent picks: this week]
-    |
-    v
-[GetNode RPC] --> returns Week node with Day children
-    |
-    v
-[Agent picks: yesterday]
-    |
-    v
-[GetNode RPC] --> returns Day node with segments + summary
-    |
-    v
-[Agent reads summary, done OR drills into segment]
-    |
-    v
-[GetEvents RPC] --> returns raw events (last resort)
-```
+### Hook Configuration Per CLI
 
-**Progressive Disclosure:**
-1. Agent starts with high-level summaries (year/month)
-2. Navigates down based on time or keywords in summaries
-3. Only fetches raw events when necessary
-4. Grips provide excerpts without full event retrieval
-
-### Teleport Path (Phase 2+)
-
-```
-[TeleportQuery: "vector database discussion"]
-    |
-    v
-[Query BM25 index] --> returns node_ids/grip_ids
-    |
-    v
-[Query Vector index] --> returns node_ids/grip_ids
-    |
-    v
-[Fuse results (RRF or weighted)]
-    |
-    v
-[Return TOC node entry points, NOT content]
-    |
-    v
-[Agent navigates from entry point via normal TOC ops]
-```
-
-**Teleport Properties:**
-- Returns pointers, not content (TOC node IDs or grip IDs)
-- Agent still uses TOC navigation for context
-- Indexes are disposable (rebuilt from outbox/events)
-
-### Outbox Relay Path (Background)
-
-```
-[Outbox Relay Loop]
-    |
-    v
-[Read batch from outbox CF]
-    |
-    +---> [For each entry: update Tantivy index]
-    |
-    +---> [For each entry: update Vector index]
-    |
-    v
-[Delete processed entries from outbox CF]
-    |
-    v
-[Sleep, repeat]
-```
-
-**Outbox Entry Types:**
-- `IndexEvent { event_id, content, metadata }`
-- `IndexTocNode { node_id, summary, keywords }`
-- `IndexGrip { grip_id, excerpt }`
-
----
+| CLI | Hook Mechanism | Config Location | Agent Tag |
+|-----|---------------|-----------------|-----------|
+| Claude Code | CCH hooks with pipe handler | `.claude/hooks/` in workspace | `claude` |
+| Gemini CLI | Shell hook in `.gemini/hooks/` | `.gemini/hooks/memory-capture.sh` | `gemini` |
+| Copilot CLI | Shell hook via `.github/hooks/` | `.github/hooks/scripts/memory-capture.sh` | `copilot` |
+| OpenCode | Plugin-based hooks | `.opencode/` in workspace | `opencode` |
+| Codex CLI | **No hook support** | N/A (commands/skills only) | `codex` |
 
 ## Patterns to Follow
 
-### Pattern 1: Column Family Isolation
+### Pattern 1: common.bash as Single Source of Truth
 
-**What:** Use RocksDB column families to separate workloads with different access patterns.
+**What:** All shared logic in one file sourced by every .bats file.
+**When:** Always. Never duplicate workspace, daemon, or CLI wrapper code.
+**Why:** Single point of maintenance. When a CLI changes flags, update one function.
 
-**When:** Always. This is a core architectural decision.
-
-**Rationale:**
-- Events: append-only, sequential writes, range reads
-- TOC nodes: versioned updates, point reads
-- Outbox: FIFO queue, deletes after processing
-- Grips: point reads by ID
-- Checkpoints: infrequent updates, crash recovery
-
-**Configuration:**
-```rust
-// Each CF can have different:
-// - Block cache allocation
-// - Compaction strategy (FIFO for outbox, leveled for events)
-// - Compression (events highly compressible)
+```bash
+# Every .bats file starts with:
+load '../test_helper/bats-support/load'
+load '../test_helper/bats-assert/load'
+load '../test_helper/common'
 ```
 
-### Pattern 2: Append-Only with Versioned TOC
+### Pattern 2: setup_file / teardown_file for Expensive Operations
 
-**What:** Events are immutable. TOC nodes are versioned (not mutable in place).
+**What:** Use bats file-level hooks (not per-test) for workspace and daemon lifecycle.
+**When:** Daemon startup, workspace creation, fixture copying.
+**Why:** Starting a daemon per-test is slow. Per-file gives one daemon for all tests in the file.
 
-**When:** All writes.
+```bash
+setup_file() {
+  export PROJECT_ROOT="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"
+  require_cli "claude"
+  require_daemon_binary
 
-**Rationale:**
-- No delete complexity
-- Crash recovery is simpler (replay from checkpoint)
-- Old TOC versions support debugging and rollback
-
-**Implementation:**
-```rust
-// Event key includes timestamp + ULID (globally unique, sortable)
-let event_key = format!("evt:{}:{}", ts_ms, ulid);
-
-// TOC node key includes version for immutability
-let toc_key = format!("toc:{}:{}", node_id, version);
-let latest_key = format!("latest:{}", node_id);
-```
-
-### Pattern 3: Transactional Outbox for Index Updates
-
-**What:** Write index entries to outbox table atomically with source data. Background relay processes outbox.
-
-**When:** All writes that need index updates (events, TOC nodes, grips).
-
-**Rationale:**
-- Solves dual-write problem (RocksDB + external index)
-- Indexes can be rebuilt from outbox replay
-- Crash-safe: if outbox entry exists, index will eventually update
-
-**Implementation:**
-```rust
-// Atomic write using WriteBatch
-let mut batch = WriteBatch::new();
-batch.put_cf(&events_cf, event_key, event_bytes);
-batch.put_cf(&outbox_cf, outbox_key, outbox_entry);
-db.write(batch)?;
-```
-
-### Pattern 4: Checkpoint-Based Crash Recovery
-
-**What:** Periodically save progress markers for background jobs. Resume from checkpoint after crash.
-
-**When:** All background jobs (TOC building, rollup, outbox relay).
-
-**Rationale:**
-- Avoid reprocessing entire history on restart
-- Checkpoints are cheap (small writes)
-- RocksDB guarantees durability after fsync
-
-**Implementation:**
-```rust
-// Checkpoint structure
-struct Checkpoint {
-    job_type: String,           // "toc_build", "rollup_day", "outbox_relay"
-    last_processed_key: Vec<u8>, // Resume point
-    processed_count: u64,
-    timestamp: i64,
+  create_workspace
+  copy_adapter_files "claude"
+  seed_test_files
+  start_daemon
 }
 
-// Save checkpoint after batch completion
-db.put_cf(&checkpoints_cf,
-          format!("ckpt:{}", job_type),
-          checkpoint.encode())?;
+teardown_file() {
+  stop_daemon
+  cleanup_workspace
+}
 ```
 
-### Pattern 5: Segment Overlap for Context
+### Pattern 3: Daemon Port Discovery via Port 0
 
-**What:** Segments overlap by a small window (e.g., 5 minutes or 500 tokens) to preserve context across boundaries.
+**What:** Start daemon on port 0 (OS assigns), extract actual port from log.
+**When:** Every test workspace that needs a daemon.
+**Why:** Avoids port conflicts in parallel test execution.
 
-**When:** Segmentation during TOC building.
+```bash
+start_daemon() {
+  "$PROJECT_ROOT/target/release/memory-daemon" \
+    --db-path "$TEST_WORKSPACE/db" \
+    --port 0 \
+    > "$TEST_WORKSPACE/daemon.log" 2>&1 &
+  export DAEMON_PID=$!
 
-**Rationale:**
-- Prevents losing context that spans segment boundaries
-- Enables better summarization
-- Grips can reference events in overlap zone
-
-**Implementation:**
+  for i in $(seq 1 50); do
+    DAEMON_PORT=$(grep -o 'listening on.*:[0-9]*' "$TEST_WORKSPACE/daemon.log" 2>/dev/null \
+      | grep -o '[0-9]*$' | head -1)
+    [ -n "$DAEMON_PORT" ] && break
+    sleep 0.1
+  done
+  export DAEMON_PORT
+}
 ```
-Segment 1: [00:00 -------- 30:00] + [30:00 -- 35:00] overlap
-Segment 2:                   [25:00 -- 30:00] overlap + [30:00 -------- 60:00]
+
+### Pattern 4: require_cli Skip Pattern
+
+**What:** Skip entire test file when a CLI is not installed.
+**When:** Top of setup_file in every CLI-specific .bats file.
+**Why:** CI shows "skipped", not "failed".
+
+```bash
+require_cli() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    skip "CLI '$1' not installed"
+  fi
+}
 ```
 
----
+### Pattern 5: Assert via gRPC, Not CLI Output
+
+**What:** Verify outcomes by querying the daemon's gRPC API.
+**When:** Pipeline tests that verify event ingestion.
+**Why:** The daemon is the source of truth. CLI output is non-deterministic.
+
+```bash
+@test "hook ingest produces events in daemon" {
+  run_claude "List the files in this directory"
+  sleep 2  # allow async hook processing
+
+  local count
+  count=$(grpcurl -plaintext "localhost:$DAEMON_PORT" \
+    memory.MemoryService/GetStats 2>/dev/null | jq -r '.event_count')
+
+  assert [ "$count" -ge 1 ]
+}
+```
+
+### Pattern 6: Hook Script Testing via Stdin Pipe
+
+**What:** Test hook scripts directly by piping JSON payloads.
+**When:** hooks.bats files for each CLI (except Codex).
+**Why:** Fast, deterministic, no API key needed.
+
+```bash
+@test "gemini hook: SessionStart produces valid output" {
+  run bash "$TEST_PROJECT/.gemini/hooks/memory-capture.sh" \
+    < "$BATS_TEST_DIRNAME/../fixtures/hook-payloads/gemini-session-start.json"
+
+  assert_success
+  assert_output "{}"
+}
+```
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Search-First Architecture
+### Anti-Pattern 1: Shared Daemon Across Test Files
+**Why bad:** Ordering dependencies, shared state corruption, blocks parallel execution.
+**Instead:** Each .bats file starts its own daemon in setup_file.
 
-**What:** Building the system around full-text/vector search as the primary query mechanism.
+### Anti-Pattern 2: Hardcoded Ports
+**Why bad:** Parallel execution causes conflicts.
+**Instead:** Port 0 with discovery from daemon log.
 
-**Why Bad:**
-- Indexes can fail, corrupt, or become stale
-- No graceful degradation path
-- Agentic navigation is more efficient than brute-force search
+### Anti-Pattern 3: Asserting on LLM Output Content
+**Why bad:** Non-deterministic. Tests will be flaky.
+**Instead:** Assert structural properties: exit code, JSON validity, field presence, event counts.
 
-**Instead:** TOC-first architecture. Indexes are accelerators that return entry points into the TOC, never content directly.
+### Anti-Pattern 4: Inline Flag Strings in Tests
+**Why bad:** Flag changes require updating every test.
+**Instead:** Per-CLI wrapper functions in common.bash.
 
-### Anti-Pattern 2: Mutable Event Storage
+### Anti-Pattern 5: Testing Without Timeout
+**Why bad:** Hung CLI blocks CI indefinitely.
+**Instead:** Every CLI invocation wrapped in `timeout`.
 
-**What:** Allowing updates or deletes to stored events.
+### Anti-Pattern 6: Custom Test Runner Instead of bats-core
+**Why bad:** Reinvents TAP output, parallel execution, JUnit reporting, assertion helpers.
+**Instead:** Use bats-core. It provides all of this out of the box.
 
-**Why Bad:**
-- Complicates crash recovery (need to track deletions)
-- Breaks TOC integrity (summaries reference deleted events)
-- Prevents deterministic replay for debugging
+## CI Integration Architecture
 
-**Instead:** Append-only. If correction needed, append a correction event.
+### Separate CI Job with Matrix
 
-### Anti-Pattern 3: Synchronous Index Updates
-
-**What:** Updating indexes in the same transaction as primary storage.
-
-**Why Bad:**
-- Slows down ingestion hot path
-- Creates coupling between storage and indexes
-- Index failures can fail ingestion
-
-**Instead:** Outbox pattern. Write to outbox, async relay updates indexes.
-
-### Anti-Pattern 4: Flat Key Namespace
-
-**What:** Using a single column family with prefixed keys for all data types.
-
-**Why Bad:**
-- Cannot tune compaction per workload
-- Range scans include irrelevant data
-- Memory allocation not optimized
-
-**Instead:** Column families per logical data type.
-
-### Anti-Pattern 5: Eager Full Rollup
-
-**What:** Rolling up entire history on every change.
-
-**Why Bad:**
-- O(n) on every ingestion
-- Blocks ingestion path
-- Unnecessary for recent data
-
-**Instead:** Incremental rollup with checkpoints. Only rollup completed time periods.
-
----
-
-## Scalability Considerations
-
-| Concern | At 1K events/day | At 100K events/day | At 1M events/day |
-|---------|------------------|--------------------|--------------------|
-| Storage | Single RocksDB, local disk | Single RocksDB, SSD | Consider sharding by time |
-| TOC Building | Inline after session end | Background job, 5min batches | Dedicated builder process |
-| Index Updates | Near-realtime relay | Batch every 30 seconds | Parallel relay workers |
-| Query Latency | <10ms for TOC nav | <50ms for TOC nav | Consider caching hot nodes |
-| Memory | 256MB block cache | 1GB block cache | 4GB+ block cache |
-
----
-
-## Suggested Build Order
-
-Based on the architecture and dependencies, here is the recommended build order:
-
-### Phase 0: Foundation (All MVP Dependencies)
-
-```
-[1. Storage Layer]
-      |
-      +---> [2. Domain Types (Event, TocNode, Grip)]
-      |
-      +---> [3. Service Layer (gRPC scaffolding)]
-      |
-      v
-[4. IngestEvent RPC] <--- [5. Hook Handler Client]
-      |
-      v
-[6. Basic TOC Building (segment creation)]
-      |
-      v
-[7. Query RPCs (GetTocRoot, GetNode, GetEvents)]
-      |
-      v
-[MVP Complete: End-to-end navigation working]
+```yaml
+  cli-e2e:
+    name: CLI E2E (${{ matrix.cli }})
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        cli: [claude, gemini, opencode, copilot, codex]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bats-core
+        run: |
+          git clone --depth 1 --branch v1.12.0 \
+            https://github.com/bats-core/bats-core.git /tmp/bats
+          sudo /tmp/bats/install.sh /usr/local
+          cd tests/e2e-cli/test_helper
+          git clone --depth 1 https://github.com/bats-core/bats-support.git
+          git clone --depth 1 https://github.com/bats-core/bats-assert.git
+          git clone --depth 1 https://github.com/bats-core/bats-file.git
+      - name: Build binaries
+        run: cargo build --release -p memory-daemon -p memory-ingest
+      - name: Run ${{ matrix.cli }} E2E
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bats tests/e2e-cli/${{ matrix.cli }}/ \
+            --report-formatter junit \
+            --output ./test-results/${{ matrix.cli }}/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ matrix.cli }}
+          path: test-results/
+      - uses: test-summary/action@v2
+        if: always()
+        with:
+          paths: test-results/${{ matrix.cli }}/**/*.xml
 ```
 
-### Phase 1: Quality & Trust
+### Progression Strategy
 
 ```
-[8. Grip Creation & Storage]
-      |
-      v
-[9. Summary-to-Grip Linking]
-      |
-      v
-[10. Better Segmentation (token-aware, topic boundaries)]
+Phase 1: continue-on-error: true (informational)
+Phase 2: Required for Claude Code only (most stable)
+Phase 3: Required for all CLIs with available binaries
 ```
 
-### Phase 2: Teleports
+## Taskfile Integration
 
-```
-[11. Outbox Infrastructure]
-      |
-      +---> [12. BM25 Index (Tantivy)]
-      |
-      +---> [13. Vector Index (HNSW)]
-      |
-      v
-[14. TeleportQuery RPC with Fusion]
-```
+```yaml
+  cli-e2e:
+    desc: "Run CLI E2E tests (all available CLIs)"
+    cmds:
+      - cargo build --release -p memory-daemon -p memory-ingest
+      - export PATH="$PWD/target/release:$PATH" && bats tests/e2e-cli/*/
 
-### Phase 3: Resilience
+  cli-e2e-claude:
+    desc: "Run CLI E2E tests (Claude Code only)"
+    cmds:
+      - cargo build --release -p memory-daemon -p memory-ingest
+      - export PATH="$PWD/target/release:$PATH" && bats tests/e2e-cli/claude/
 
-```
-[15. Parallel Scan Infrastructure]
-      |
-      v
-[16. Range-Limited Scan by TOC Bounds]
-      |
-      v
-[17. Fallback Path Integration]
+  setup-bats:
+    desc: "Install bats-core and helpers locally"
+    cmds:
+      - tests/e2e-cli/setup-bats.sh
 ```
 
-### Dependencies Diagram
+## New Files Summary
 
-```
-Storage Layer (1)
-     |
-     +---> Domain Types (2) ---> Service Layer (3)
-     |                                  |
-     |                                  v
-     +---> IngestEvent (4) <------+
-     |          |                 |
-     |          v                 |
-     +---> TOC Building (6) ------+
-     |          |                 |
-     |          v                 |
-     +---> Query RPCs (7) --------+
-                                  |
-                                  v
-                          [MVP Complete]
-```
+| File/Dir | Type | Purpose |
+|----------|------|---------|
+| `tests/e2e-cli/test_helper/common.bash` | New | Core shared library |
+| `tests/e2e-cli/setup-bats.sh` | New | Install bats + helpers |
+| `tests/e2e-cli/fixtures/` | New | Test data and project templates |
+| `tests/e2e-cli/{claude,gemini,opencode,copilot,codex}/*.bats` | New | Per-CLI test files |
 
----
+### Modified Files
 
-## Module Structure for Rust Workspace
-
-```
-agent-memory/
-├── Cargo.toml                    # Workspace root
-├── proto/
-│   └── memory.proto              # gRPC service definitions
-├── crates/
-│   ├── memory-types/             # Shared types (Event, TocNode, Grip, etc.)
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── event.rs
-│   │       ├── toc.rs
-│   │       ├── grip.rs
-│   │       └── config.rs
-│   │
-│   ├── memory-storage/           # RocksDB abstraction layer
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── db.rs             # RocksDB wrapper
-│   │       ├── keys.rs           # Key encoding/decoding
-│   │       ├── column_families.rs
-│   │       └── checkpoint.rs
-│   │
-│   ├── memory-domain/            # Business logic
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── ingest.rs         # Event ingestion logic
-│   │       ├── toc_builder.rs    # TOC construction
-│   │       ├── rollup.rs         # Time hierarchy rollup
-│   │       ├── segmenter.rs      # Segment boundary detection
-│   │       ├── summarizer.rs     # Pluggable summarizer trait
-│   │       └── query.rs          # Query execution
-│   │
-│   ├── memory-index/             # Optional teleport indexes
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── bm25.rs           # Tantivy integration
-│   │       ├── vector.rs         # HNSW integration
-│   │       ├── outbox.rs         # Outbox relay
-│   │       └── fusion.rs         # Score fusion
-│   │
-│   ├── memory-service/           # gRPC service implementation
-│   │   ├── Cargo.toml
-│   │   ├── build.rs              # tonic-build for proto
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── server.rs
-│   │       └── handlers/
-│   │           ├── mod.rs
-│   │           ├── ingest.rs
-│   │           ├── toc.rs
-│   │           └── teleport.rs
-│   │
-│   └── memory-daemon/            # Binary: the daemon
-│       ├── Cargo.toml
-│       └── src/
-│           └── main.rs           # CLI, config loading, startup
-│
-├── hook-handler/                 # Hook handler client (separate binary)
-│   ├── Cargo.toml
-│   └── src/
-│       ├── main.rs
-│       ├── client.rs             # gRPC client
-│       └── hooks/
-│           ├── mod.rs
-│           ├── claude.rs
-│           └── opencode.rs
-│
-└── tests/
-    ├── integration/              # Integration tests
-    └── fixtures/                 # Test data
-```
-
-### Workspace Cargo.toml
-
-```toml
-[workspace]
-resolver = "3"
-members = [
-    "crates/memory-types",
-    "crates/memory-storage",
-    "crates/memory-domain",
-    "crates/memory-index",
-    "crates/memory-service",
-    "crates/memory-daemon",
-    "hook-handler",
-]
-
-[workspace.dependencies]
-# Core
-tokio = { version = "1.43", features = ["full"] }
-tonic = "0.12"
-prost = "0.13"
-
-# Storage
-rocksdb = "0.23"
-
-# Indexing (Phase 2)
-tantivy = "0.22"
-hnsw_rs = "0.3"  # Or usearch
-
-# Serialization
-serde = { version = "1.0", features = ["derive"] }
-rmp-serde = "1.3"  # MessagePack
-
-# Utilities
-ulid = "1.1"
-chrono = { version = "0.4", features = ["serde"] }
-tracing = "0.1"
-thiserror = "2.0"
-anyhow = "1.0"
-```
-
-### Crate Dependency Graph
-
-```
-memory-types        (leaf: no internal deps)
-     |
-     v
-memory-storage      (depends on: memory-types)
-     |
-     v
-memory-domain       (depends on: memory-types, memory-storage)
-     |
-     +---> memory-index   (depends on: memory-types, memory-storage)
-     |
-     v
-memory-service      (depends on: memory-types, memory-domain, memory-index)
-     |
-     v
-memory-daemon       (depends on: memory-service)
-
-hook-handler        (depends on: memory-types, generated gRPC client)
-```
-
----
-
-## Key Design Alignment with PROJECT.md
-
-| PROJECT.md Decision | Architecture Alignment |
-|---------------------|------------------------|
-| TOC as primary navigation | TOC-first query path; teleports return entry points only |
-| Append-only storage | Events immutable; TOC nodes versioned |
-| Hooks for ingestion | Hook handlers are separate processes, gRPC clients |
-| Per-project stores first | Single RocksDB instance per project directory |
-| Time-only TOC for MVP | Year/Month/Week/Day/Segment hierarchy |
-| gRPC only | tonic server, no HTTP layer |
-| Pluggable summarizer | Summarizer trait in memory-domain crate |
-| RocksDB column families | events, toc_nodes, toc_latest, grips, outbox, checkpoints |
-
----
+| File | Change |
+|------|--------|
+| `.gitignore` | Add `tests/e2e-cli/test_helper/bats-*`, `test-results/`, `test-artifacts/` |
+| `Taskfile.yml` | Add `cli-e2e`, `cli-e2e-claude`, `setup-bats` tasks |
+| `.github/workflows/ci.yml` | Add `cli-e2e` matrix job (initially optional) |
 
 ## Sources
 
-### HIGH Confidence (Official Documentation)
-- [RocksDB Column Families Wiki](https://github.com/facebook/rocksdb/wiki/column-families)
-- [RocksDB Checkpoints Wiki](https://github.com/facebook/rocksdb/wiki/Checkpoints)
-- [Tonic gRPC Documentation](https://docs.rs/tonic)
-- [Cargo Workspaces - Rust Book](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html)
-
-### MEDIUM Confidence (Verified Patterns)
-- [Transactional Outbox Pattern - microservices.io](https://microservices.io/patterns/data/transactional-outbox.html)
-- [TimescaleDB Hierarchical Continuous Aggregates](https://www.tigerdata.com/docs/use-timescale/latest/continuous-aggregates/hierarchical-continuous-aggregates)
-- [Design Patterns for Long-Term Memory in LLM Architectures](https://serokell.io/blog/design-patterns-for-long-term-memory-in-llm-powered-architectures)
-
-### LOW Confidence (Research Papers, Community)
-- [TiMem: Temporal-Hierarchical Memory Consolidation](https://arxiv.org/html/2601.02845v1) - January 2026
-- [MAGMA: Multi-Graph Agentic Memory Architecture](https://arxiv.org/html/2601.03236v1) - January 2026
-- [Hybrid RAG Patterns - BM25 + Vectors](https://medium.com/@Nexumo_/7-hybrid-search-recipes-to-blend-bm25-vectors-without-lag-95ed7481751a)
-
----
-
-*Generated by GSD Project Researcher, 2026-01-29*
+- [bats-core docs](https://bats-core.readthedocs.io/en/latest/) -- HIGH confidence
+- [Claude Code headless docs](https://code.claude.com/docs/en/headless) -- HIGH confidence
+- [Gemini CLI headless docs](https://google-gemini.github.io/gemini-cli/docs/cli/headless.html) -- HIGH confidence
+- [Codex CLI non-interactive docs](https://developers.openai.com/codex/noninteractive) -- HIGH confidence
+- [Copilot CLI docs](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli) -- HIGH confidence
+- [OpenCode CLI docs](https://opencode.ai/docs/cli/) -- MEDIUM confidence
+- [test-summary/action](https://github.com/test-summary/action) -- HIGH confidence
