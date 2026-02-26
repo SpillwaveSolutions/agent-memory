@@ -134,8 +134,12 @@ fn main() {
     };
 
     rt.block_on(async {
-        if let Ok(mut client) = MemoryClient::connect_default().await {
-            // Ignore result - fail-open
+        let client_result = if let Ok(addr) = std::env::var("MEMORY_DAEMON_ADDR") {
+            MemoryClient::connect(&addr).await
+        } else {
+            MemoryClient::connect_default().await
+        };
+        if let Ok(mut client) = client_result {
             let _ = client.ingest(event).await;
         }
     });

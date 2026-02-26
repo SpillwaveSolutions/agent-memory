@@ -1,0 +1,124 @@
+name: E2E CLI Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  e2e-cli:
+    name: E2E CLI - ${{ matrix.cli }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    environment: e2e-cli
+    strategy:
+      fail-fast: false
+      matrix:
+        cli: [claude-code, gemini, opencode, copilot, codex]
+        os: [ubuntu-24.04, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libclang-dev
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install protobuf llvm
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "e2e-cli-${{ matrix.os }}"
+
+      - name: Build daemon and ingest binaries
+        run: cargo build -p memory-daemon -p memory-ingest
+
+      - name: Install bats-core (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y bats
+
+      - name: Install bats-core (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install bats-core
+
+      - name: Install bats helper libraries
+        run: |
+          mkdir -p tests/cli/lib
+          git clone --depth 1 https://github.com/bats-core/bats-support.git tests/cli/lib/bats-support
+          git clone --depth 1 https://github.com/bats-core/bats-assert.git tests/cli/lib/bats-assert
+
+      - name: Verify jq is available
+        run: jq --version
+
+      - name: Run bats tests
+        id: bats_run
+        continue-on-error: true
+        env:
+          BATS_LIB_PATH: tests/cli/lib
+          MEMORY_DAEMON_BIN: target/debug/memory-daemon
+          MEMORY_INGEST_BIN: target/debug/memory-ingest
+        run: |
+          mkdir -p tests/cli/.runs
+          if [ -d "tests/cli/${{ matrix.cli }}" ]; then
+            bats --report-formatter junit --output tests/cli/.runs tests/cli/${{ matrix.cli }}/ 2>&1 | tee e2e-cli-results.txt
+          else
+            echo "No tests found for ${{ matrix.cli }} — skipping"
+            echo "::notice::No bats tests found for ${{ matrix.cli }}, skipping"
+            exit 0
+          fi
+
+      - name: Upload JUnit XML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.cli }}-${{ matrix.os }}
+          path: tests/cli/.runs/report.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload failure artifacts
+        if: failure() || steps.bats_run.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-artifacts-${{ matrix.cli }}-${{ matrix.os }}
+          path: |
+            tests/cli/.runs/
+            e2e-cli-results.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Report summary
+        if: always()
+        run: |
+          echo "## E2E CLI Results: ${{ matrix.cli }} (${{ matrix.os }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f e2e-cli-results.txt ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -20 e2e-cli-results.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No test results file found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check bats test result
+        if: always() && steps.bats_run.outcome == 'failure'
+        run: |
+          echo "Bats tests failed for ${{ matrix.cli }}"
+          exit 1

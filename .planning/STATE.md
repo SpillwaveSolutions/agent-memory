@@ -2,36 +2,61 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-12)
+See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Planning next milestone
+**Current focus:** v2.4 Headless CLI Testing — Phase 30 (Claude Code CLI Harness)
 
 ## Current Position
 
-Milestone: v2.3 Install & Setup Experience (SHIPPED)
-Phase: —
-**Current Plan:** —
-**Total Plans in Phase:** —
-**Status:** v2.3 milestone complete — planning next milestone
-**Last Activity:** 2026-02-12
+Milestone: v2.4 Headless CLI Testing
+Phase: 30 of 34 (Claude Code CLI Harness)
+**Current Plan:** 6
+**Total Plans in Phase:** 6
+**Status:** Phase complete — ready for verification
+**Last Activity:** 2026-02-23
 
-**Progress:** [██████████] 100%
+**Progress:** [███████░░░] 68%
 
 ## Decisions
 
-- None pending
+- Shell-first harness using bats-core 1.12 (no Python/Bun unless validation)
+- Real CLI processes in headless mode, not simulated
+- Phase 30 builds all framework infra + Claude Code tests; phases 31-34 reuse it
+- Codex CLI gets new adapter with commands/skills only (no hooks)
+- Hook-dependent tests skipped for Codex
+- Existing 29 cargo E2E tests remain as separate test layer
+- Codex adapter includes sandbox workaround documentation
+- Fixtures match CchEvent struct fields from memory-ingest for compatibility
+- Bats helpers installed via git clone in CI (cross-platform reliable)
+- Missing CLI test dir triggers skip annotation, not failure
+- [Phase 30-01]: Random port selection instead of --port 0 (daemon logs requested addr not bound addr)
+- [Phase 30-03]: IPv4 (127.0.0.1) for daemon connectivity: daemon binds 0.0.0.0, not [::1]
+- [Phase 30-03]: TCP nc check preferred over grpcurl for daemon health (no grpc.health service)
+- [Phase 30-03]: Build-resilient setup: fallback to existing binary when cargo build fails
+- [Phase 30-04]: DEFAULT_ENDPOINT changed from [::1] to 127.0.0.1 to match daemon 0.0.0.0 bind address
+- [Phase 30-04]: Removed short flag from global --log-level to fix clap conflict with --limit
+- [Phase 30-05]: No unit tests for env var read -- validated by E2E bats tests
+- [Phase 30]: bash -n not valid for bats files; use bats --count for syntax validation
 
 ## Blockers
 
 - None
 
+## Reference Projects
+
+- `/Users/richardhightower/clients/spillwave/src/rulez_plugin` — hook implementation reference
+
 ## Performance Metrics
 
 | Phase | Duration | Tasks | Files |
 |-------|----------|-------|-------|
-| Phase 28-install-configuration-skills-user-guides P01 | 4 min | 3 tasks | 10 files |
-| Phase 29-performance-benchmarks P01 | — | 3 tasks | 3 files |
+| 30-02 | 1min | 2 | 11 |
+| Phase 30-01 P01 | 3min | 2 tasks | 3 files |
+| Phase 30-03 P03 | 11min | 2 tasks | 4 files |
+| Phase 30-04 P04 | 17min | 2 tasks | 4 files |
+| Phase 30-05 P05 | 5min | 2 tasks | 2 files |
+| Phase 30 P06 | 2min | 2 tasks | 2 files |
 
 ## Milestone History
 
@@ -54,6 +79,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-12
-**Stopped At:** Completed v2.3 milestone
+**Last Session:** 2026-02-23T20:32:36.724Z
+**Stopped At:** Completed 30-06-PLAN.md (Phase 30 complete: 6/6 plans)
 **Resume File:** None

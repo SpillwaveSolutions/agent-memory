@@ -19,7 +19,8 @@ use memory_types::{Event, EventRole, EventType};
 use crate::error::ClientError;
 
 /// Default endpoint for the memory daemon.
-pub const DEFAULT_ENDPOINT: &str = "http://[::1]:50051";
+/// Uses IPv4 loopback to match the daemon's default `0.0.0.0` bind address.
+pub const DEFAULT_ENDPOINT: &str = "http://127.0.0.1:50051";
 
 /// Client for communicating with the memory daemon.
 pub struct MemoryClient {

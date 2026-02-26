@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "AssistantResponse",
+  "session_id": "test-session-001",
+  "message": "The project structure includes crates/, plugins/, and tests/ directories.",
+  "timestamp": "2026-02-22T10:00:15Z",
+  "cwd": "/tmp/test-workspace",
+  "agent": "claude"
+}
