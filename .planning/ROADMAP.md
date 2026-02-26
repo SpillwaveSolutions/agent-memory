@@ -86,7 +86,7 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
 
 - [x] **Phase 30: Claude Code CLI Harness** - Build bats-core framework + all Claude Code headless tests
 - [x] **Phase 31: Gemini CLI Tests** - Apply harness to Gemini CLI with JSON stdin hooks
-- [ ] **Phase 32: OpenCode CLI Tests** - Apply harness to OpenCode CLI with headless quirk handling
+- [x] **Phase 32: OpenCode CLI Tests** - Apply harness to OpenCode CLI with headless quirk handling
 - [ ] **Phase 33: Copilot CLI Tests** - Apply harness to Copilot CLI with session ID synthesis
 - [ ] **Phase 34: Codex CLI Adapter + Tests + Matrix Report** - New adapter, hook-excluded tests, cross-CLI matrix
 
@@ -172,10 +172,10 @@ Plans:
 | 28-29 | v2.3 | 2/2 | Complete | 2026-02-12 |
 | 30 | v2.4 | 6/6 | Complete | 2026-02-25 |
 | 31 | v2.4 | 2/2 | Complete | 2026-02-25 |
-| 32 | v2.4 | 0/2 | Planning | - |
+| 32 | v2.4 | 2/2 | Complete | 2026-02-26 |
 | 33 | v2.4 | 0/TBD | Not started | - |
 | 34 | v2.4 | 0/TBD | Not started | - |
 
 ---
 
-*Updated: 2026-02-26 after Phase 32 planning complete*
+*Updated: 2026-02-26 after Phase 32 execution complete*
