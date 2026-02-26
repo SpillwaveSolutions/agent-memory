@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.4 Headless CLI Testing — Phase 30 (Claude Code CLI Harness)
+**Current focus:** v2.4 Headless CLI Testing — Phase 32 (OpenCode CLI Tests)
 
 ## Current Position
 
 Milestone: v2.4 Headless CLI Testing
-Phase: 30 of 34 (Claude Code CLI Harness)
-**Current Plan:** 6
-**Total Plans in Phase:** 6
-**Status:** Phase complete — ready for verification
-**Last Activity:** 2026-02-23
+Phase: 31 of 34 (Gemini CLI Tests) — COMPLETE
+**Current Plan:** 2/2
+**Total Plans in Phase:** 2
+**Status:** Phase complete — verified
+**Last Activity:** 2026-02-25
 
-**Progress:** [███████░░░] 68%
+**Progress:** [████████░░] 76%
 
 ## Decisions
 
@@ -38,6 +38,10 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 - [Phase 30-04]: Removed short flag from global --log-level to fix clap conflict with --limit
 - [Phase 30-05]: No unit tests for env var read -- validated by E2E bats tests
 - [Phase 30]: bash -n not valid for bats files; use bats --count for syntax validation
+- [Phase 31-01]: Fixed jq -n to jq -nc in memory-capture.sh (multi-line JSON broke memory-ingest read_line)
+- [Phase 31-01]: sleep 2 between hook invocation and gRPC query for background ingest timing
+- [Phase 31-02]: Pipeline tests use direct CchEvent format for deterministic storage layer testing
+- [Phase 31-02]: Negative tests cover both memory-ingest and memory-capture.sh fail-open paths separately
 
 ## Blockers
 
@@ -57,6 +61,8 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 | Phase 30-04 P04 | 17min | 2 tasks | 4 files |
 | Phase 30-05 P05 | 5min | 2 tasks | 2 files |
 | Phase 30 P06 | 2min | 2 tasks | 2 files |
+| Phase 31-01 | 6min | 2 tasks | 10 files |
+| Phase 31-02 P02 | 3min | 2 tasks | 2 files |
 
 ## Milestone History
 
@@ -75,10 +81,10 @@ See: .planning/MILESTONES.md for complete history
 - 4 setup skills (install, configure, verify, troubleshoot)
 - 29 E2E tests, dedicated CI job
 - Performance benchmark harness with baselines
-- 29 phases, 96 plans across 5 milestones
+- 31 phases, 98 plans across 5 milestones
 
 ## Session Continuity
 
-**Last Session:** 2026-02-23T20:32:36.724Z
-**Stopped At:** Completed 30-06-PLAN.md (Phase 30 complete: 6/6 plans)
+**Last Session:** 2026-02-25
+**Stopped At:** Phase 31 verified — 28/28 Gemini CLI tests passing
 **Resume File:** None

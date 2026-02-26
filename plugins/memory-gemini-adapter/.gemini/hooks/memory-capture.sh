@@ -96,7 +96,7 @@ main_logic() {
   local PAYLOAD=""
   case "$HOOK_EVENT" in
     SessionStart)
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "SessionStart" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -105,7 +105,7 @@ main_logic() {
         '{hook_event_name: $event, session_id: $sid, timestamp: $ts, cwd: $cwd, agent: $agent}')
       ;;
     SessionEnd)
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "Stop" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -119,7 +119,7 @@ main_logic() {
       if echo "$MESSAGE" | jq empty 2>/dev/null; then
         MESSAGE=$(echo "$MESSAGE" | jq -c "$REDACT_FILTER" 2>/dev/null) || true
       fi
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "UserPromptSubmit" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -134,7 +134,7 @@ main_logic() {
       if echo "$MESSAGE" | jq empty 2>/dev/null; then
         MESSAGE=$(echo "$MESSAGE" | jq -c "$REDACT_FILTER" 2>/dev/null) || true
       fi
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "AssistantResponse" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -147,7 +147,7 @@ main_logic() {
       TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
       # Extract and redact tool_input
       TOOL_INPUT=$(echo "$INPUT" | jq -c ".tool_input // {} | $REDACT_FILTER" 2>/dev/null) || TOOL_INPUT='{}'
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "PreToolUse" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -161,7 +161,7 @@ main_logic() {
       TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
       # Extract and redact tool_input
       TOOL_INPUT=$(echo "$INPUT" | jq -c ".tool_input // {} | $REDACT_FILTER" 2>/dev/null) || TOOL_INPUT='{}'
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "PostToolUse" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \

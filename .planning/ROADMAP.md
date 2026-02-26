@@ -84,8 +84,8 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
 
 **Milestone Goal:** Build a shell-based E2E test harness that spawns real CLI processes in headless mode, validating integration behavior across 5 AI coding CLIs with isolated workspaces and matrix reporting.
 
-- [ ] **Phase 30: Claude Code CLI Harness** - Build bats-core framework + all Claude Code headless tests
-- [ ] **Phase 31: Gemini CLI Tests** - Apply harness to Gemini CLI with JSON stdin hooks
+- [x] **Phase 30: Claude Code CLI Harness** - Build bats-core framework + all Claude Code headless tests
+- [x] **Phase 31: Gemini CLI Tests** - Apply harness to Gemini CLI with JSON stdin hooks
 - [ ] **Phase 32: OpenCode CLI Tests** - Apply harness to OpenCode CLI with headless quirk handling
 - [ ] **Phase 33: Copilot CLI Tests** - Apply harness to Copilot CLI with session ID synthesis
 - [ ] **Phase 34: Codex CLI Adapter + Tests + Matrix Report** - New adapter, hook-excluded tests, cross-CLI matrix
@@ -120,7 +120,10 @@ Plans:
   2. Gemini CLI binary detection and graceful skip works when `gemini` is not installed
   3. Gemini hook handler correctly captures events with agent field set to "gemini" and events are queryable via gRPC
   4. Negative tests verify daemon-down and malformed-input handling without test failures leaking
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 31-01-PLAN.md — Gemini fixtures + smoke.bats + hooks.bats (GEMI-01, GEMI-02)
+- [ ] 31-02-PLAN.md — pipeline.bats + negative.bats (GEMI-03, GEMI-04)
 
 ### Phase 32: OpenCode CLI Tests
 **Goal**: Developers can run isolated shell-based E2E tests for OpenCode CLI, handling its less mature headless mode with appropriate skip/warn patterns
@@ -164,12 +167,12 @@ Plans:
 | 18-23 | v2.1 | 22/22 | Complete | 2026-02-10 |
 | 24-27 | v2.2 | 10/10 | Complete | 2026-02-11 |
 | 28-29 | v2.3 | 2/2 | Complete | 2026-02-12 |
-| 30 | v2.4 | 6/6 | In Progress | - |
-| 31 | v2.4 | 0/TBD | Not started | - |
+| 30 | v2.4 | 6/6 | Complete | 2026-02-25 |
+| 31 | v2.4 | 2/2 | Complete | 2026-02-25 |
 | 32 | v2.4 | 0/TBD | Not started | - |
 | 33 | v2.4 | 0/TBD | Not started | - |
 | 34 | v2.4 | 0/TBD | Not started | - |
 
 ---
 
-*Updated: 2026-02-22 after v2.4 roadmap creation*
+*Updated: 2026-02-25 after Phase 31 execution complete*
