@@ -122,8 +122,8 @@ Plans:
   4. Negative tests verify daemon-down and malformed-input handling without test failures leaking
 **Plans:** 2 plans
 Plans:
-- [ ] 31-01-PLAN.md — Gemini fixtures + smoke.bats + hooks.bats (GEMI-01, GEMI-02)
-- [ ] 31-02-PLAN.md — pipeline.bats + negative.bats (GEMI-03, GEMI-04)
+- [x] 31-01-PLAN.md — Gemini fixtures + smoke.bats + hooks.bats (GEMI-01, GEMI-02)
+- [x] 31-02-PLAN.md — pipeline.bats + negative.bats (GEMI-03, GEMI-04)
 
 ### Phase 32: OpenCode CLI Tests
 **Goal**: Developers can run isolated shell-based E2E tests for OpenCode CLI, handling its less mature headless mode with appropriate skip/warn patterns
@@ -131,10 +131,13 @@ Plans:
 **Requirements**: OPEN-01, OPEN-02, OPEN-03, OPEN-04
 **Success Criteria** (what must be TRUE):
   1. Running `bats tests/cli/opencode/` executes all OpenCode tests in isolated workspaces, reusing Phase 30 common helpers
-  2. OpenCode invocation uses `-p -q -f json` flags and timeout guards prevent hangs from headless mode quirks
+  2. OpenCode invocation uses `opencode run --format json` and timeout guards prevent hangs from headless mode quirks
   3. OpenCode hook capture produces events with agent field "opencode" queryable via gRPC pipeline test
   4. Negative tests cover daemon-down and timeout scenarios specific to OpenCode's headless behavior
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 32-01-PLAN.md — OpenCode fixtures + run_opencode wrapper + smoke.bats + hooks.bats (OPEN-01, OPEN-02)
+- [ ] 32-02-PLAN.md — pipeline.bats + negative.bats (OPEN-03, OPEN-04)
 
 ### Phase 33: Copilot CLI Tests
 **Goal**: Developers can run isolated shell-based E2E tests for Copilot CLI that validate session ID synthesis and the hook-to-query pipeline
@@ -169,10 +172,10 @@ Plans:
 | 28-29 | v2.3 | 2/2 | Complete | 2026-02-12 |
 | 30 | v2.4 | 6/6 | Complete | 2026-02-25 |
 | 31 | v2.4 | 2/2 | Complete | 2026-02-25 |
-| 32 | v2.4 | 0/TBD | Not started | - |
+| 32 | v2.4 | 0/2 | Planning | - |
 | 33 | v2.4 | 0/TBD | Not started | - |
 | 34 | v2.4 | 0/TBD | Not started | - |
 
 ---
 
-*Updated: 2026-02-25 after Phase 31 execution complete*
+*Updated: 2026-02-26 after Phase 32 planning complete*
