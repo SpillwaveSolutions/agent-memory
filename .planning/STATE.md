@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.4 Headless CLI Testing — Phase 30 (Claude Code CLI Harness)
+**Current focus:** v2.4 Headless CLI Testing — Phase 31 (Gemini CLI Tests)
 
 ## Current Position
 
 Milestone: v2.4 Headless CLI Testing
-Phase: 30 of 34 (Claude Code CLI Harness)
-**Current Plan:** 6
-**Total Plans in Phase:** 6
-**Status:** Phase complete — ready for verification
-**Last Activity:** 2026-02-23
+Phase: 31 of 34 (Gemini CLI Tests)
+**Current Plan:** 1
+**Total Plans in Phase:** 2
+**Status:** In progress
+**Last Activity:** 2026-02-26
 
-**Progress:** [███████░░░] 68%
+**Progress:** [███████░░░] 72%
 
 ## Decisions
 
@@ -38,6 +38,8 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 - [Phase 30-04]: Removed short flag from global --log-level to fix clap conflict with --limit
 - [Phase 30-05]: No unit tests for env var read -- validated by E2E bats tests
 - [Phase 30]: bash -n not valid for bats files; use bats --count for syntax validation
+- [Phase 31-01]: Fixed jq -n to jq -nc in memory-capture.sh (multi-line JSON broke memory-ingest read_line)
+- [Phase 31-01]: sleep 2 between hook invocation and gRPC query for background ingest timing
 
 ## Blockers
 
@@ -57,6 +59,7 @@ Phase: 30 of 34 (Claude Code CLI Harness)
 | Phase 30-04 P04 | 17min | 2 tasks | 4 files |
 | Phase 30-05 P05 | 5min | 2 tasks | 2 files |
 | Phase 30 P06 | 2min | 2 tasks | 2 files |
+| Phase 31-01 | 6min | 2 tasks | 10 files |
 
 ## Milestone History
 
@@ -79,6 +82,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-23T20:32:36.724Z
-**Stopped At:** Completed 30-06-PLAN.md (Phase 30 complete: 6/6 plans)
+**Last Session:** 2026-02-26T04:29:18Z
+**Stopped At:** Completed 31-01-PLAN.md (Phase 31: 1/2 plans)
 **Resume File:** None
