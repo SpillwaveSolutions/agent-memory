@@ -11,12 +11,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 Milestone: v2.4 Headless CLI Testing
 Phase: 31 of 34 (Gemini CLI Tests)
-**Current Plan:** 1
+**Current Plan:** 2
 **Total Plans in Phase:** 2
-**Status:** In progress
+**Status:** Ready to execute
 **Last Activity:** 2026-02-26
 
-**Progress:** [███████░░░] 72%
+**Progress:** [███████░░░] 69%
 
 ## Decisions
 
@@ -40,6 +40,8 @@ Phase: 31 of 34 (Gemini CLI Tests)
 - [Phase 30]: bash -n not valid for bats files; use bats --count for syntax validation
 - [Phase 31-01]: Fixed jq -n to jq -nc in memory-capture.sh (multi-line JSON broke memory-ingest read_line)
 - [Phase 31-01]: sleep 2 between hook invocation and gRPC query for background ingest timing
+- [Phase 31-02]: Pipeline tests use direct CchEvent format for deterministic storage layer testing
+- [Phase 31-02]: Negative tests cover both memory-ingest and memory-capture.sh fail-open paths separately
 
 ## Blockers
 
@@ -60,6 +62,7 @@ Phase: 31 of 34 (Gemini CLI Tests)
 | Phase 30-05 P05 | 5min | 2 tasks | 2 files |
 | Phase 30 P06 | 2min | 2 tasks | 2 files |
 | Phase 31-01 | 6min | 2 tasks | 10 files |
+| Phase 31-02 P02 | 3min | 2 tasks | 2 files |
 
 ## Milestone History
 
@@ -82,6 +85,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-26T04:29:18Z
-**Stopped At:** Completed 31-01-PLAN.md (Phase 31: 1/2 plans)
+**Last Session:** 2026-02-26T04:35:32.551Z
+**Stopped At:** Completed 31-02-PLAN.md (Phase 31: 2/2 plans - PHASE COMPLETE)
 **Resume File:** None
