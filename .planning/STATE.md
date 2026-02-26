@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 Milestone: v2.4 Headless CLI Testing
-Phase: 31 of 34 (Gemini CLI Tests) — COMPLETE
-**Current Plan:** 2/2
+Phase: 32 of 34 (OpenCode CLI Tests) — IN PROGRESS
+**Current Plan:** 1/2
 **Total Plans in Phase:** 2
-**Status:** Phase complete — verified
-**Last Activity:** 2026-02-25
+**Status:** Plan 01 complete — executing
+**Last Activity:** 2026-02-26
 
 **Progress:** [████████░░] 76%
 
@@ -42,6 +42,8 @@ Phase: 31 of 34 (Gemini CLI Tests) — COMPLETE
 - [Phase 31-01]: sleep 2 between hook invocation and gRPC query for background ingest timing
 - [Phase 31-02]: Pipeline tests use direct CchEvent format for deterministic storage layer testing
 - [Phase 31-02]: Negative tests cover both memory-ingest and memory-capture.sh fail-open paths separately
+- [Phase 32-01]: Direct CchEvent ingest pattern for OpenCode (TypeScript plugin not testable from shell)
+- [Phase 32-01]: Agent field test verifies ingest acceptance + gRPC storage (query display doesn't show agent metadata)
 
 ## Blockers
 
@@ -63,6 +65,7 @@ Phase: 31 of 34 (Gemini CLI Tests) — COMPLETE
 | Phase 30 P06 | 2min | 2 tasks | 2 files |
 | Phase 31-01 | 6min | 2 tasks | 10 files |
 | Phase 31-02 P02 | 3min | 2 tasks | 2 files |
+| Phase 32-01 | 4min | 2 tasks | 9 files |
 
 ## Milestone History
 
@@ -85,6 +88,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-25
-**Stopped At:** Phase 31 verified — 28/28 Gemini CLI tests passing
+**Last Session:** 2026-02-26
+**Stopped At:** Completed 32-01-PLAN.md — 15/15 OpenCode tests passing (8 smoke + 7 hooks)
 **Resume File:** None
