@@ -80,6 +80,23 @@ run_claude_with_hooks() {
     run_claude "$@"
 }
 
+# --- OpenCode wrappers ---
+
+run_opencode() {
+    # Usage: run_opencode <prompt> [extra args...]
+    # Wraps opencode CLI in headless mode with timeout and JSON output.
+    local test_stderr="${TEST_WORKSPACE:-/tmp}/opencode_stderr.log"
+    export TEST_STDERR="${test_stderr}"
+
+    local cmd=("opencode" "run" "--format" "json" "$@")
+
+    if [[ -n "${TIMEOUT_CMD}" ]]; then
+        "${TIMEOUT_CMD}" "${CLI_TIMEOUT}s" "${cmd[@]}" 2>"${test_stderr}"
+    else
+        "${cmd[@]}" 2>"${test_stderr}"
+    fi
+}
+
 # --- Hook / ingest pipeline testing (no Claude Code needed) ---
 
 run_hook_stdin() {
