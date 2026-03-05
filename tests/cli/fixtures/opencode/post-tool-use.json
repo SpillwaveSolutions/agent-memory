@@ -1,0 +1,1 @@
+{"hook_event_name":"PostToolUse","session_id":"opencode-test-001","timestamp":"2026-02-26T10:00:10Z","tool_name":"read_file","tool_input":{"file_path":"/tmp/test-workspace/README.md"},"agent":"opencode"}

@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.4 Headless CLI Testing — Phase 32 (OpenCode CLI Tests)
+**Current focus:** v2.4 Headless CLI Testing — Phase 33 (Copilot CLI Tests)
 
 ## Current Position
 
 Milestone: v2.4 Headless CLI Testing
-Phase: 31 of 34 (Gemini CLI Tests) — COMPLETE
+Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 **Current Plan:** 2/2
 **Total Plans in Phase:** 2
 **Status:** Phase complete — verified
-**Last Activity:** 2026-02-25
+**Last Activity:** 2026-02-26
 
-**Progress:** [████████░░] 76%
+**Progress:** [████████░░] 84%
 
 ## Decisions
 
@@ -42,6 +42,9 @@ Phase: 31 of 34 (Gemini CLI Tests) — COMPLETE
 - [Phase 31-01]: sleep 2 between hook invocation and gRPC query for background ingest timing
 - [Phase 31-02]: Pipeline tests use direct CchEvent format for deterministic storage layer testing
 - [Phase 31-02]: Negative tests cover both memory-ingest and memory-capture.sh fail-open paths separately
+- [Phase 32-01]: Direct CchEvent ingest pattern for OpenCode (TypeScript plugin not testable from shell)
+- [Phase 32-01]: Agent field test verifies ingest acceptance + gRPC storage (query display doesn't show agent metadata)
+- [Phase 32]: Negative tests cover memory-ingest fail-open only for OpenCode (TypeScript plugin not shell-testable)
 
 ## Blockers
 
@@ -63,6 +66,8 @@ Phase: 31 of 34 (Gemini CLI Tests) — COMPLETE
 | Phase 30 P06 | 2min | 2 tasks | 2 files |
 | Phase 31-01 | 6min | 2 tasks | 10 files |
 | Phase 31-02 P02 | 3min | 2 tasks | 2 files |
+| Phase 32-01 | 4min | 2 tasks | 9 files |
+| Phase 32-02 PP02 | 3min | 2 tasks | 2 files |
 
 ## Milestone History
 
@@ -85,6 +90,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-25
-**Stopped At:** Phase 31 verified — 28/28 Gemini CLI tests passing
+**Last Session:** 2026-02-26T07:03:15.553Z
+**Stopped At:** Completed 32-02-PLAN.md -- 25/25 OpenCode tests passing (8 smoke + 7 hooks + 5 pipeline + 5 negative)
 **Resume File:** None
