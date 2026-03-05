@@ -160,9 +160,13 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A Codex CLI adapter directory exists under `adapters/codex-cli/` with commands, skills, and sandbox workaround documentation (no hook handler)
   2. Running `bats tests/cli/codex/` executes Codex tests with hook-dependent scenarios explicitly skipped and annotated
-  3. Codex command invocation tests use `codex exec -q --full-auto` with timeout guards
+  3. Codex command invocation tests use `codex exec --full-auto` with timeout guards (NOTE: `-q` flag does NOT exist per research)
   4. A matrix report script aggregates JUnit XML from all 5 CLIs into a CLI x scenario pass/fail/skipped summary viewable in CI
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 34-01-PLAN.md — Codex adapter + fixtures + run_codex wrapper + smoke.bats + hooks.bats (CDEX-01, CDEX-02, CDEX-03)
+- [ ] 34-02-PLAN.md — pipeline.bats + negative.bats (CDEX-03, CDEX-04)
+- [ ] 34-03-PLAN.md — Cross-CLI matrix report script + CI workflow update (CDEX-05)
 
 ## Progress
 
@@ -177,8 +181,8 @@ Plans:
 | 31 | v2.4 | 2/2 | Complete | 2026-02-25 |
 | 32 | v2.4 | 2/2 | Complete | 2026-02-26 |
 | 33 | v2.4 | 2/2 | Complete | 2026-03-05 |
-| 34 | v2.4 | 0/TBD | Not started | - |
+| 34 | v2.4 | 0/3 | Planned | - |
 
 ---
 
-*Updated: 2026-03-05 after Phase 33 execution complete*
+*Updated: 2026-03-05 after Phase 34 planning complete*
