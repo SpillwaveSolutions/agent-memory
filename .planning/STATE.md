@@ -16,7 +16,7 @@ Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 **Status:** Phase complete — ready for verification
 **Last Activity:** 2026-03-05
 
-**Progress:** [███████░░░] 69%
+**Progress:** [███████░░░] 70%
 
 ## Decisions
 
@@ -46,6 +46,7 @@ Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 - [Phase 32-01]: Agent field test verifies ingest acceptance + gRPC storage (query display doesn't show agent metadata)
 - [Phase 32]: Negative tests cover memory-ingest fail-open only for OpenCode (TypeScript plugin not shell-testable)
 - [Phase 33-01]: Fixed jq -n to jq -nc in Copilot memory-capture.sh (multi-line JSON broke memory-ingest read_line)
+- [Phase 33-02]: Copilot hook negative tests assert exit 0 only (no stdout) unlike Gemini which asserts {}
 
 ## Blockers
 
@@ -70,6 +71,7 @@ Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 | Phase 32-01 | 4min | 2 tasks | 9 files |
 | Phase 32-02 PP02 | 3min | 2 tasks | 2 files |
 | Phase 33-01 P01 | 4min | 2 tasks | 10 files |
+| Phase 33-02 PP02 | 2min | 2 tasks tasks | 2 files files |
 
 ## Milestone History
 
@@ -92,6 +94,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-05T21:37:45.326Z
-**Stopped At:** Completed 33-01-PLAN.md -- 18/18 Copilot tests passing (8 smoke + 10 hooks)
+**Last Session:** 2026-03-05T21:42:11.143Z
+**Stopped At:** Completed 33-02-PLAN.md -- 30/30 Copilot tests passing (8 smoke + 10 hooks + 5 pipeline + 7 negative)
 **Resume File:** None
