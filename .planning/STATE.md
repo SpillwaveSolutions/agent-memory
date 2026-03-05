@@ -11,12 +11,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 Milestone: v2.4 Headless CLI Testing
 Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report)
-**Current Plan:** 1/3
+**Current Plan:** 2
 **Total Plans in Phase:** 3
-**Status:** Plan 01 complete — executing
+**Status:** Ready to execute
 **Last Activity:** 2026-03-05
 
-**Progress:** [█████████░] 94%
+**Progress:** [███████░░░] 71%
 
 ## Decisions
 
@@ -50,6 +50,8 @@ Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report)
 - [Phase 34-03]: Python3 xml.etree for JUnit XML parsing (no hand-rolled XML parsing)
 - [Phase 34-03]: Worst-case merge for multi-OS results (FAIL > SKIP > PASS)
 - [Phase 34]: [Phase 34-01]: Codex adapter in adapters/ (not plugins/) -- no hooks, skills only
+- [Phase 34-02]: Pipeline tests mirror copilot pattern with agent=codex substitution
+- [Phase 34-02]: Hook-skipped negative tests annotate GitHub Discussion #2150
 
 ## Blockers
 
@@ -77,6 +79,7 @@ Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report)
 | Phase 33-02 P02 | 2min | 2 tasks | 2 files |
 | Phase 34-03 P03 | 1min | 2 tasks | 2 files |
 | Phase 34-01 PP01 | 7min | 2 tasks | 22 files |
+| Phase 34-02 PPP02 | 2min | 2 tasks | 2 files |
 
 ## Milestone History
 
@@ -99,6 +102,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-05T23:13:54.749Z
-**Stopped At:** Completed 34-01-PLAN.md -- Codex adapter + fixtures + smoke/hooks tests
+**Last Session:** 2026-03-05T23:17:20.343Z
+**Stopped At:** Completed 34-02-PLAN.md -- Codex pipeline and negative tests
 **Resume File:** None
