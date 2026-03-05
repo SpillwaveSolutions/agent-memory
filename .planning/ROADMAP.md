@@ -136,8 +136,8 @@ Plans:
   4. Negative tests cover daemon-down and timeout scenarios specific to OpenCode's headless behavior
 **Plans:** 2 plans
 Plans:
-- [ ] 32-01-PLAN.md — OpenCode fixtures + run_opencode wrapper + smoke.bats + hooks.bats (OPEN-01, OPEN-02)
-- [ ] 32-02-PLAN.md — pipeline.bats + negative.bats (OPEN-03, OPEN-04)
+- [x] 32-01-PLAN.md — OpenCode fixtures + run_opencode wrapper + smoke.bats + hooks.bats (OPEN-01, OPEN-02)
+- [x] 32-02-PLAN.md — pipeline.bats + negative.bats (OPEN-03, OPEN-04)
 
 ### Phase 33: Copilot CLI Tests
 **Goal**: Developers can run isolated shell-based E2E tests for Copilot CLI that validate session ID synthesis and the hook-to-query pipeline
@@ -148,7 +148,10 @@ Plans:
   2. Copilot binary detection uses correct binary name and `--yes --allow-all-tools` prevents interactive prompts
   3. Copilot session ID synthesis produces deterministic session IDs from workspace context, verified in captured events
   4. Negative tests verify daemon-down and malformed-input handling for Copilot-specific edge cases
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 33-01-PLAN.md — Copilot fixtures + run_copilot wrapper + smoke.bats + hooks.bats (CPLT-01, CPLT-02)
+- [ ] 33-02-PLAN.md — pipeline.bats + negative.bats (CPLT-03, CPLT-04)
 
 ### Phase 34: Codex CLI Adapter + Tests + Matrix Report
 **Goal**: Codex CLI adapter exists with commands and skills (no hooks), Codex headless tests pass with hook tests skipped, and a cross-CLI matrix report aggregates results from all 5 CLIs
@@ -173,9 +176,9 @@ Plans:
 | 30 | v2.4 | 6/6 | Complete | 2026-02-25 |
 | 31 | v2.4 | 2/2 | Complete | 2026-02-25 |
 | 32 | v2.4 | 2/2 | Complete | 2026-02-26 |
-| 33 | v2.4 | 0/TBD | Not started | - |
+| 33 | v2.4 | 0/2 | Planned | - |
 | 34 | v2.4 | 0/TBD | Not started | - |
 
 ---
 
-*Updated: 2026-02-26 after Phase 32 execution complete*
+*Updated: 2026-03-05 after Phase 33 planning complete*
