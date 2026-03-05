@@ -87,7 +87,7 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
 - [x] **Phase 30: Claude Code CLI Harness** - Build bats-core framework + all Claude Code headless tests
 - [x] **Phase 31: Gemini CLI Tests** - Apply harness to Gemini CLI with JSON stdin hooks
 - [x] **Phase 32: OpenCode CLI Tests** - Apply harness to OpenCode CLI with headless quirk handling
-- [ ] **Phase 33: Copilot CLI Tests** - Apply harness to Copilot CLI with session ID synthesis
+- [x] **Phase 33: Copilot CLI Tests** - Apply harness to Copilot CLI with session ID synthesis
 - [ ] **Phase 34: Codex CLI Adapter + Tests + Matrix Report** - New adapter, hook-excluded tests, cross-CLI matrix
 
 ## Phase Details
@@ -150,8 +150,8 @@ Plans:
   4. Negative tests verify daemon-down and malformed-input handling for Copilot-specific edge cases
 **Plans:** 2 plans
 Plans:
-- [ ] 33-01-PLAN.md — Copilot fixtures + run_copilot wrapper + smoke.bats + hooks.bats (CPLT-01, CPLT-02)
-- [ ] 33-02-PLAN.md — pipeline.bats + negative.bats (CPLT-03, CPLT-04)
+- [x] 33-01-PLAN.md — Copilot fixtures + run_copilot wrapper + smoke.bats + hooks.bats (CPLT-01, CPLT-02)
+- [x] 33-02-PLAN.md — pipeline.bats + negative.bats (CPLT-03, CPLT-04)
 
 ### Phase 34: Codex CLI Adapter + Tests + Matrix Report
 **Goal**: Codex CLI adapter exists with commands and skills (no hooks), Codex headless tests pass with hook tests skipped, and a cross-CLI matrix report aggregates results from all 5 CLIs
@@ -176,9 +176,9 @@ Plans:
 | 30 | v2.4 | 6/6 | Complete | 2026-02-25 |
 | 31 | v2.4 | 2/2 | Complete | 2026-02-25 |
 | 32 | v2.4 | 2/2 | Complete | 2026-02-26 |
-| 33 | v2.4 | 0/2 | Planned | - |
+| 33 | v2.4 | 2/2 | Complete | 2026-03-05 |
 | 34 | v2.4 | 0/TBD | Not started | - |
 
 ---
 
-*Updated: 2026-03-05 after Phase 33 planning complete*
+*Updated: 2026-03-05 after Phase 33 execution complete*
