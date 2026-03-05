@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 Milestone: v2.4 Headless CLI Testing
-Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report) — COMPLETE
-**Current Plan:** 3/3
+Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report)
+**Current Plan:** 1/3
 **Total Plans in Phase:** 3
-**Status:** Phase complete — all plans executed
+**Status:** Plan 01 complete — executing
 **Last Activity:** 2026-03-05
 
-**Progress:** [██████████] 100%
+**Progress:** [█████████░] 94%
 
 ## Decisions
 
@@ -49,6 +49,7 @@ Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report) — COMPLETE
 - [Phase 33-02]: Copilot hook negative tests assert exit 0 only (no stdout) unlike Gemini which asserts {}
 - [Phase 34-03]: Python3 xml.etree for JUnit XML parsing (no hand-rolled XML parsing)
 - [Phase 34-03]: Worst-case merge for multi-OS results (FAIL > SKIP > PASS)
+- [Phase 34]: [Phase 34-01]: Codex adapter in adapters/ (not plugins/) -- no hooks, skills only
 
 ## Blockers
 
@@ -75,6 +76,7 @@ Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report) — COMPLETE
 | Phase 33-01 P01 | 4min | 2 tasks | 10 files |
 | Phase 33-02 P02 | 2min | 2 tasks | 2 files |
 | Phase 34-03 P03 | 1min | 2 tasks | 2 files |
+| Phase 34-01 PP01 | 7min | 2 tasks | 22 files |
 
 ## Milestone History
 
@@ -97,6 +99,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-05T23:06:10Z
-**Stopped At:** Phase 34-03 complete -- CLI matrix report script and CI aggregation job created
+**Last Session:** 2026-03-05T23:13:54.749Z
+**Stopped At:** Completed 34-01-PLAN.md -- Codex adapter + fixtures + smoke/hooks tests
 **Resume File:** None
