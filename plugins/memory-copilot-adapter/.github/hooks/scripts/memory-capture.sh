@@ -146,7 +146,7 @@ main_logic() {
   local PAYLOAD=""
   case "$EVENT_TYPE" in
     sessionStart)
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "SessionStart" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -155,7 +155,7 @@ main_logic() {
         '{hook_event_name: $event, session_id: $sid, timestamp: $ts, cwd: $cwd, agent: $agent}')
       ;;
     sessionEnd)
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "Stop" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -169,7 +169,7 @@ main_logic() {
       if echo "$MESSAGE" | jq empty 2>/dev/null; then
         MESSAGE=$(echo "$MESSAGE" | jq -c "$REDACT_FILTER" 2>/dev/null) || true
       fi
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "UserPromptSubmit" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -183,7 +183,7 @@ main_logic() {
       # toolArgs is a JSON-encoded STRING, not an object -- double-parse required
       TOOL_ARGS_STR=$(echo "$INPUT" | jq -r '.toolArgs // "{}"')
       TOOL_INPUT=$(echo "$TOOL_ARGS_STR" | jq -c "$REDACT_FILTER" 2>/dev/null || echo '{}')
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "PreToolUse" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
@@ -198,7 +198,7 @@ main_logic() {
       # toolArgs is a JSON-encoded STRING, not an object -- double-parse required
       TOOL_ARGS_STR=$(echo "$INPUT" | jq -r '.toolArgs // "{}"')
       TOOL_INPUT=$(echo "$TOOL_ARGS_STR" | jq -c "$REDACT_FILTER" 2>/dev/null || echo '{}')
-      PAYLOAD=$(jq -n \
+      PAYLOAD=$(jq -nc \
         --arg event "PostToolUse" \
         --arg sid "$SESSION_ID" \
         --arg ts "$TIMESTAMP" \
