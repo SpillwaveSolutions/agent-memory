@@ -13,10 +13,10 @@ Milestone: v2.4 Headless CLI Testing
 Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 **Current Plan:** 2/2
 **Total Plans in Phase:** 2
-**Status:** Phase complete — verified
-**Last Activity:** 2026-02-26
+**Status:** Phase complete — ready for verification
+**Last Activity:** 2026-03-05
 
-**Progress:** [████████░░] 84%
+**Progress:** [███████░░░] 69%
 
 ## Decisions
 
@@ -45,6 +45,7 @@ Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 - [Phase 32-01]: Direct CchEvent ingest pattern for OpenCode (TypeScript plugin not testable from shell)
 - [Phase 32-01]: Agent field test verifies ingest acceptance + gRPC storage (query display doesn't show agent metadata)
 - [Phase 32]: Negative tests cover memory-ingest fail-open only for OpenCode (TypeScript plugin not shell-testable)
+- [Phase 33-01]: Fixed jq -n to jq -nc in Copilot memory-capture.sh (multi-line JSON broke memory-ingest read_line)
 
 ## Blockers
 
@@ -68,6 +69,7 @@ Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 | Phase 31-02 P02 | 3min | 2 tasks | 2 files |
 | Phase 32-01 | 4min | 2 tasks | 9 files |
 | Phase 32-02 PP02 | 3min | 2 tasks | 2 files |
+| Phase 33-01 P01 | 4min | 2 tasks | 10 files |
 
 ## Milestone History
 
@@ -90,6 +92,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-02-26T07:03:15.553Z
-**Stopped At:** Completed 32-02-PLAN.md -- 25/25 OpenCode tests passing (8 smoke + 7 hooks + 5 pipeline + 5 negative)
+**Last Session:** 2026-03-05T21:37:45.326Z
+**Stopped At:** Completed 33-01-PLAN.md -- 18/18 Copilot tests passing (8 smoke + 10 hooks)
 **Resume File:** None
