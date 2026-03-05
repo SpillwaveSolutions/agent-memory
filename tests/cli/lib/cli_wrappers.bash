@@ -97,6 +97,24 @@ run_opencode() {
     fi
 }
 
+# --- Codex wrappers ---
+
+run_codex() {
+    # Usage: run_codex <prompt> [extra args...]
+    # Wraps codex CLI in headless mode with timeout and JSON output.
+    # Note: Codex does NOT have a -q flag. Use `codex exec --full-auto --json`.
+    local test_stderr="${TEST_WORKSPACE:-/tmp}/codex_stderr.log"
+    export TEST_STDERR="${test_stderr}"
+
+    local cmd=("codex" "exec" "--full-auto" "--json" "$@")
+
+    if [[ -n "${TIMEOUT_CMD}" ]]; then
+        "${TIMEOUT_CMD}" "${CLI_TIMEOUT}s" "${cmd[@]}" 2>"${test_stderr}"
+    else
+        "${cmd[@]}" 2>"${test_stderr}"
+    fi
+}
+
 # --- Copilot wrappers ---
 
 run_copilot() {

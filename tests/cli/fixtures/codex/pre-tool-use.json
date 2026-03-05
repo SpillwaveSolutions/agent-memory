@@ -1,0 +1,1 @@
+{"hook_event_name":"PreToolUse","session_id":"codex-test-001","tool_name":"Read","tool_input":{"path":"/test.rs"},"timestamp":"2026-03-05T10:02:00Z","agent":"codex"}
