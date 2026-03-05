@@ -7,7 +7,7 @@
 - ✅ **v2.1 Multi-Agent Ecosystem** — Phases 18-23 (shipped 2026-02-10)
 - ✅ **v2.2 Production Hardening** — Phases 24-27 (shipped 2026-02-11)
 - ✅ **v2.3 Install & Setup Experience** — Phases 28-29 (shipped 2026-02-12)
-- 🚧 **v2.4 Headless CLI Testing** — Phases 30-34 (in progress)
+- ✅ **v2.4 Headless CLI Testing** — Phases 30-34 (shipped 2026-03-05)
 
 ## Phases
 
@@ -88,7 +88,7 @@ See: `.planning/milestones/v2.3-ROADMAP.md`
 - [x] **Phase 31: Gemini CLI Tests** - Apply harness to Gemini CLI with JSON stdin hooks
 - [x] **Phase 32: OpenCode CLI Tests** - Apply harness to OpenCode CLI with headless quirk handling
 - [x] **Phase 33: Copilot CLI Tests** - Apply harness to Copilot CLI with session ID synthesis
-- [ ] **Phase 34: Codex CLI Adapter + Tests + Matrix Report** - New adapter, hook-excluded tests, cross-CLI matrix
+- [x] **Phase 34: Codex CLI Adapter + Tests + Matrix Report** - New adapter, hook-excluded tests, cross-CLI matrix
 
 ## Phase Details
 
@@ -164,9 +164,9 @@ Plans:
   4. A matrix report script aggregates JUnit XML from all 5 CLIs into a CLI x scenario pass/fail/skipped summary viewable in CI
 **Plans:** 3 plans
 Plans:
-- [ ] 34-01-PLAN.md — Codex adapter + fixtures + run_codex wrapper + smoke.bats + hooks.bats (CDEX-01, CDEX-02, CDEX-03)
-- [ ] 34-02-PLAN.md — pipeline.bats + negative.bats (CDEX-03, CDEX-04)
-- [ ] 34-03-PLAN.md — Cross-CLI matrix report script + CI workflow update (CDEX-05)
+- [x] 34-01-PLAN.md — Codex adapter + fixtures + run_codex wrapper + smoke.bats + hooks.bats (CDEX-01, CDEX-02, CDEX-03)
+- [x] 34-02-PLAN.md — pipeline.bats + negative.bats (CDEX-03, CDEX-04)
+- [x] 34-03-PLAN.md — Cross-CLI matrix report script + CI workflow update (CDEX-05)
 
 ## Progress
 
@@ -181,8 +181,8 @@ Plans:
 | 31 | v2.4 | 2/2 | Complete | 2026-02-25 |
 | 32 | v2.4 | 2/2 | Complete | 2026-02-26 |
 | 33 | v2.4 | 2/2 | Complete | 2026-03-05 |
-| 34 | v2.4 | 0/3 | Planned | - |
+| 34 | v2.4 | 3/3 | Complete | 2026-03-05 |
 
 ---
 
-*Updated: 2026-03-05 after Phase 34 planning complete*
+*Updated: 2026-03-05 after Phase 34 execution complete*

@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.4 Headless CLI Testing — Phase 34 (Codex CLI Adapter + Tests + Matrix Report)
+**Current focus:** v2.4 Headless CLI Testing — MILESTONE COMPLETE
 
 ## Current Position
 
 Milestone: v2.4 Headless CLI Testing
-Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report)
-**Current Plan:** 2
+Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report) — COMPLETE
+**Current Plan:** 3/3
 **Total Plans in Phase:** 3
-**Status:** Ready to execute
+**Status:** Phase complete — verified (12/12 must-haves)
 **Last Activity:** 2026-03-05
 
-**Progress:** [███████░░░] 71%
+**Progress:** [██████████] 100%
 
 ## Decisions
 
@@ -94,14 +94,15 @@ See: .planning/MILESTONES.md for complete history
 ## Cumulative Stats
 
 - 44,912 LOC Rust across 14 crates
-- 4 adapter plugins (Claude Code, OpenCode, Gemini CLI, Copilot CLI)
+- 5 adapter plugins (Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI)
 - 4 setup skills (install, configure, verify, troubleshoot)
-- 29 E2E tests, dedicated CI job
+- 29 E2E tests + bats CLI tests across 5 CLIs, dedicated CI jobs
+- Cross-CLI matrix report in CI step summary
 - Performance benchmark harness with baselines
-- 34 phases, 103 plans across 5 milestones
+- 34 phases, 106 plans across 5 milestones
 
 ## Session Continuity
 
-**Last Session:** 2026-03-05T23:17:20.343Z
-**Stopped At:** Completed 34-02-PLAN.md -- Codex pipeline and negative tests
+**Last Session:** 2026-03-05
+**Stopped At:** Phase 34 complete and verified — all 3 plans executed, 12/12 must-haves verified
 **Resume File:** None
