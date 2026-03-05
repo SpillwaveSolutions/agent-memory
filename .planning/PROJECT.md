@@ -1,15 +1,11 @@
 # Agent Memory
 
-## Current Milestone: v2.4 Headless CLI Testing
-
-**Goal:** Build a shell-based E2E test harness that spawns real CLI processes (Claude Code, OpenCode, Gemini, Copilot, Codex) in headless mode, validating integration behavior in isolated workspaces with matrix reporting.
-
 ## Current State
 
-**Version:** v2.3 (Shipped 2026-02-12)
-**Status:** Production-ready with install docs, setup skills, and performance benchmarks
+**Version:** v2.4 (Shipped 2026-03-05)
+**Status:** Production-ready with 5-CLI E2E test harness, matrix reporting, and full adapter coverage
 
-The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, production verification, and user-facing setup experience:
+The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, production verification, setup experience, and comprehensive CLI testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged
 - Layer 1: TOC Hierarchy (time-based navigation) — contributing_agents tracking
 - Layer 2: Agentic TOC Search (index-free, always works)
@@ -18,14 +14,14 @@ The system implements a complete 6-layer cognitive stack with control plane, mul
 - Layer 5: Conceptual Discovery (Topic Graph) — agent-filtered queries
 - Layer 6: Ranking Policy (salience, usage, novelty, lifecycle)
 - Control: Retrieval Policy (intent routing, tier detection, fallbacks)
-- Adapters: Claude Code, OpenCode, Gemini CLI, Copilot CLI
+- Adapters: Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI
 - Discovery: ListAgents, GetAgentActivity, agent-filtered topics
-- Testing: 29 E2E tests covering all layers + multi-agent + degradation + error paths
-- CI/CD: Dedicated E2E job in GitHub Actions, required for PR merge
+- Testing: 29 cargo E2E tests + 144 bats CLI tests across 5 CLIs
+- CI/CD: Dedicated E2E job + CLI matrix report in GitHub Actions
 - Setup: Quickstart, full guide, agent setup docs + 4 wizard-style setup skills
 - Benchmarks: perf_bench harness with baseline metrics across all retrieval layers
 
-44,912 LOC Rust across 14 crates. 4 adapter plugins. 4 setup skills. 29 E2E tests. Performance baselines.
+44,917 LOC Rust across 14 crates. 5 adapters (4 plugins + 1 adapter). 4 setup skills. 29 E2E tests + 144 bats tests. Cross-CLI matrix report.
 
 ## What This Is
 
@@ -184,20 +180,22 @@ Agent Memory implements a layered cognitive architecture:
 - [x] Performance benchmark harness with ingest, TOC, BM25, vector, topic graph latency — v2.3
 - [x] Baseline metrics for all tier/mode combinations with p50/p90/p99 percentiles — v2.3
 
-### Active (v2.4 — Headless CLI Testing)
+### Validated (v2.4 - Shipped 2026-03-05)
 
-**Headless Multi-CLI E2E Harness**
-- [ ] Codex CLI adapter (new — no hook support, commands/skills only)
-- [ ] Shell-based E2E harness with isolated workspaces per test
-- [ ] Claude Code CLI headless tests (framework phase — builds isolation, reporting, fixtures)
-- [ ] OpenCode CLI headless tests
-- [ ] Gemini CLI headless tests
-- [ ] Copilot CLI headless tests
-- [ ] Codex CLI headless tests (hooks excluded)
-- [ ] Matrix reporting: CLI × scenario → pass/fail/skipped
-- [ ] CI integration with artifact retention on failure
+**Headless CLI Testing (v2.4)**
+- [x] Shell-based E2E harness using bats-core with isolated workspaces per test — v2.4
+- [x] Claude Code CLI headless tests (30 tests: smoke, hooks, pipeline, negative) — v2.4
+- [x] Gemini CLI headless tests (28 tests) — v2.4
+- [x] OpenCode CLI headless tests (25 tests) — v2.4
+- [x] Copilot CLI headless tests (30 tests) — v2.4
+- [x] Codex CLI adapter (commands + skills only, no hooks) — v2.4
+- [x] Codex CLI headless tests (26 tests, hook tests skipped with annotation) — v2.4
+- [x] Cross-CLI matrix report aggregating JUnit XML from all 5 CLIs — v2.4
+- [x] CI integration with artifact retention on failure — v2.4
 
-**Deferred**
+### Active
+
+**Deferred / Future**
 - Cross-project unified memory
 - Semantic deduplication
 
@@ -282,11 +280,13 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Wizard-style setup skills | Confirm before edits, verification-only commands | ✓ Validated v2.3 |
 | perf_bench as binary | Standalone binary in e2e-tests crate; not unit tests | ✓ Validated v2.3 |
 | Baseline JSON with thresholds | warning/severe thresholds per step for regression detection | ✓ Validated v2.3 |
-| Shell-first E2E harness | Fits CLI testing model; Python/Bun for validation only | — v2.4 |
-| Real CLI processes | Spawn actual CLIs headless, not simulated behavior | — v2.4 |
-| One phase per CLI | Each CLI gets own harness phase; Claude Code first builds framework | — v2.4 |
-| Keep both test layers | Existing cargo E2E tests stay; CLI harness is separate layer | — v2.4 |
-| Codex adapter (no hooks) | Codex lacks hook support; skip hook-dependent tests | — v2.4 |
+| Shell-first E2E harness | Fits CLI testing model; bats-core 1.12 | ✓ Validated v2.4 |
+| Real CLI processes | Spawn actual CLIs headless, not simulated behavior | ✓ Validated v2.4 |
+| One phase per CLI | Each CLI gets own harness phase; Claude Code first builds framework | ✓ Validated v2.4 |
+| Keep both test layers | Existing cargo E2E tests stay; CLI harness is separate layer | ✓ Validated v2.4 |
+| Codex adapter (no hooks) | Codex lacks hook support; skip hook-dependent tests | ✓ Validated v2.4 |
+| Direct CchEvent ingest for hookless CLIs | OpenCode/Codex use pre-translated events for pipeline tests | ✓ Validated v2.4 |
+| Cross-CLI matrix report | Python3 xml.etree parses JUnit XML; worst-case merge for multi-OS | ✓ Validated v2.4 |
 
 ---
-*Last updated: 2026-02-22 after v2.4 milestone start*
+*Last updated: 2026-03-05 after v2.4 milestone complete*

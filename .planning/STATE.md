@@ -2,10 +2,10 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-22)
+See: .planning/PROJECT.md (updated 2026-03-05)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.4 Headless CLI Testing — MILESTONE COMPLETE
+**Current focus:** v2.4 complete — planning next milestone
 
 ## Current Position
 
@@ -13,7 +13,7 @@ Milestone: v2.4 Headless CLI Testing
 Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report) — COMPLETE
 **Current Plan:** 3/3
 **Total Plans in Phase:** 3
-**Status:** Phase complete — verified (12/12 must-haves)
+**Status:** v2.4 milestone complete
 **Last Activity:** 2026-03-05
 
 **Progress:** [██████████] 100%
@@ -90,6 +90,7 @@ See: .planning/MILESTONES.md for complete history
 - v2.1 Multi-Agent Ecosystem: Shipped 2026-02-10 (6 phases, 22 plans)
 - v2.2 Production Hardening: Shipped 2026-02-11 (4 phases, 10 plans)
 - v2.3 Install & Setup Experience: Shipped 2026-02-12 (2 phases, 2 plans)
+- v2.4 Headless CLI Testing: Shipped 2026-03-05 (5 phases, 15 plans)
 
 ## Cumulative Stats
 
