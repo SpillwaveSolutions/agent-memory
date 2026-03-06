@@ -136,3 +136,13 @@
 **Git range:** `feat(01-00)` → `feat(08-01)`
 
 **What's next:** Teleport indexes (BM25/vector search), additional hook adapters (OpenCode, Gemini CLI), or production hardening
+
+## v2.4 Headless CLI Testing (Shipped: 2026-03-05)
+
+**Phases completed:** 34 phases, 113 plans, 49 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+

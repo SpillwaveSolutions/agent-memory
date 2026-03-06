@@ -97,6 +97,42 @@ run_opencode() {
     fi
 }
 
+# --- Codex wrappers ---
+
+run_codex() {
+    # Usage: run_codex <prompt> [extra args...]
+    # Wraps codex CLI in headless mode with timeout and JSON output.
+    # Note: Codex does NOT have a -q flag. Use `codex exec --full-auto --json`.
+    local test_stderr="${TEST_WORKSPACE:-/tmp}/codex_stderr.log"
+    export TEST_STDERR="${test_stderr}"
+
+    local cmd=("codex" "exec" "--full-auto" "--json" "$@")
+
+    if [[ -n "${TIMEOUT_CMD}" ]]; then
+        "${TIMEOUT_CMD}" "${CLI_TIMEOUT}s" "${cmd[@]}" 2>"${test_stderr}"
+    else
+        "${cmd[@]}" 2>"${test_stderr}"
+    fi
+}
+
+# --- Copilot wrappers ---
+
+run_copilot() {
+    # Usage: run_copilot <prompt> [extra args...]
+    # Wraps copilot CLI in headless mode with timeout.
+    # Note: Copilot does NOT have JSON output mode.
+    local test_stderr="${TEST_WORKSPACE:-/tmp}/copilot_stderr.log"
+    export TEST_STDERR="${test_stderr}"
+
+    local cmd=("copilot" "-p" "$@" "--allow-all-tools")
+
+    if [[ -n "${TIMEOUT_CMD}" ]]; then
+        "${TIMEOUT_CMD}" "${CLI_TIMEOUT}s" "${cmd[@]}" 2>"${test_stderr}"
+    else
+        "${cmd[@]}" 2>"${test_stderr}"
+    fi
+}
+
 # --- Hook / ingest pipeline testing (no Claude Code needed) ---
 
 run_hook_stdin() {

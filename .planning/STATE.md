@@ -2,21 +2,21 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-22)
+See: .planning/PROJECT.md (updated 2026-03-05)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.4 Headless CLI Testing — Phase 33 (Copilot CLI Tests)
+**Current focus:** v2.4 complete — planning next milestone
 
 ## Current Position
 
 Milestone: v2.4 Headless CLI Testing
-Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
-**Current Plan:** 2/2
-**Total Plans in Phase:** 2
-**Status:** Phase complete — verified
-**Last Activity:** 2026-02-26
+Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report) — COMPLETE
+**Current Plan:** 3/3
+**Total Plans in Phase:** 3
+**Status:** v2.4 milestone complete
+**Last Activity:** 2026-03-05
 
-**Progress:** [████████░░] 84%
+**Progress:** [██████████] 100%
 
 ## Decisions
 
@@ -45,6 +45,13 @@ Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 - [Phase 32-01]: Direct CchEvent ingest pattern for OpenCode (TypeScript plugin not testable from shell)
 - [Phase 32-01]: Agent field test verifies ingest acceptance + gRPC storage (query display doesn't show agent metadata)
 - [Phase 32]: Negative tests cover memory-ingest fail-open only for OpenCode (TypeScript plugin not shell-testable)
+- [Phase 33-01]: Fixed jq -n to jq -nc in Copilot memory-capture.sh (multi-line JSON broke memory-ingest read_line)
+- [Phase 33-02]: Copilot hook negative tests assert exit 0 only (no stdout) unlike Gemini which asserts {}
+- [Phase 34-03]: Python3 xml.etree for JUnit XML parsing (no hand-rolled XML parsing)
+- [Phase 34-03]: Worst-case merge for multi-OS results (FAIL > SKIP > PASS)
+- [Phase 34]: [Phase 34-01]: Codex adapter in adapters/ (not plugins/) -- no hooks, skills only
+- [Phase 34-02]: Pipeline tests mirror copilot pattern with agent=codex substitution
+- [Phase 34-02]: Hook-skipped negative tests annotate GitHub Discussion #2150
 
 ## Blockers
 
@@ -68,6 +75,11 @@ Phase: 32 of 34 (OpenCode CLI Tests) — COMPLETE
 | Phase 31-02 P02 | 3min | 2 tasks | 2 files |
 | Phase 32-01 | 4min | 2 tasks | 9 files |
 | Phase 32-02 PP02 | 3min | 2 tasks | 2 files |
+| Phase 33-01 P01 | 4min | 2 tasks | 10 files |
+| Phase 33-02 P02 | 2min | 2 tasks | 2 files |
+| Phase 34-03 P03 | 1min | 2 tasks | 2 files |
+| Phase 34-01 PP01 | 7min | 2 tasks | 22 files |
+| Phase 34-02 PPP02 | 2min | 2 tasks | 2 files |
 
 ## Milestone History
 
@@ -78,18 +90,20 @@ See: .planning/MILESTONES.md for complete history
 - v2.1 Multi-Agent Ecosystem: Shipped 2026-02-10 (6 phases, 22 plans)
 - v2.2 Production Hardening: Shipped 2026-02-11 (4 phases, 10 plans)
 - v2.3 Install & Setup Experience: Shipped 2026-02-12 (2 phases, 2 plans)
+- v2.4 Headless CLI Testing: Shipped 2026-03-05 (5 phases, 15 plans)
 
 ## Cumulative Stats
 
 - 44,912 LOC Rust across 14 crates
-- 4 adapter plugins (Claude Code, OpenCode, Gemini CLI, Copilot CLI)
+- 5 adapter plugins (Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI)
 - 4 setup skills (install, configure, verify, troubleshoot)
-- 29 E2E tests, dedicated CI job
+- 29 E2E tests + bats CLI tests across 5 CLIs, dedicated CI jobs
+- Cross-CLI matrix report in CI step summary
 - Performance benchmark harness with baselines
-- 31 phases, 98 plans across 5 milestones
+- 34 phases, 106 plans across 5 milestones
 
 ## Session Continuity
 
-**Last Session:** 2026-02-26T07:03:15.553Z
-**Stopped At:** Completed 32-02-PLAN.md -- 25/25 OpenCode tests passing (8 smoke + 7 hooks + 5 pipeline + 5 negative)
+**Last Session:** 2026-03-05
+**Stopped At:** Phase 34 complete and verified — all 3 plans executed, 12/12 must-haves verified
 **Resume File:** None
