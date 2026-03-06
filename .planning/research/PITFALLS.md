@@ -1,114 +1,116 @@
-# Domain Pitfalls: Headless Multi-CLI E2E Testing
+# Domain Pitfalls: Semantic Dedup & Retrieval Quality
 
-**Domain:** Headless Multi-CLI E2E Testing for Agent Memory System
-**Researched:** 2026-02-22
-**Overall Confidence:** HIGH (verified against official docs, existing codebase patterns, and community reports)
+**Domain:** Vector-based ingest-time deduplication and stale result filtering for append-only event store
+**Researched:** 2026-03-05
+**Overall Confidence:** HIGH (verified against codebase architecture, all-MiniLM-L6-v2 documentation, and vector search community patterns)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, CI breakage, or abandoned test suites.
+Mistakes that cause data loss, silent retrieval degradation, or require architectural rework.
 
 ---
 
-### Pitfall 1: Zombie CLI Processes in CI
+### Pitfall 1: Dedup Window Gap -- Recent Events Not Yet Indexed
 
-**What goes wrong:** Spawned CLI processes (Claude Code, OpenCode, Gemini, Copilot, Codex) hang or become zombies when tests timeout, fail, or the harness crashes. In CI containers, no init process reaps orphaned children. Over time, process table fills up and CI runners become unusable.
+**What goes wrong:** Ingest-time dedup checks the HNSW vector index for similar events, but the vector index is populated asynchronously via the outbox pipeline. Events ingested in rapid succession (e.g., during an active session) will NOT find each other as duplicates because the first event has not been indexed yet when the second arrives.
 
-**Why it happens:** Each E2E test spawns a real CLI process. If the test harness dies (timeout, OOM, signal), the child process is orphaned. The existing hook scripts already use background processes (`echo "$PAYLOAD" | "$INGEST_BIN" >/dev/null 2>/dev/null &` in both Gemini and Copilot adapters), creating grandchild processes the harness cannot track.
+**Why it happens:** The current architecture is: `IngestEvent -> RocksDB + Outbox (synchronous) -> IndexingPipeline drains outbox -> HNSW index (asynchronous)`. The outbox is processed in batches (`batch_size: 100`) by the scheduler. Between the time an event is stored and the time its embedding lands in the HNSW index, there is a gap of seconds to minutes depending on scheduler interval. Dedup checks against the HNSW index during this gap find nothing.
 
-**Consequences:** CI runners accumulate zombie processes. Subsequent test runs fail with resource exhaustion. Port conflicts from lingering daemon processes. Flaky "works locally, fails in CI" syndrome.
+**Codebase evidence:** `crates/memory-indexing/src/pipeline.rs` processes outbox entries in `process_batch()`, and `crates/memory-indexing/src/vector_updater.rs` only indexes TOC nodes and grips (not raw events). The existing `NoveltyChecker` in `crates/memory-service/src/novelty.rs` already has a `skipped_index_not_ready` metric for exactly this case -- it fails open and stores anyway.
+
+**Consequences:** Burst duplicates (the most common kind -- repeated tool calls, re-sent messages within a session) are exactly the duplicates that NEVER get caught. The system catches only duplicates separated by enough time for the index to catch up. This is backwards: the most valuable dedup happens within-session, not across-sessions.
 
 **Prevention:**
-1. Use process groups (`setsid` or `set -m`) so `kill -- -$PGID` kills the entire tree
-2. Implement a `trap cleanup EXIT INT TERM` in every test wrapper that kills the process group
-3. Add a per-test timeout with the `timeout` command (not just test framework timeout)
-4. Run `pkill -f memory-daemon` in test teardown as a safety net
-5. In CI, use `--init` flag on Docker containers (or `tini`/`dumb-init`) to reap zombies
-6. Track all spawned PIDs in an array and kill them in reverse order during cleanup
+1. Maintain a short-lived in-memory "recent embeddings" buffer (last N embeddings, ring buffer) alongside the HNSW index. Check both during dedup.
+2. Size the buffer to cover the maximum expected indexing lag (e.g., 500 embeddings covers ~5 minutes at 100 events/minute).
+3. The buffer is volatile (lost on restart) but that is acceptable -- the HNSW index handles cross-restart dedup, the buffer handles within-session dedup.
+4. Alternative: perform synchronous embedding + HNSW insertion on the ingest path for dedup purposes, while keeping the outbox for TOC/BM25 indexing. This is simpler but adds latency to the ingest path.
 
-**Detection:** CI job durations creeping up over time. "Address already in use" errors in later tests. `ps aux | grep memory` showing stale processes.
+**Detection:** Metric: `rejected_duplicate` count is near zero during active sessions. Events with identical or near-identical text appear in close succession in the event store.
 
-**Phase to address:** Framework phase (Claude Code first) -- bake process lifecycle management into the harness from day one.
+**Phase to address:** Dedup implementation phase. This is THE critical design decision -- the dedup architecture cannot be retrofitted easily.
 
 **Severity:** CRITICAL
 
 ---
 
-### Pitfall 2: CLI Authentication Failures in Headless Mode
+### Pitfall 2: Threshold Miscalibration for all-MiniLM-L6-v2
 
-**What goes wrong:** Every CLI in the matrix requires API authentication, and headless/non-interactive modes have different auth flows than interactive modes. Tests pass locally (tokens cached) but fail in CI (fresh environment, no browser for OAuth).
+**What goes wrong:** The similarity threshold for "duplicate" is set too high (false negatives -- duplicates slip through) or too low (false positives -- unique events silently dropped). With all-MiniLM-L6-v2, the cosine similarity distribution is model-specific and non-intuitive.
 
-**Why it happens:**
-- **Claude Code:** OAuth flow requires a browser. Headless mode (`-p` flag) needs `ANTHROPIC_API_KEY` env var or pre-configured OAuth token. Trust verification is disabled in `-p` mode (helpful for testing but a security concern per [issue #20253](https://github.com/anthropics/claude-code/issues/20253)).
-- **Codex CLI:** Needs `OPENAI_API_KEY`. The `codex exec` command works headlessly but still requires valid credentials.
-- **Gemini CLI:** Needs Google API credentials. Non-TTY detection triggers headless mode automatically.
-- **OpenCode:** Needs provider API key configured. `opencode -p` for non-interactive mode.
-- **Copilot CLI:** `GH_TOKEN` authentication reportedly [does not work reliably](https://github.com/orgs/community/discussions/167158) in headless contexts.
+**Why it happens:** all-MiniLM-L6-v2 cosine similarity scores are positively skewed in the range [0.07, 0.80] with a mean around 0.39 for unrelated content. Research shows that a threshold of 0.659 was used for literature deduplication. The current `NoveltyConfig` has a default threshold of 0.82, which was set for novelty filtering (a different use case than dedup). Cosine similarity with this model does NOT produce scores near 1.0 for paraphrased content -- semantically similar but differently worded text might score 0.65-0.80, while true duplicates (identical or near-identical text) score 0.85+.
 
-**Consequences:** Entire test matrix fails in CI. Tests become "local only" which defeats the purpose. Secrets management becomes a blocking issue before any real test logic is written.
+**Codebase evidence:** `crates/memory-types/src/config.rs` shows `default_novelty_threshold()` returns 0.82. The HNSW index uses `MetricKind::Cos` (cosine distance) in `crates/memory-vector/src/hnsw.rs`, and the search method converts distance to similarity via `1.0 - dist`.
+
+**The danger zones:**
+- Threshold 0.90+: Only catches verbatim duplicates. Misses paraphrased content. Safe but mostly useless.
+- Threshold 0.80-0.90: Catches near-duplicates. Sweet spot for conversational memory. Some paraphrases caught.
+- Threshold 0.70-0.80: Aggressive dedup. Will catch related-but-different content. Risk of dropping updates to earlier topics.
+- Threshold below 0.70: DANGEROUS. Will merge unrelated content. High false positive rate with this model.
+
+**Consequences:** False positives cause PERMANENT data loss in an append-only store. Unlike stale filtering (which only affects ranking), dedup at ingest means the event is never stored. There is no undo. A user saying "implement authentication" and later "update authentication" could be deduplicated if the threshold is too low.
 
 **Prevention:**
-1. Design tests to work WITHOUT real API keys where possible (test hook capture, not LLM responses)
-2. For hook-only tests: mock the CLI output, test the shell scripts directly by piping JSON to stdin
-3. For full integration tests: use CI secrets with clear documentation of required env vars
-4. Create a `check-prerequisites.sh` that validates all CLIs and credentials before running, marking unavailable CLIs as SKIPPED not FAILED
-5. Separate "hook capture tests" (no API key needed) from "full round-trip tests" (API key required)
-6. Use `MEMORY_INGEST_DRY_RUN=1` for tests that only validate hook script logic (both Gemini and Copilot adapters already support this)
+1. Default threshold should be conservative: 0.85 for dedup (higher than the 0.82 novelty threshold). Dedup consequences are irreversible; novelty filtering just hides results.
+2. Log every rejected event with its similarity score and the doc_id of the matched "duplicate." This is essential for debugging and threshold tuning.
+3. Provide a `dedup_dry_run` mode that logs what WOULD be rejected without actually rejecting. Run this in production for a week before enabling dedup.
+4. Make threshold configurable per event_type. `session_start` and `session_end` events are frequently identical and should have a LOWER threshold (easier to dedup). `user_message` and `assistant_stop` events should have a HIGHER threshold (more diverse content, higher cost of false positives).
+5. Consider a compound check: cosine similarity above threshold AND text overlap (e.g., Jaccard on tokens) above a second threshold. This dramatically reduces false positives.
 
-**Detection:** All tests fail in CI with auth errors. New contributor onboarding takes hours because of credential setup.
+**Detection:** Metric: ratio of `rejected_duplicate` to `total_ingested`. If above 20%, something is wrong. Audit log of rejected events with similarity scores.
 
-**Phase to address:** Framework phase -- prerequisite checking and skip-vs-fail distinction must be in the harness core.
+**Phase to address:** Dedup implementation phase. Threshold tuning should be a separate sub-task with its own test fixtures.
 
 **Severity:** CRITICAL
 
 ---
 
-### Pitfall 3: Workspace State Leaking Between Tests
+### Pitfall 3: Dedup Breaks the Append-Only Invariant Semantics
 
-**What goes wrong:** Tests share state through filesystem artifacts, temp files, daemon state, or session files. One test's output corrupts another test's expectations.
+**What goes wrong:** The system's fundamental design principle is "append-only truth" -- events are immutable and never deleted. Ingest-time dedup silently drops events BEFORE they are appended, which is philosophically different from "stored but marked as duplicate" or "stored but downranked." Downstream components (TOC builder, segment creator, grip extractor) that rely on seeing every event may produce incorrect summaries.
 
-**Why it happens:** The Copilot adapter uses shared temp files for session synthesis (`/tmp/copilot-memory-session-${CWD_HASH}`). The memory daemon uses per-project RocksDB stores keyed by CWD. If two tests use the same directory, they share the same store. If cleanup fails, stale data persists.
+**Why it happens:** The current ingest path writes events unconditionally. TOC segmentation uses event count and time thresholds. Rollup jobs aggregate ALL events in a time window. If dedup drops 30% of events in a busy session, segments become larger (fewer events = fewer segment boundaries), TOC summaries become sparser, and the progressive disclosure hierarchy becomes less navigable.
 
-**Consequences:** Non-deterministic test failures. Tests pass in isolation but fail when run together. Test order matters (a hidden dependency). Debugging requires running the exact sequence that failed.
+**Codebase evidence:** `crates/memory-toc/src/segmenter.rs` creates segments based on event count and time gaps. Dropping events changes both metrics. The TOC builder in `crates/memory-toc/src/builder.rs` assumes it sees all events.
+
+**Consequences:** TOC quality degrades silently. Segments cover longer time spans. Day-level summaries miss topics that were discussed in deduplicated events. The user asks "what did we discuss about authentication?" and the TOC does not mention it because the relevant events were deduped.
 
 **Prevention:**
-1. Create a unique temp directory per test: `WORKSPACE=$(mktemp -d "/tmp/e2e-test-XXXXXX")`
-2. Set `CWD` to the unique workspace so each test gets its own RocksDB store
-3. Clean up session files in teardown (`rm -f /tmp/copilot-memory-session-*`)
-4. Run the memory daemon with a test-specific config pointing to the workspace
-5. Use `trap` to ensure cleanup happens even on failure
-6. NEVER use `/tmp` directly for session files in tests -- use `$WORKSPACE/tmp/`
-7. Override `SESSION_FILE` location via environment variable in the Copilot adapter
+1. Store ALL events unconditionally. Dedup should add a `dedup_status` field to the event metadata, NOT prevent storage. The event is stored but the outbox entry is NOT created (so it does not get indexed). This preserves the append-only invariant while preventing index bloat.
+2. Alternative (less preferred): Store a lightweight "dedup tombstone" that records the event_id, timestamp, and the matched_event_id without the full text. This preserves the event count for segmentation while saving storage.
+3. If true drop-at-ingest is required: adjust segment thresholds to account for dedup. But this couples two independent systems and is fragile.
+4. TOC rollup jobs should NOT be affected by dedup regardless of approach -- they operate on stored events and TOC nodes, not on the index.
 
-**Detection:** Tests fail intermittently. Running a single test passes, but the full suite fails. Test output contains data from other tests.
+**Detection:** Compare event counts per segment before and after enabling dedup. If segments grow significantly larger, the segmenter is seeing fewer events.
 
-**Phase to address:** Framework phase -- workspace isolation is the foundation everything else builds on.
+**Phase to address:** Dedup design phase. This is an architectural decision that must be made before implementation.
 
 **Severity:** CRITICAL
 
 ---
 
-### Pitfall 4: Hook Timing and Async Event Delivery
+### Pitfall 4: Stale Filtering Hides Critical Historical Context
 
-**What goes wrong:** Tests assert on events captured by hooks, but hooks fire asynchronously. The test checks for events before the hook has delivered them to the daemon. Or the daemon has not yet processed the ingested event.
+**What goes wrong:** Stale result filtering downranks or removes older results, but in conversational memory, old context is frequently the MOST important. A user asking "what was the authentication approach we decided on?" needs the original decision (old), not the latest passing mention (new).
 
-**Why it happens:** Both Gemini and Copilot hook scripts send events to `memory-ingest` in the background (`&`). The hook returns immediately (fail-open design). The ingest binary sends a gRPC call. The daemon processes it asynchronously. There are at least 3 async boundaries between "hook fires" and "event is queryable."
+**Why it happens:** Stale filtering assumes that newer = more relevant. This is true for news feeds but false for decision records, architectural choices, and procedural knowledge. The existing ranking policy already has a usage decay factor (`crates/memory-types/src/usage.rs`), salience scoring (`crates/memory-types/src/salience.rs`), and novelty filtering (`crates/memory-service/src/novelty.rs`). Adding ANOTHER time-based penalty stacks decay effects, potentially burying high-salience old content.
 
-**Consequences:** Tests that assert "event was captured" fail intermittently. Adding `sleep 2` "fixes" them (classic flaky test antipattern). Test suite runtime balloons because of defensive sleeps.
+**Codebase evidence:** The ranking policy in Layer 6 already applies `usage decay` (recent usage boosts ranking). The `SalienceScorer` assigns higher scores to constraints, definitions, and procedures -- exactly the high-value historical content that stale filtering would bury. The retrieval executor in `crates/memory-retrieval/src/executor.rs` applies `min_confidence` thresholds -- stale-penalized results could fall below this threshold and be discarded entirely.
+
+**Consequences:** The system forgets its most important memories. Decisions are re-debated because the original rationale is downranked below the confidence threshold. The progressive disclosure architecture (TOC navigation) becomes the only reliable way to find old content, defeating the purpose of semantic search.
 
 **Prevention:**
-1. Implement a poll-with-timeout pattern: `wait_for_event(predicate, timeout_secs)` that polls the daemon
-2. Use the daemon's gRPC API to check event count, not filesystem artifacts
-3. Set a reasonable poll interval (100ms) with a hard timeout (10s)
-4. For hook-only tests (no daemon): capture the ingest payload to a file instead of sending to daemon, then assert on the file contents synchronously
-5. Set `MEMORY_INGEST_DRY_RUN=1` for tests that only validate hook script logic
-6. Create a `capture-ingest` mock binary that writes payloads to a file for assertion
+1. Stale filtering should NEVER apply to content classified as `Constraint`, `Definition`, or `Procedure` by the `SalienceScorer`. These memory kinds are timeless by nature.
+2. Implement "supersession" not "staleness." An event is stale only if a NEWER event on the SAME topic exists with higher relevance. This requires topic-aware filtering, not simple time decay.
+3. Stale penalty should be a multiplicative factor (e.g., 0.95 per week) applied AFTER salience scoring, not a hard cutoff. High-salience old content should still rank above low-salience new content.
+4. The existing `novelty` system already handles "don't show me what I just saw." Stale filtering should handle "among these results, prefer recent ones" -- these are different concerns and should not be conflated.
+5. Provide a `include_stale: bool` flag on the query API so agents can opt out of stale filtering for specific queries (e.g., "what did we decide about X last month?").
 
-**Detection:** Tests pass locally (fast machine) but fail in CI (slower). Adding sleeps makes them pass. Different failure rates on different machines.
+**Detection:** User reports of "I know we discussed X but the system can't find it." High-salience events (score > 0.8) appearing deep in result lists or not appearing at all.
 
-**Phase to address:** Framework phase for the polling utility. Each CLI phase uses it.
+**Phase to address:** Stale filtering implementation phase. Must be designed together with the existing ranking policy, not as an independent layer.
 
 **Severity:** CRITICAL
 
@@ -116,213 +118,158 @@ Mistakes that cause rewrites, CI breakage, or abandoned test suites.
 
 ## Moderate Pitfalls
 
-Mistakes that cause delays, flakiness, or accumulated maintenance burden.
+Mistakes that cause performance issues, flaky tests, or degraded-but-recoverable behavior.
 
 ---
 
-### Pitfall 5: Headless Mode Behavioral Differences Per CLI
+### Pitfall 5: Embedding Latency on the Ingest Hot Path
 
-**What goes wrong:** Each CLI has subtly different headless behavior. Tests written assuming one CLI's behavior break when applied to another.
+**What goes wrong:** Adding dedup to the ingest path means generating an embedding for EVERY incoming event BEFORE storing it. The Candle-based all-MiniLM-L6-v2 embedder runs on CPU. On macOS Apple Silicon this is fast (~5ms), but on CI Linux runners or older hardware, embedding generation can take 20-50ms per event. During a burst ingest (session with 100+ events), this adds 2-5 seconds of synchronous latency.
 
-**Specific differences discovered:**
-- **Claude Code (`-p` flag):** User-invoked skills and built-in commands are NOT available. [Large stdin (7000+ chars) returns empty output](https://github.com/anthropics/claude-code/issues/7263). Trust verification is disabled. Sessions do not persist between invocations.
-- **Codex CLI (`codex exec`):** JSON Lines output with `--json` flag (stream of events, NOT single JSON). Event types include thread/turn/item events. `--full-auto` enables low-friction automation. Sandbox blocks network by default.
-- **Gemini CLI:** Auto-detects non-TTY for headless. JSON output via `--output-format json`. Single prompt, then exits. [Known freezing in non-interactive with debug enabled](https://github.com/google-gemini/gemini-cli/pull/14580).
-- **OpenCode (`opencode -p` / `opencode run`):** Supports `-f json` for JSON output. `-q` for quiet mode. [Known bug: exits after auto-compaction if token overflow](https://github.com/anomalyco/opencode/issues/13946) (Feb 2026).
-- **Copilot CLI:** GH_TOKEN auth unreliable in headless. No session_id provided (must synthesize via temp file). sessionStart fires per-prompt (Bug #991). toolArgs is a JSON string, not object (double-parse required).
+**Why it happens:** The current architecture generates embeddings only in the async indexing pipeline (not on the ingest path). Moving embedding to the ingest path is a fundamental change in the latency profile. The existing `NoveltyChecker` has a `timeout_ms` of 50ms for exactly this reason -- it expects the embedding to be fast but sets a hard timeout.
+
+**Codebase evidence:** `crates/memory-embeddings/src/candle.rs` runs inference synchronously. The `NoveltyChecker` in `crates/memory-service/src/novelty.rs` wraps embedding in `tokio::time::timeout(timeout_duration, ...)`.
+
+**Consequences:** Hook handlers (which call IngestEvent via gRPC) start timing out. The fail-open design means events are stored without dedup check, defeating the purpose. Under load, the dedup check adds enough latency to trigger the 50ms timeout on every event.
 
 **Prevention:**
-1. Create a per-CLI configuration file that documents: invocation command, output format flag, authentication env var, known limitations, and skip conditions
-2. Abstract CLI invocation behind a `run_cli.sh` wrapper that normalizes output format
-3. Test one CLI at a time in separate phases so behavioral assumptions do not bleed across
-4. Mark known-broken scenarios as SKIPPED with a reference to the upstream bug
+1. Use an embedding cache keyed by a hash of the input text. Many events have identical or near-identical text (session_start, session_end).
+2. Pre-compute a text hash and check for exact duplicates BEFORE computing the embedding. Exact text match is O(1) and catches the most common case.
+3. Increase the dedup timeout to 200ms (the embedding itself takes ~5-50ms; the HNSW search takes ~1ms). The 50ms default for novelty was set conservatively.
+4. Consider batching: accumulate events for 100ms, then embed all at once. Candle supports batch inference which is faster per-event than sequential.
+5. Skip dedup for event types that are never duplicated: `session_start`, `session_end`.
 
-**Phase to address:** Each CLI gets its own phase. Claude Code first to build the abstraction layer.
+**Detection:** Metric: `skipped_timeout` count increasing. Ingest latency p99 increasing after dedup is enabled. Compare ingest throughput before and after.
+
+**Phase to address:** Dedup implementation phase, performance tuning sub-task.
 
 **Severity:** HIGH
 
 ---
 
-### Pitfall 6: Golden File Fragility
+### Pitfall 6: HNSW Search During Concurrent Write
 
-**What goes wrong:** Tests compare CLI output against stored golden files. Any change in CLI version, output formatting, timestamp format, or field ordering breaks tests. Golden files become a maintenance burden.
+**What goes wrong:** The dedup check reads from the HNSW index while the indexing pipeline writes to it. The `HnswIndex` is behind an `Arc<RwLock<HnswIndex>>`, so concurrent reads and writes are serialized. Under load, dedup searches block on indexing writes and vice versa.
 
-**Why it happens:** CLI tools update frequently (weekly/monthly). Output format changes are rarely documented in changelogs. Version strings in output change on every update. Timestamps are inherently non-deterministic.
+**Why it happens:** The current design uses a single HNSW index instance shared between the `VectorIndexUpdater` (writer) and the search/teleport layer (reader). Adding dedup makes the ingest path a reader too. With `RwLock`, any write blocks ALL reads. If the indexing pipeline holds the write lock for a batch of 100 inserts, all dedup checks queue behind it.
 
-**Consequences:** Tests break after any CLI update, even when actual behavior is correct. Team spends time updating golden files instead of finding bugs. Trust in the test suite erodes.
+**Codebase evidence:** `crates/memory-indexing/src/vector_updater.rs` takes `self.index.write()` for each vector insertion. `crates/memory-vector/src/hnsw.rs` uses `RwLock<Index>` internally.
+
+**Consequences:** Dedup latency spikes to hundreds of milliseconds during index rebuilds. The fail-open timeout fires, and events are stored without dedup. During scheduled indexing jobs, dedup effectively does not work.
 
 **Prevention:**
-1. DO NOT use golden files for CLI output comparison. Instead:
-   - Assert on structural properties: "output contains key X", "JSON has field Y with value matching pattern Z"
-   - Use `jq` to extract specific fields and compare those
-   - Normalize timestamps, version strings, and paths before comparison
-2. If golden files are truly needed (e.g., for hook payload format validation):
-   - Store only the schema/structure, not exact values
-   - Use an `--update` flag pattern to regenerate golden files intentionally
-   - Pin CLI versions in CI to reduce churn
-3. Prefer semantic assertions: "event was ingested with agent=gemini" over "output matches this exact JSON blob"
+1. Use the in-memory "recent embeddings" buffer (from Pitfall 1) as the PRIMARY dedup source. It does not require the HNSW lock. Fall back to HNSW search only for cross-session dedup.
+2. If HNSW search is needed for dedup: use `try_read()` with a fallback to the buffer. Never block the ingest path on the HNSW lock.
+3. Consider a separate read-only HNSW snapshot for dedup queries (double the memory but zero contention). Refresh the snapshot periodically (every 60 seconds).
+4. The usearch library supports concurrent reads natively -- the `RwLock` is defensive Rust wrapping. Investigate if `Arc<Index>` with `#[allow(clippy::readonly_write_lock)]` (already used in the codebase) can enable lock-free reads.
 
-**Phase to address:** Framework phase -- establish assertion patterns early. Avoid golden files from the start.
+**Detection:** Dedup p99 latency > 50ms correlated with indexing pipeline activity. Monitor lock contention metrics.
+
+**Phase to address:** Dedup implementation phase. Lock strategy should be decided during design.
 
 **Severity:** HIGH
 
 ---
 
-### Pitfall 7: CI Environment Differences
+### Pitfall 7: Stale Filtering Interacts Poorly with Existing Ranking Layers
 
-**What goes wrong:** Tests pass locally but fail in CI due to missing CLIs, different PATH, different OS behavior, or resource constraints.
+**What goes wrong:** The existing ranking stack has 3 layers: salience (write-time), usage decay (read-time), and novelty (ingest-time). Adding stale filtering creates a 4th ranking signal. The interaction between these signals is multiplicative: an event with moderate salience, low usage, some novelty penalty, AND a stale penalty can have its effective score crushed to near-zero even if it is the BEST answer to the query.
 
-**Specific risks for this project:**
-- Not all 5 CLIs will be installed in CI (especially Copilot, which requires GitHub app auth)
-- macOS vs Linux differences in shell commands: `date -r` vs `date -d` for timestamp conversion (already handled in Copilot adapter but a pattern that will recur across all test scripts)
-- `md5sum` vs `md5`, `uuidgen` availability and output case (already handled in Copilot adapter)
-- CI containers run under resource constraints -- CLI startup is slower
-- GitHub Actions runners have limited concurrent process capacity
-- `jq` version differences: `walk()` requires jq 1.6+ (adapters already handle this with runtime check)
+**Why it happens:** Each ranking signal was designed independently. Salience was designed at Phase 16. Usage decay at Phase 16. Novelty at Phase 16. Each assumes it is the primary discriminator. When stacked, they create a "score collapse" where most results have similar (low) scores, making ranking non-discriminative.
+
+**Codebase evidence:** The `RetrievalExecutor` in `crates/memory-retrieval/src/executor.rs` uses `min_confidence: 0.3` as a hard cutoff. If stale filtering pushes a result from 0.4 to 0.25, it is silently dropped even though it was the best match.
+
+**Consequences:** All retrieval modes return fewer results. The fallback chain fires more often (degrading to Agentic TOC search). Query quality appears to decrease after enabling stale filtering, even for queries where staleness is irrelevant.
 
 **Prevention:**
-1. Prerequisite check script that marks missing CLIs as SKIPPED
-2. Use GitHub Actions matrix strategy to test on both macOS and Ubuntu
-3. Pin CLI versions in CI using exact version install scripts
-4. Use conditional test execution: `if command -v claude >/dev/null; then run_claude_tests; else skip "Claude Code not found"; fi`
-5. Set generous timeouts for CI (2x local timeouts)
-6. Create a `lib/compat.sh` sourced by all test scripts with portable wrappers for OS-specific commands
-7. Document exact CI setup requirements in a setup action
+1. Define a clear score composition formula BEFORE implementation. Example: `final_score = vector_similarity * salience_weight * recency_factor * usage_boost`. Each factor should have a defined range and purpose.
+2. Stale penalty should be BOUNDED: never reduce a score by more than 30%. A stale penalty of `max(0.7, 1.0 - age_weeks * 0.02)` caps the downrank.
+3. Test with the existing E2E test queries. Run the existing 29 E2E tests with stale filtering enabled and verify no regressions.
+4. Add a `ranking_explanation` field to `SearchResult` that shows each factor's contribution. This already exists conceptually in the `ExecutionResult.explanation` field but needs per-result detail.
 
-**Phase to address:** Framework phase for the prerequisite system. CI integration as a dedicated concern.
+**Detection:** A/B metrics: compare result counts and top-score distributions with and without stale filtering. Alert if average result count drops > 20%.
+
+**Phase to address:** Stale filtering implementation phase. Must be tested against the existing ranking stack before ship.
 
 **Severity:** HIGH
 
 ---
 
-### Pitfall 8: Codex CLI Constraints Beyond Missing Hooks
+### Pitfall 8: Dedup of TOC Nodes vs. Raw Events Confusion
 
-**What goes wrong:** Codex CLI is assumed to work like the other 4 CLIs minus hooks, but it has additional constraints that surface during testing.
+**What goes wrong:** The vector index currently contains TOC nodes and grips, NOT raw events. The dedup check at ingest needs to compare against raw event embeddings, but the index does not contain them. Comparing an incoming event against TOC node embeddings will produce misleading similarity scores because TOC nodes are summaries, not individual events.
 
-**Known Codex constraints (from [official docs](https://developers.openai.com/codex/cli/reference/)):**
-- No hook system at all -- cannot capture events passively
-- Sandbox mode blocks network by default (memory daemon gRPC calls would fail in sandbox)
-- `.codex/` directory is read-only in workspace-write mode
-- `on-failure` approval policy is deprecated -- must use `on-request` or `never`
-- `codex exec` is the headless mode (NOT a `-p` flag like Claude Code)
-- JSON Lines output (stream of events, not single JSON object) -- requires different parsing
-- Uses `notify` config for external program notification (NOT the same as lifecycle hooks)
-- The `notify` system runs an external program but only for specific notification types, not full lifecycle events
+**Why it happens:** The `VectorIndexUpdater` in `crates/memory-indexing/src/vector_updater.rs` indexes TOC nodes (via `index_toc_node`) and grips (via `index_grip`). Raw events are NOT indexed -- the `process_entry` method for `OutboxAction::IndexEvent` tries to find a grip for the event and indexes that, or skips if no grip exists. This means the HNSW index is NOT a dedup-compatible data source for raw event comparison.
 
-**Consequences:** Tests written for other CLIs cannot be trivially adapted for Codex. Sandbox restrictions prevent the adapter from communicating with the daemon. The "no hooks" constraint is deeper than just "skip hook tests."
+**Codebase evidence:** `VectorIndexUpdater::process_entry()` line 183-199 shows that `IndexEvent` actions look for grips, not raw event text. `find_grip_for_event()` currently returns `None` always (line 206: "Simplified lookup - return None for now").
+
+**Consequences:** Dedup against the existing HNSW index would compare "implement JWT token validation" (incoming event) against "Day summary: authentication work, JWT implementation" (TOC node). The similarity would be moderate (~0.6-0.7) but not high enough to trigger dedup. The system fails to detect duplicates even when they exist.
 
 **Prevention:**
-1. Design Codex adapter to use explicit command invocation (not passive capture)
-2. For testing: use `--full-auto` with appropriate sandbox settings, or disable sandbox for test scenarios
-3. Parse JSON Lines output with `while IFS= read -r line` not `jq .`
-4. Test Codex separately with its own assertion patterns
-5. Document that Codex tests validate command/skill execution, NOT event capture
-6. Consider using Codex's `notify` config as a limited notification substitute for testing (but do not conflate with hooks)
+1. Create a SEPARATE dedup index (or a separate metadata namespace within the existing HNSW) that indexes raw event text. This index exists solely for dedup purposes.
+2. Alternatively, use the in-memory buffer approach (Pitfall 1) which operates on raw event embeddings by design.
+3. Do NOT try to reuse the existing TOC/grip vector index for dedup. The granularity mismatch makes it unreliable.
+4. If creating a separate dedup index: it can be smaller (lower capacity, lower ef_construction) since it only needs to answer "is there something very similar?" not "what are the top-k results?"
 
-**Phase to address:** Codex adapter phase (last CLI phase, after framework is proven with the other 4).
+**Detection:** Dedup tests that ingest two identical events and assert the second is rejected. If both are stored, the dedup index is not seeing raw events.
 
-**Severity:** MEDIUM
+**Phase to address:** Dedup design phase. This is an early architectural decision.
 
----
-
-### Pitfall 9: Test Matrix Explosion
-
-**What goes wrong:** 5 CLIs x 7 scenarios = 35 tests. Adding OS matrix (macOS + Linux) doubles to 70. Adding retry logic for flaky tests triples effective CI time. Suite takes 30+ minutes.
-
-**Why it happens:** Naive approach tests every CLI against every scenario. Some scenarios are irrelevant for some CLIs (hooks for Codex, session synthesis for Claude Code). No prioritization of which combinations matter.
-
-**Consequences:** CI becomes a bottleneck. Developers skip running E2E locally. Test maintenance cost exceeds test value. Team pushes to disable tests.
-
-**Prevention:**
-1. Define a test taxonomy:
-   - **Universal tests** (all CLIs): basic invocation, daemon communication, command execution
-   - **Hook tests** (4 CLIs, not Codex): event capture, payload format, fail-open behavior
-   - **CLI-specific tests**: session synthesis (Copilot), headless output (Codex exec), etc.
-2. Target 20-25 tests total, not 35+
-3. Run "smoke" subset on PRs (5-10 tests), full matrix nightly
-4. Use test tagging for selective execution
-5. Parallelize across CLIs (each CLI's tests are independent)
-6. Set a hard CI time budget: 15 minutes for E2E, period
-
-**Phase to address:** Framework phase for the taxonomy. Each CLI phase adds only relevant tests.
-
-**Severity:** MEDIUM
+**Severity:** HIGH
 
 ---
 
 ## Minor Pitfalls
 
-Mistakes that cause annoyance but are fixable without major rework.
+Mistakes that cause inconvenience but are fixable without rework.
 
 ---
 
-### Pitfall 10: Shell Script Portability Across macOS and Linux
+### Pitfall 9: Embedding Dimension Mismatch After Model Change
 
-**What goes wrong:** Test harness shell scripts use bash-isms or OS-specific commands that fail on the other platform.
-
-**Already observed in codebase:**
-- Copilot adapter handles `date -r` (macOS) vs `date -d` (Linux)
-- Copilot adapter handles `md5sum` (Linux) vs `md5` (macOS)
-- Copilot adapter handles `uuidgen` vs `/proc/sys/kernel/random/uuid`
-- Both adapters handle ANSI stripping via perl (preferred) with sed fallback
+**What goes wrong:** If the embedding model is ever swapped (e.g., from all-MiniLM-L6-v2 at 384-dim to a larger model), the dedup index becomes incompatible. The HNSW index cannot mix dimensions.
 
 **Prevention:**
-1. Create a `lib/compat.sh` sourced by all test scripts with portable wrappers
-2. Use `#!/usr/bin/env bash` (already done in adapters)
-3. Test on both macOS and Linux in CI
-4. Avoid GNU-specific flags (`sed -i ''` on macOS vs `sed -i` on Linux)
+1. Store the model name and dimension in the dedup index metadata.
+2. On startup, verify the configured model matches the index metadata. If mismatched, rebuild.
+3. This is already partially handled -- `HnswConfig` has `dimension: 384` as default and `VectorIndexUpdater` checks `embedding.dimension() != self.config.dimension`.
 
-**Phase to address:** Framework phase -- create the compatibility library first.
+**Phase to address:** Dedup implementation phase. Add model metadata to the dedup index header.
 
 **Severity:** LOW
 
 ---
 
-### Pitfall 11: Daemon Port Conflicts in Parallel Tests
+### Pitfall 10: Dedup Config Not Exposed via gRPC Admin API
 
-**What goes wrong:** Multiple test processes try to start the memory daemon on the same gRPC port. Only one succeeds; others fail with "address already in use."
+**What goes wrong:** Operators cannot tune dedup threshold or check dedup metrics without restarting the daemon. The existing gRPC API has `GetRankingStatus` but no dedup-specific admin RPCs.
 
 **Prevention:**
-1. Assign unique ports per test using a counter or random port allocation
-2. Use port 0 (OS-assigned) and capture the actual port from daemon startup output
-3. Or use a single shared daemon instance for all tests (simpler but reduces isolation)
-4. Prefer Unix domain sockets over TCP for test-local communication (faster, no port conflicts)
+1. Add `GetDedupStatus` RPC that returns: enabled, threshold, recent_embeddings_buffer_size, rejected_count, total_checked.
+2. Add `SetDedupThreshold` RPC for runtime tuning (write to config, no restart needed).
+3. Expose dedup metrics in the existing status/health endpoint.
 
-**Phase to address:** Framework phase.
+**Phase to address:** Admin API phase after dedup is working.
 
 **Severity:** LOW
 
 ---
 
-### Pitfall 12: ANSI Escape Sequence Contamination
+### Pitfall 11: Test Fixtures for Dedup Are Hard to Get Right
 
-**What goes wrong:** CLI output includes ANSI color codes, cursor movement, or spinner animations that corrupt JSON parsing in test assertions.
-
-**Already observed in codebase:** Both Gemini and Copilot adapters include ANSI stripping logic using perl/sed. This same problem will affect test output parsing.
+**What goes wrong:** E2E tests for dedup need to ingest events that are "similar enough" to trigger dedup but "different enough" to test edge cases. Hand-crafting these is error-prone because the similarity score depends on the embedding model's learned representation, not on human intuition.
 
 **Prevention:**
-1. Set `NO_COLOR=1` or `TERM=dumb` environment variables when spawning CLIs
-2. Use `--no-color` or equivalent flags if available per CLI
-3. Strip ANSI before JSON parsing (reuse existing adapter pattern)
-4. Pipe CLI output through a normalizer as a safety net
+1. Create a calibration test that embeds a known set of text pairs and records their similarity scores. This becomes the ground truth for threshold selection.
+2. Include these pairs in the test fixtures:
+   - Identical text: score ~1.0 (should always dedup)
+   - Same text with typo: score ~0.95 (should dedup)
+   - Same topic, different phrasing: score ~0.75-0.85 (threshold-dependent)
+   - Related topics: score ~0.55-0.70 (should NOT dedup)
+   - Unrelated: score ~0.20-0.40 (should NOT dedup)
+3. Run the calibration test as part of CI. If the model or tokenizer changes, the calibration catches it.
 
-**Phase to address:** Framework phase -- set environment variables in the harness core.
-
-**Severity:** LOW
-
----
-
-### Pitfall 13: Memory Daemon Startup Race Condition
-
-**What goes wrong:** Test starts daemon and immediately sends requests. Daemon is not yet listening, requests fail.
-
-**Prevention:**
-1. Health check loop: poll `grpc_health_v1.Health/Check` until ready
-2. Read daemon stdout for "listening on" message
-3. Implement `wait_for_daemon(port, timeout)` helper in the test framework
-4. Set a maximum startup timeout (5 seconds) with clear error message
-
-**Phase to address:** Framework phase.
+**Phase to address:** Dedup testing phase.
 
 **Severity:** LOW
 
@@ -332,77 +279,87 @@ Mistakes that cause annoyance but are fixable without major rework.
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Framework (Claude Code) | Zombie processes, workspace isolation, daemon startup race | Process group kill, mktemp per test, health check loop |
-| Framework (Claude Code) | Golden file fragility | Semantic assertions from day one, no golden files |
-| Claude Code tests | Auth failure in CI, `-p` mode limitations (no skills, large input bug) | API key in CI secrets, test hook scripts not interactive features |
-| OpenCode tests | `opencode run` compaction exit bug, different output format | Pin version, use `-q` flag, guard against unexpected exit 0 |
-| Gemini tests | Debug mode freezing in non-interactive, ANSI contamination | Set `NO_COLOR=1`, never enable debug in tests, strip ANSI |
-| Copilot tests | No session_id (synthesis via temp file), sessionStart per-prompt bug, GH_TOKEN unreliable | Use workspace-scoped session files, handle duplicate sessionStart, test with app-level auth |
-| Codex tests | No hooks at all, sandbox blocks network, JSON Lines output format | Skip all hook tests, disable sandbox for tests, parse JSONL not JSON |
-| CI integration | Missing CLIs, OS differences, timeout flakiness | Prerequisite skip logic, generous timeouts, matrix for macOS + Linux |
-| Matrix reporting | False failures from infra issues counted against CLIs | Distinguish infra failures from test failures in reporting |
+| Dedup Design | Index gap for recent events (Pitfall 1) | In-memory ring buffer for recent embeddings |
+| Dedup Design | Raw events not in HNSW index (Pitfall 8) | Separate dedup index or buffer, not reuse TOC index |
+| Dedup Design | Append-only invariant broken (Pitfall 3) | Store events, skip outbox entry; don't drop events |
+| Dedup Implementation | Threshold miscalibration (Pitfall 2) | Default 0.85, dry-run mode, per-event-type thresholds |
+| Dedup Implementation | Embedding latency on hot path (Pitfall 5) | Text hash pre-check, embedding cache, skip structural events |
+| Dedup Implementation | HNSW lock contention (Pitfall 6) | try_read() with buffer fallback, never block ingest |
+| Stale Filtering Design | Historical context buried (Pitfall 4) | Exempt Constraint/Definition/Procedure kinds from staleness |
+| Stale Filtering Implementation | Ranking score collapse (Pitfall 7) | Bounded penalty (max 30% reduction), test against existing E2E |
+| Testing | Fixture calibration (Pitfall 11) | Pre-computed similarity pairs as ground truth |
+| Admin/Observability | No runtime tuning (Pitfall 10) | GetDedupStatus + SetDedupThreshold RPCs |
 
 ---
 
 ## Integration Pitfalls (Adding to Existing System)
 
-These pitfalls are specific to adding E2E CLI testing on top of an existing system with 29 cargo-based E2E tests.
+These pitfalls are specific to adding dedup and stale filtering on top of the existing Agent Memory v2.4 architecture.
 
-### Existing Test Interference
+### Dedup + Novelty Double-Filtering
 
-**What goes wrong:** New shell-based CLI tests and existing cargo E2E tests compete for daemon resources, ports, or RocksDB stores when run in the same CI job.
-
-**Prevention:**
-- Run shell E2E tests in a separate CI job (the existing system already has a dedicated E2E job)
-- Use different port ranges for cargo tests vs shell tests
-- Never share workspaces between the two test layers
-
-### Config File Pollution
-
-**What goes wrong:** CLI tests create or modify config files (`~/.config/agent-memory/`, `~/.claude/`, `.gemini/`, `.codex/`) that affect subsequent tests or the developer's local environment.
+**What goes wrong:** The existing `NoveltyChecker` already does similarity-based filtering at ingest time. Adding dedup creates TWO similarity checks on the ingest path with potentially different thresholds. Events may pass one filter but fail the other, or the two filters may interact unpredictably.
 
 **Prevention:**
-- Override all config paths with environment variables pointing to the workspace
-- Set `HOME` to a temp directory for CLI tests
-- Or use `XDG_CONFIG_HOME` override to redirect config discovery
+- Dedup REPLACES novelty filtering. They solve the same problem. Remove `NoveltyChecker` or refactor it into the dedup system.
+- If both are kept: dedup should run FIRST (it is cheaper with the buffer), and novelty should only run if dedup says "not a duplicate."
+- Unify the config: one `DedupConfig` with `threshold`, `timeout_ms`, `min_text_length`, replacing `NoveltyConfig`.
 
-### Hook Script Modification During Testing
+### Dedup + TOC Segmentation Interaction
 
-**What goes wrong:** Tests that validate hook installation or modification accidentally alter the source hook scripts in the repository, causing git dirty state.
+**What goes wrong:** Segment boundaries depend on event count and time gaps. If dedup drops events, segments become larger and less navigable. The existing TOC quality that users rely on degrades.
 
 **Prevention:**
-- Always copy hook scripts to the workspace, never modify in-place
-- Use `git diff --exit-code` as a post-test assertion that no source files changed
-- Run tests in a git worktree or clean copy
+- Use the "store event, skip indexing" approach (Pitfall 3) so event counts are preserved for segmentation.
+- If dropping events: adjust segment thresholds proportionally. But this is fragile and not recommended.
+
+### Stale Filtering + Existing Fallback Chain
+
+**What goes wrong:** The `RetrievalExecutor` uses a fallback chain that tries layers sequentially until results meet `min_confidence`. Stale filtering reduces scores, which triggers more fallbacks. The system degrades to Agentic TOC search more often, which is slower and less precise.
+
+**Prevention:**
+- Apply stale filtering AFTER the fallback chain resolves, not within individual layer results. This preserves the fallback logic's confidence thresholds.
+- Alternatively: raise `min_confidence` check to account for the expected stale penalty range.
+
+### Backward Compatibility of Config
+
+**What goes wrong:** Existing config files have `[novelty]` section. Adding `[dedup]` is fine, but removing `[novelty]` breaks existing deployments.
+
+**Prevention:**
+- Keep `[novelty]` as a deprecated alias for `[dedup]` using `serde(alias = "novelty")`.
+- Log a deprecation warning on startup if `[novelty]` is used.
 
 ---
 
 ## Sources
 
-### CLI-Specific Official Documentation
-- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) - Hook event types and handler documentation
-- [Claude Code Headless Mode](https://code.claude.com/docs/en/headless) - Non-interactive `-p` flag documentation and limitations
-- [Claude Code Large Input Bug #7263](https://github.com/anthropics/claude-code/issues/7263) - Empty output with large stdin in headless
-- [Claude Code Security Issue #20253](https://github.com/anthropics/claude-code/issues/20253) - Trust verification disabled in `-p` mode
-- [Codex CLI Non-Interactive Mode](https://developers.openai.com/codex/noninteractive) - `codex exec` documentation
-- [Codex CLI Reference](https://developers.openai.com/codex/cli/reference/) - Command line options and sandbox modes
-- [Codex Advanced Configuration](https://developers.openai.com/codex/config-advanced/) - Sandbox, notify, and approval settings
-- [Codex Changelog](https://developers.openai.com/codex/changelog/) - Recent updates including Feb 2026 changes
-- [Gemini CLI Headless Reference](https://geminicli.com/docs/cli/headless/) - Non-interactive mode
-- [Gemini CLI Freezing Bug Fix #14580](https://github.com/google-gemini/gemini-cli/pull/14580) - Debug mode freezing
-- [Gemini CLI Non-Interactive Commands #5435](https://github.com/google-gemini/gemini-cli/issues/5435) - Slash commands in headless
-- [OpenCode CLI Documentation](https://opencode.ai/docs/cli/) - Non-interactive mode and flags
-- [OpenCode Run Compaction Bug #13946](https://github.com/anomalyco/opencode/issues/13946) - Exit after compaction overflow
-- [OpenCode Headless Mode Request #953](https://github.com/sst/opencode/issues/953) - Non-interactive mode history
-- [Copilot CLI Auth Discussion #167158](https://github.com/orgs/community/discussions/167158) - GH_TOKEN authentication problems
+### Model-Specific Threshold Research
+- [all-MiniLM-L6-v2 Model Card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) - Model capabilities, training data, cosine similarity behavior
+- [AI-Driven Semantic Similarity Pipeline (2025)](https://arxiv.org/html/2509.15292v1) - Threshold calibration at 0.659 for literature dedup, score distribution [0.07, 0.80]
+- [all-MiniLM-L6-v2 Similarity Discussion](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/discussions/16) - Community discussion of similarity thresholds
 
-### E2E Testing Best Practices
-- [E2E Testing Best Practices 2025](https://www.bunnyshell.com/blog/best-practices-for-end-to-end-testing-in-2025/) - Flakiness prevention, test pyramid
-- [Shell Scripting Best Practices](https://oneuptime.com/blog/post/2026-02-13-shell-scripting-best-practices/view) - Trap patterns, cleanup, portability
-- [Fixing Flaky E2E Tests in CI](https://medium.com/@Adekola_Olawale/fixing-flaky-end-to-end-cypress-tests-in-ci-environments-71902f12dbb9) - CI environment differences
-- [Golden File Testing Introduction](https://ro-che.info/articles/2017-12-04-golden-tests) - Fragility and maintenance concerns
-- [Zombie Process Fixes](https://oneuptime.com/blog/post/2026-01-24-fix-zombie-process-issues/view) - Process reaping in containers
+### Vector Dedup Architecture
+- [OpenSearch Vector Dedup RFC](https://github.com/opensearch-project/k-NN/issues/2795) - 22% indexing speedup, 66% size reduction from dedup
+- [pgvector HNSW Dedup Issue](https://github.com/pgvector/pgvector/issues/760) - HNSW index not used when combining dedup with distance ordering
+- [Qdrant Vector Search in Production](https://qdrant.tech/articles/vector-search-production/) - Production patterns for vector dedup
+
+### Stale Filtering and Retrieval Quality
+- [8 Common Mistakes in Vector Search](https://kx.com/blog/8-common-mistakes-in-vector-search/) - Ignoring normalization, relying on defaults
+- [23 RAG Pitfalls](https://www.nb-data.com/p/23-rag-pitfalls-and-how-to-fix-them) - Metadata and recency signal pitfalls
+- [Azure Databricks Vector Search Quality Guide](https://learn.microsoft.com/en-us/azure/databricks/vector-search/vector-search-retrieval-quality) - Retrieval quality best practices
+- [Vespa: Vector Search Reaching Its Limit](https://blog.vespa.ai/vector-search-is-reaching-its-limit/) - Beyond pure vector similarity
+
+### Event Sourcing Dedup Patterns
+- [Event Sourcing Projection Deduplication](https://domaincentric.net/blog/event-sourcing-projection-patterns-deduplication-strategies) - At-least-once delivery and idempotency
+- [Idempotent Command Handling](https://event-driven.io/en/idempotent_command_handling/) - Race conditions in event stores
+- [Event Deduplication in Batch and Stream Processing](https://www.upsolver.com/blog/how-to-deduplicate-events-in-batch-and-stream-processing-using-primary-keys) - Primary key dedup patterns
 
 ### Codebase References
-- `plugins/memory-gemini-adapter/.gemini/hooks/memory-capture.sh` - Gemini hook patterns, fail-open, ANSI stripping
-- `plugins/memory-copilot-adapter/.github/hooks/scripts/memory-capture.sh` - Copilot hook patterns, session synthesis, OS compatibility
+- `crates/memory-service/src/novelty.rs` - Existing novelty checker with fail-open design, timeout handling, metrics
+- `crates/memory-indexing/src/pipeline.rs` - Outbox-driven async indexing pipeline with checkpoint recovery
+- `crates/memory-indexing/src/vector_updater.rs` - Vector index updater (indexes TOC nodes and grips, NOT raw events)
+- `crates/memory-vector/src/hnsw.rs` - HNSW index wrapper with RwLock, cosine distance, usearch backend
+- `crates/memory-types/src/config.rs` - NoveltyConfig with threshold 0.82, timeout 50ms
+- `crates/memory-types/src/salience.rs` - Salience scoring with MemoryKind classification
+- `crates/memory-retrieval/src/executor.rs` - Fallback chain execution with min_confidence threshold
+- `crates/memory-types/src/outbox.rs` - Outbox entry types (IndexEvent, UpdateToc)

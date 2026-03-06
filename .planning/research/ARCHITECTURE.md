@@ -1,425 +1,485 @@
-# Architecture Patterns: Headless CLI E2E Testing Harness
+# Architecture Patterns
 
-**Domain:** Shell-first headless CLI E2E testing harness for Agent Memory
-**Researched:** 2026-02-22
+**Domain:** Semantic deduplication and stale result filtering for Agent Memory v2.5
+**Researched:** 2026-03-05
+**Confidence:** HIGH (based on direct codebase analysis of all relevant source files)
 
-## Recommended Architecture
+## Current Architecture (Baseline)
 
-The E2E harness is a **bats-core test framework** that sits alongside (not inside) the existing Rust workspace. It spawns real CLI processes in headless mode, validates that events flow through the memory-daemon pipeline, and reports results via JUnit XML in a CI matrix.
-
-### High-Level Architecture
-
-```
-tests/e2e-cli/
-    test_helper/
-      bats-support/     (git clone, .gitignored)
-      bats-assert/      (git clone, .gitignored)
-      bats-file/        (git clone, .gitignored)
-      common.bash       (THE shared library -- workspace, daemon, CLI wrappers)
-    fixtures/
-      hook-payloads/    (JSON stdin for hook script testing)
-      plugin-files/     (minimal adapter configs per CLI)
-      hello-project/    (README + single source file)
-      rust-project/     (Cargo.toml, src/main.rs)
-    claude/
-      smoke.bats
-      hooks.bats
-      pipeline.bats
-    gemini/
-      smoke.bats
-      hooks.bats
-      pipeline.bats
-    opencode/
-      smoke.bats
-      hooks.bats
-      pipeline.bats
-    copilot/
-      smoke.bats
-      hooks.bats
-      pipeline.bats
-    codex/
-      smoke.bats
-      commands.bats     (no hooks -- commands/skills only)
-    setup-bats.sh       (installs bats + helpers locally)
-```
-
-### Relationship to Existing Architecture
+### Write Path (Ingest)
 
 ```
-EXISTING (unchanged)                    NEW (additive)
-========================               ========================
-crates/e2e-tests/                      tests/e2e-cli/
-  tests/pipeline_test.rs                 claude/smoke.bats
-  tests/bm25_teleport_test.rs           claude/hooks.bats
-  tests/multi_agent_test.rs             claude/pipeline.bats
-  (29 Rust integration tests)           (Real CLI processes)
-  (Direct handler calls)                (Real daemon, real gRPC)
-  (No daemon, no gRPC)                  (bats-core + JUnit XML)
-
-plugins/                               tests/e2e-cli/fixtures/
-  memory-gemini-adapter/                 (copies adapter files into workspace)
-  memory-copilot-adapter/                (validates hook behavior E2E)
-  memory-opencode-plugin/
-
-crates/memory-daemon/                  tests/e2e-cli/test_helper/common.bash
-  (Production daemon)                    (Starts/stops daemon per test file)
-
-crates/memory-ingest/                  tests/e2e-cli/{cli}/pipeline.bats
-  (Production ingest binary)             (Validates ingest via real CLIs)
+Hook Handler
+    |
+    v
+gRPC IngestEvent RPC (memory-service/ingest.rs)
+    |
+    +--> Validate event_id, session_id
+    +--> Convert proto Event -> domain Event
+    +--> Serialize event bytes
+    +--> Create OutboxEntry::for_toc(event_id, timestamp_ms)
+    +--> storage.put_event(event_id, event_bytes, outbox_bytes)  [ATOMIC]
+    +--> Return IngestEventResponse { event_id, created }
 ```
 
-**Key principle:** The two test layers are complementary, not overlapping.
+**Key observation:** The ingest handler is synchronous relative to the caller. It writes the event and outbox entry atomically to RocksDB, then returns. There is NO dedup check in the current write path.
 
-| Layer | What it tests | How it tests | Speed |
-|-------|--------------|--------------|-------|
-| `crates/e2e-tests/` | Internal pipeline correctness | Direct Rust handler calls, no daemon | Fast (seconds) |
-| `tests/e2e-cli/` (new) | End-to-end CLI integration | Real daemon + real CLI processes via bats | Slow (minutes) |
+### Async Index Path (Outbox Consumer)
+
+```
+Scheduler (memory-scheduler) triggers indexing job periodically
+    |
+    v
+IndexingPipeline.process_batch(batch_size)
+    |
+    +--> storage.get_outbox_entries(start_sequence, limit)
+    +--> For each registered IndexUpdater:
+    |       +--> Filter entries this updater hasn't seen (checkpoint tracking)
+    |       +--> updater.index_document(entry)  -- BM25 or Vector
+    |       +--> Track success/error/skip per entry
+    +--> Commit all indexes
+    +--> Update checkpoints
+    +--> Save checkpoints to RocksDB
+```
+
+**Registered updaters:** BM25Updater (Tantivy), VectorIndexUpdater (usearch HNSW)
+
+### Vector Indexing Details
+
+```
+VectorIndexUpdater.process_entry(outbox_entry)
+    |
+    +--> If action == IndexEvent:
+    |       +--> find_grip_for_event(event_id)  [currently returns None - simplified]
+    |       +--> If grip found: index_grip(grip)
+    |               +--> Check metadata for existing doc_id (skip if exists)
+    |               +--> embedder.embed(text)   [CandleEmbedder, all-MiniLM-L6-v2]
+    |               +--> metadata.next_vector_id()
+    |               +--> hnsw_index.add(vector_id, embedding)
+    |               +--> metadata.put(VectorEntry)
+    |
+    +--> If action == UpdateToc:
+    |       +--> Skip (vector updater only handles IndexEvent)
+```
+
+**Key observation:** The vector index is populated from TOC nodes and grips AFTER they are created by the segmenter/summarizer. The current `find_grip_for_event` is a simplified stub returning None. In practice, TOC nodes are indexed when the `index_node` method is called directly during rebuild operations.
+
+### Read Path (Retrieval)
+
+```
+RouteQuery RPC
+    |
+    v
+RetrievalHandler
+    +--> Classify intent (Explore/Answer/Locate/TimeBoxed)
+    +--> Detect capability tier (Full/Hybrid/Semantic/Keyword/Agentic)
+    +--> Build FallbackChain for intent+tier
+    +--> RetrievalExecutor.execute(query, chain, conditions, mode, tier)
+         |
+         +--> Sequential: Try layers in order, stop at sufficient results
+         +--> Parallel: Execute beam_width layers concurrently, pick best
+         +--> Hybrid: Parallel first, sequential fallback
+         |
+         +--> Each layer returns SearchResult { doc_id, score, text_preview, ... }
+         +--> Dedup by doc_id (in merge_results)
+         +--> Return ExecutionResult with explainability
+```
+
+### Ranking Composition (Layer 6)
+
+Current ranking components applied at different stages:
+
+| Component | Stage | Location | Formula |
+|-----------|-------|----------|---------|
+| Salience | Write-time | `SalienceScorer` in memory-types | `0.35 + length_density + kind_boost + pinned_boost` |
+| Usage decay | Read-time | `usage_penalty()` in memory-types | `score * 1/(1 + decay_factor * access_count)` |
+| Novelty | Ingest-time | `NoveltyChecker` in memory-service | Cosine similarity gate (opt-in, fail-open) |
+
+### Existing Novelty Checker (Important Precedent)
+
+The system ALREADY has a `NoveltyChecker` in `memory-service/src/novelty.rs` that:
+- Is **disabled by default** (opt-in via `NoveltyConfig.enabled`)
+- Uses **fail-open** semantics (any failure -> store the event)
+- Follows a **gate pattern**: check before store, but never block
+- Has configurable **threshold** (default 0.82), **timeout** (default 50ms), **min_text_length** (default 50)
+- Tracks detailed **metrics** (skipped_disabled, skipped_no_embedder, skipped_timeout, stored_novel, rejected_duplicate)
+- Uses `EmbedderTrait` and `VectorIndexTrait` abstractions for testability
+
+**This is the foundation for dedup.** The NoveltyChecker IS a semantic dedup gate. The question is: does it need enhancement, or is the timing gap the only real issue?
+
+## Recommended Architecture for v2.5
+
+### Design Principle: Dedup IS Enhanced Novelty
+
+The existing `NoveltyChecker` already implements the core dedup pattern. Rather than building a parallel system, enhance it:
+
+1. **Evolve** the NoveltyChecker to handle the timing gap (core architectural challenge)
+2. **Add stale filtering** as a new read-time ranking component
+3. **Keep the same fail-open, opt-in, metric-rich patterns**
+
+### Component 1: DedupGate (Enhanced NoveltyChecker)
+
+**Location:** `memory-service/src/novelty.rs` (extend existing)
+
+**The Timing Problem:**
+The vector index is built asynchronously from the outbox. When event N arrives, events N-1, N-2, etc. may not yet be in the HNSW index. Two near-simultaneous duplicate events will BOTH pass the dedup check because neither sees the other in the index.
+
+**Solution: Two-tier dedup with in-flight buffer**
+
+```
+IngestEvent RPC
+    |
+    v
+DedupGate (enhanced NoveltyChecker)
+    |
+    +--> GATE 1: Config enabled? (fail-open if disabled)
+    +--> GATE 2: Text long enough? (skip short events)
+    +--> GATE 3: Embedder available? (fail-open if not)
+    |
+    +--> Generate embedding for incoming event
+    |
+    +--> CHECK A: In-flight buffer (recent embeddings not yet indexed)
+    |       +--> Linear scan of buffer (bounded size, e.g., 256 entries)
+    |       +--> Cosine similarity against each buffered embedding
+    |       +--> If max_similarity > threshold -> REJECT as duplicate
+    |
+    +--> CHECK B: HNSW index (historical indexed content)
+    |       +--> hnsw_index.search(embedding, k=1)
+    |       +--> If top_score > threshold -> REJECT as duplicate
+    |
+    +--> If novel:
+    |       +--> Add embedding to in-flight buffer (with TTL/max-size eviction)
+    |       +--> Return STORE
+    |
+    +--> If duplicate:
+            +--> Increment rejected_duplicate metric
+            +--> Return SKIP (event NOT stored)
+```
+
+**In-flight buffer design:**
+
+```rust
+struct InFlightBuffer {
+    entries: VecDeque<InFlightEntry>,
+    max_size: usize,     // Default: 256
+    max_age: Duration,   // Default: 5 minutes
+}
+
+struct InFlightEntry {
+    event_id: String,
+    embedding: Vec<f32>,
+    timestamp: Instant,
+    session_id: String,
+}
+```
+
+**Why this works:**
+- The buffer catches duplicates that arrive faster than the indexing pipeline
+- Buffer is small (256 entries x 384 dims x 4 bytes = ~400KB) -- trivial memory
+- Linear scan of 256 vectors is <1ms -- well within the 50ms timeout
+- Buffer entries auto-evict when old enough that they should be in the index
+- Buffer is session-scoped (optional): only check within same session for tighter dedup
+
+**Why NOT a separate index:**
+- A second HNSW index adds complexity (two indexes to maintain/rebuild)
+- The in-flight window is short (seconds to minutes), linear scan is fast enough
+- Buffer entries naturally age out as the indexing pipeline catches up
+
+### Component 2: StaleFilter (New Read-Time Ranking Component)
+
+**Location:** New file `memory-service/src/stale.rs` or integrated into retrieval pipeline
+
+**What is "stale"?** A result is stale when newer content semantically supersedes it. For example:
+- "We decided to use PostgreSQL" superseded by "We switched to RocksDB"
+- "JWT tokens expire in 1 hour" superseded by "JWT tokens now expire in 24 hours"
+
+**Approach: Timestamp-based decay with semantic overlap detection**
+
+```
+RetrievalExecutor returns raw results
+    |
+    v
+StaleFilter (post-retrieval, pre-return)
+    |
+    +--> For each result pair (i, j) where i.timestamp < j.timestamp:
+    |       +--> If cosine_similarity(i.embedding, j.embedding) > overlap_threshold:
+    |               +--> Mark i as "superseded by j"
+    |               +--> Apply staleness penalty to i.score
+    |
+    +--> Apply time-based decay:
+    |       +--> age_days = (now - result.timestamp).days()
+    |       +--> decay = 1.0 / (1.0 + staleness_decay_factor * age_days)
+    |       +--> result.score *= decay
+    |
+    +--> Re-sort results by adjusted score
+    +--> Return filtered results
+```
+
+**Integration with existing ranking:**
+
+```
+Final score = base_score
+            * salience_factor       (write-time, from SalienceScorer)
+            * usage_penalty         (read-time, from usage tracking)
+            * staleness_factor      (read-time, NEW)
+```
+
+**Where staleness_factor:**
+```
+staleness_factor = time_decay * supersession_penalty
+
+time_decay = 1.0 / (1.0 + staleness_decay * age_days)
+supersession_penalty = if superseded { 0.3 } else { 1.0 }
+```
+
+**Configuration:**
+
+```rust
+pub struct StaleConfig {
+    /// Whether stale filtering is enabled (default: true for v2.5)
+    pub enabled: bool,
+    /// Cosine similarity threshold for considering two results as covering same topic
+    /// Range: 0.0-1.0, higher = stricter (default: 0.85)
+    pub overlap_threshold: f32,
+    /// Decay factor for time-based staleness (default: 0.01)
+    /// Higher = more aggressive time penalty
+    pub decay_factor: f32,
+    /// Score multiplier when result is superseded (default: 0.3)
+    pub superseded_penalty: f32,
+    /// Minimum age in days before time decay kicks in (default: 7)
+    pub grace_period_days: u32,
+}
+```
 
 ### Component Boundaries
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| **common.bash** | Workspace isolation, daemon lifecycle, CLI wrappers, skip helpers | All .bats files source it |
-| **fixtures/** | Static test data: JSON payloads, plugin configs, project templates | Read by .bats files |
-| **{cli}/smoke.bats** | Basic headless invocation, binary detection, output validation | common.bash, CLI binary |
-| **{cli}/hooks.bats** | Hook script unit tests: mock stdin, verify JSON payload | Hook scripts, common.bash |
-| **{cli}/pipeline.bats** | Full E2E: CLI headless -> hook -> daemon -> gRPC query -> verify | CLI, daemon, hook scripts |
-| **{cli}/commands.bats** | Codex-only: command invocation without hooks | CLI binary, common.bash |
-| **setup-bats.sh** | One-time install of bats-core + helper libraries | git, filesystem |
-| **GitHub Actions CI** | Matrix runner: 5 CLIs, JUnit XML, artifact collection | bats, test-summary/action |
+| Component | Responsibility | Communicates With | Crate |
+|-----------|---------------|-------------------|-------|
+| DedupGate (enhanced NoveltyChecker) | Reject semantically duplicate events at ingest | Embedder, HNSW index, InFlightBuffer | memory-service |
+| InFlightBuffer | Track recent un-indexed embeddings for dedup gap | DedupGate only (internal) | memory-service |
+| StaleFilter | Downrank superseded/old results at query time | RetrievalExecutor, Embedder | memory-service or memory-retrieval |
+| DedupConfig | Configuration for dedup gate | Settings, NoveltyConfig (extend) | memory-types |
+| StaleConfig | Configuration for staleness filtering | Settings | memory-types |
+| DedupMetrics | Extended novelty metrics with buffer stats | DedupGate | memory-service |
 
-### Data Flow
+### Data Flow Changes
+
+**Write path change (before/after):**
 
 ```
-1. bats tests/e2e-cli/claude/pipeline.bats
-   |
-2. setup_file() from common.bash:
-   |-- mktemp -d -> $TEST_WORKSPACE
-   |-- cp fixtures into workspace
-   |-- start_daemon (port 0 -> OS assigns)
-   |-- wait_for_daemon health check
-   |-- setup adapter hooks in workspace
-   |
-3. @test "headless prompt ingests events":
-   |-- run_claude "What files are in this project?"
-   |   |-- timeout 120s claude -p "..." --output-format json --allowedTools "Read"
-   |   |-- hooks fire in background -> memory-ingest -> daemon
-   |-- sleep 2  # allow async hook processing
-   |-- grpcurl query daemon for event count
-   |-- assert event_count >= 1
-   |-- assert agent field == "claude"
-   |
-4. teardown_file():
-   |-- kill daemon
-   |-- if BATS_SUITE_TEST_FAILED > 0: tar.gz workspace -> test-artifacts/
-   |-- else: rm -rf workspace
-   |
-5. bats outputs JUnit XML to test-results/claude/
-   |
-6. GitHub Actions: test-summary/action renders JUnit in PR checks
+BEFORE:
+  IngestEvent -> validate -> serialize -> storage.put_event (atomic) -> return
+
+AFTER:
+  IngestEvent -> validate -> serialize
+      -> DedupGate.should_store(event)
+          -> embed(event.text)
+          -> check InFlightBuffer (linear scan)
+          -> check HNSW index (if not caught by buffer)
+          -> if novel: add to buffer, return STORE
+          -> if duplicate: return SKIP
+      -> if STORE: storage.put_event (atomic) -> return {created: true}
+      -> if SKIP: return {created: false, deduplicated: true}  [new response field]
 ```
 
-## Per-CLI Wrapper Functions
+**Read path change (before/after):**
 
-Each CLI has different headless flags. Wrappers centralize this in common.bash:
+```
+BEFORE:
+  RouteQuery -> classify -> tier detect -> execute layers -> merge -> return
 
-```bash
-run_claude() {
-  local prompt="$1"; shift
-  timeout "${CLI_TIMEOUT:-120}" claude -p "$prompt" \
-    --output-format json \
-    --allowedTools "Read,Bash(echo *),Bash(ls *)" \
-    "$@" 2>>"$TEST_STDERR"
+AFTER:
+  RouteQuery -> classify -> tier detect -> execute layers -> merge
+      -> StaleFilter.apply(results, stale_config)
+          -> pairwise overlap check (optional, O(n^2) but n is small ~10-20)
+          -> time decay
+          -> re-sort
+      -> return
+```
+
+### Proto Changes Required
+
+```protobuf
+message IngestEventResponse {
+    string event_id = 1;
+    bool created = 2;
+    bool deduplicated = 201;        // NEW: true if rejected as duplicate
+    float similarity_score = 202;   // NEW: highest similarity score found
 }
 
-run_gemini() {
-  local prompt="$1"; shift
-  timeout "${CLI_TIMEOUT:-120}" gemini \
-    --yolo --sandbox=false \
-    --output-format json \
-    "$prompt" \
-    "$@" 2>>"$TEST_STDERR"
+message DedupConfig {
+    bool enabled = 1;
+    float threshold = 2;
+    uint64 timeout_ms = 3;
+    uint32 min_text_length = 4;
+    uint32 buffer_size = 5;         // In-flight buffer max entries
+    uint64 buffer_ttl_secs = 6;     // In-flight buffer entry TTL
 }
 
-run_opencode() {
-  local prompt="$1"; shift
-  timeout "${CLI_TIMEOUT:-120}" opencode -p "$prompt" \
-    -q -f json \
-    "$@" 2>>"$TEST_STDERR"
+message StaleConfig {
+    bool enabled = 1;
+    float overlap_threshold = 2;
+    float decay_factor = 3;
+    float superseded_penalty = 4;
+    uint32 grace_period_days = 5;
 }
 
-run_copilot() {
-  local prompt="$1"; shift
-  timeout "${CLI_TIMEOUT:-120}" copilot -p "$prompt" \
-    --yes --allow-all-tools \
-    "$@" 2>>"$TEST_STDERR"
-}
-
-run_codex() {
-  local prompt="$1"; shift
-  timeout "${CLI_TIMEOUT:-120}" codex exec -q --full-auto \
-    "$prompt" \
-    "$@" 2>>"$TEST_STDERR"
+// New RPC for dedup status
+message GetDedupStatusRequest {}
+message GetDedupStatusResponse {
+    bool enabled = 1;
+    float threshold = 2;
+    uint64 total_checked = 3;
+    uint64 total_rejected = 4;
+    uint64 buffer_size = 5;
+    uint64 buffer_capacity = 6;
 }
 ```
 
-### Headless Invocation Summary
-
-| CLI | Headless Command | JSON Output | Auto-Approve | Confidence |
-|-----|-----------------|-------------|--------------|------------|
-| Claude Code | `claude -p "prompt"` | `--output-format json` | `--allowedTools "..."` | HIGH |
-| Gemini CLI | `gemini "prompt"` | `--output-format json` | `--yolo --sandbox=false` | HIGH |
-| OpenCode | `opencode -p "prompt"` | `-f json -q` | Auto in non-interactive | MEDIUM |
-| Copilot CLI | `copilot -p "prompt"` | N/A (text only) | `--yes --allow-all-tools` | HIGH |
-| Codex CLI | `codex exec "prompt"` | N/A (text only) | `-q --full-auto` | HIGH |
-
-### Hook Configuration Per CLI
-
-| CLI | Hook Mechanism | Config Location | Agent Tag |
-|-----|---------------|-----------------|-----------|
-| Claude Code | CCH hooks with pipe handler | `.claude/hooks/` in workspace | `claude` |
-| Gemini CLI | Shell hook in `.gemini/hooks/` | `.gemini/hooks/memory-capture.sh` | `gemini` |
-| Copilot CLI | Shell hook via `.github/hooks/` | `.github/hooks/scripts/memory-capture.sh` | `copilot` |
-| OpenCode | Plugin-based hooks | `.opencode/` in workspace | `opencode` |
-| Codex CLI | **No hook support** | N/A (commands/skills only) | `codex` |
+**Proto field numbers:** Use 201+ range (reserved for Phase 23+ per project convention).
 
 ## Patterns to Follow
 
-### Pattern 1: common.bash as Single Source of Truth
+### Pattern 1: Fail-Open Gate (from existing NoveltyChecker)
 
-**What:** All shared logic in one file sourced by every .bats file.
-**When:** Always. Never duplicate workspace, daemon, or CLI wrapper code.
-**Why:** Single point of maintenance. When a CLI changes flags, update one function.
+**What:** Any check that could prevent event storage MUST fail open.
+**When:** Always, for any ingest-time gate.
+**Why:** The system's core invariant is that hooks never block the agent. If the dedup check fails (embedder down, timeout, index corrupt), the event MUST be stored anyway.
 
-```bash
-# Every .bats file starts with:
-load '../test_helper/bats-support/load'
-load '../test_helper/bats-assert/load'
-load '../test_helper/common'
-```
-
-### Pattern 2: setup_file / teardown_file for Expensive Operations
-
-**What:** Use bats file-level hooks (not per-test) for workspace and daemon lifecycle.
-**When:** Daemon startup, workspace creation, fixture copying.
-**Why:** Starting a daemon per-test is slow. Per-file gives one daemon for all tests in the file.
-
-```bash
-setup_file() {
-  export PROJECT_ROOT="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"
-  require_cli "claude"
-  require_daemon_binary
-
-  create_workspace
-  copy_adapter_files "claude"
-  seed_test_files
-  start_daemon
-}
-
-teardown_file() {
-  stop_daemon
-  cleanup_workspace
+```rust
+pub async fn should_store(&self, event: &Event) -> DedupDecision {
+    if !self.config.enabled {
+        return DedupDecision::Store(DedupReason::Disabled);
+    }
+    // ... checks ...
+    match timeout(duration, self.check_dedup(event)).await {
+        Ok(Ok(decision)) => decision,
+        Ok(Err(_)) => DedupDecision::Store(DedupReason::Error),    // fail-open
+        Err(_) => DedupDecision::Store(DedupReason::Timeout),      // fail-open
+    }
 }
 ```
 
-### Pattern 3: Daemon Port Discovery via Port 0
+### Pattern 2: Opt-In with Sensible Defaults (from NoveltyConfig)
 
-**What:** Start daemon on port 0 (OS assigns), extract actual port from log.
-**When:** Every test workspace that needs a daemon.
-**Why:** Avoids port conflicts in parallel test execution.
+**What:** New features disabled by default, enabled via config.
+**When:** Any feature that changes existing behavior.
+**Why:** Backward compatibility. Existing users should see no change until they opt in.
 
-```bash
-start_daemon() {
-  "$PROJECT_ROOT/target/release/memory-daemon" \
-    --db-path "$TEST_WORKSPACE/db" \
-    --port 0 \
-    > "$TEST_WORKSPACE/daemon.log" 2>&1 &
-  export DAEMON_PID=$!
+```toml
+# config.toml
+[dedup]
+enabled = true
+threshold = 0.85
+buffer_size = 256
 
-  for i in $(seq 1 50); do
-    DAEMON_PORT=$(grep -o 'listening on.*:[0-9]*' "$TEST_WORKSPACE/daemon.log" 2>/dev/null \
-      | grep -o '[0-9]*$' | head -1)
-    [ -n "$DAEMON_PORT" ] && break
-    sleep 0.1
-  done
-  export DAEMON_PORT
-}
+[stale]
+enabled = true
+decay_factor = 0.01
 ```
 
-### Pattern 4: require_cli Skip Pattern
+### Pattern 3: Metric-Rich Observability (from NoveltyMetrics)
 
-**What:** Skip entire test file when a CLI is not installed.
-**When:** Top of setup_file in every CLI-specific .bats file.
-**Why:** CI shows "skipped", not "failed".
+**What:** Every code path through the gate tracks a metric.
+**When:** Any decision point in dedup or stale filtering.
+**Why:** Debugging and tuning. Users need to know WHY events were rejected or WHY results were downranked.
 
-```bash
-require_cli() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    skip "CLI '$1' not installed"
-  fi
-}
-```
+### Pattern 4: Trait-Based Abstractions for Testing (from EmbedderTrait/VectorIndexTrait)
 
-### Pattern 5: Assert via gRPC, Not CLI Output
-
-**What:** Verify outcomes by querying the daemon's gRPC API.
-**When:** Pipeline tests that verify event ingestion.
-**Why:** The daemon is the source of truth. CLI output is non-deterministic.
-
-```bash
-@test "hook ingest produces events in daemon" {
-  run_claude "List the files in this directory"
-  sleep 2  # allow async hook processing
-
-  local count
-  count=$(grpcurl -plaintext "localhost:$DAEMON_PORT" \
-    memory.MemoryService/GetStats 2>/dev/null | jq -r '.event_count')
-
-  assert [ "$count" -ge 1 ]
-}
-```
-
-### Pattern 6: Hook Script Testing via Stdin Pipe
-
-**What:** Test hook scripts directly by piping JSON payloads.
-**When:** hooks.bats files for each CLI (except Codex).
-**Why:** Fast, deterministic, no API key needed.
-
-```bash
-@test "gemini hook: SessionStart produces valid output" {
-  run bash "$TEST_PROJECT/.gemini/hooks/memory-capture.sh" \
-    < "$BATS_TEST_DIRNAME/../fixtures/hook-payloads/gemini-session-start.json"
-
-  assert_success
-  assert_output "{}"
-}
-```
+**What:** Core dedup logic depends on traits, not concrete types.
+**When:** Any component that interacts with embedder or vector index.
+**Why:** MockEmbedder and MockVectorIndex enable fast, deterministic unit tests.
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Shared Daemon Across Test Files
-**Why bad:** Ordering dependencies, shared state corruption, blocks parallel execution.
-**Instead:** Each .bats file starts its own daemon in setup_file.
+### Anti-Pattern 1: Separate Dedup Index
 
-### Anti-Pattern 2: Hardcoded Ports
-**Why bad:** Parallel execution causes conflicts.
-**Instead:** Port 0 with discovery from daemon log.
+**What:** Building a second HNSW index specifically for dedup checking.
+**Why bad:** Double the maintenance, double the rebuild logic, double the disk usage. The in-flight buffer + existing HNSW covers the same ground with far less complexity.
+**Instead:** In-flight buffer (256 entries, linear scan) + existing HNSW index.
 
-### Anti-Pattern 3: Asserting on LLM Output Content
-**Why bad:** Non-deterministic. Tests will be flaky.
-**Instead:** Assert structural properties: exit code, JSON validity, field presence, event counts.
+### Anti-Pattern 2: Blocking Dedup Check
 
-### Anti-Pattern 4: Inline Flag Strings in Tests
-**Why bad:** Flag changes require updating every test.
-**Instead:** Per-CLI wrapper functions in common.bash.
+**What:** Making the IngestEvent RPC wait for dedup check with no timeout.
+**Why bad:** Violates fail-open principle. If embedder is slow, all ingestion stalls.
+**Instead:** Timeout (50ms default), fail-open on timeout.
 
-### Anti-Pattern 5: Testing Without Timeout
-**Why bad:** Hung CLI blocks CI indefinitely.
-**Instead:** Every CLI invocation wrapped in `timeout`.
+### Anti-Pattern 3: Mutating Events for Staleness
 
-### Anti-Pattern 6: Custom Test Runner Instead of bats-core
-**Why bad:** Reinvents TAP output, parallel execution, JUnit reporting, assertion helpers.
-**Instead:** Use bats-core. It provides all of this out of the box.
+**What:** Adding a `stale` flag to stored events or TOC nodes.
+**Why bad:** Violates append-only model. Staleness is a read-time property that depends on what other content exists.
+**Instead:** Compute staleness at query time from timestamps and similarity.
 
-## CI Integration Architecture
+### Anti-Pattern 4: O(n^2) Pairwise Comparison on Large Result Sets
 
-### Separate CI Job with Matrix
+**What:** Running pairwise overlap detection on hundreds of results.
+**Why bad:** 100 results = 4,950 comparisons, each requiring an embedding lookup.
+**Instead:** Only apply pairwise overlap to the top-k results (10-20 max). Results beyond top-k are already low-ranked.
 
-```yaml
-  cli-e2e:
-    name: CLI E2E (${{ matrix.cli }})
-    runs-on: ubuntu-latest
-    needs: [build]
-    strategy:
-      fail-fast: false
-      matrix:
-        cli: [claude, gemini, opencode, copilot, codex]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install bats-core
-        run: |
-          git clone --depth 1 --branch v1.12.0 \
-            https://github.com/bats-core/bats-core.git /tmp/bats
-          sudo /tmp/bats/install.sh /usr/local
-          cd tests/e2e-cli/test_helper
-          git clone --depth 1 https://github.com/bats-core/bats-support.git
-          git clone --depth 1 https://github.com/bats-core/bats-assert.git
-          git clone --depth 1 https://github.com/bats-core/bats-file.git
-      - name: Build binaries
-        run: cargo build --release -p memory-daemon -p memory-ingest
-      - name: Run ${{ matrix.cli }} E2E
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          bats tests/e2e-cli/${{ matrix.cli }}/ \
-            --report-formatter junit \
-            --output ./test-results/${{ matrix.cli }}/
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: e2e-${{ matrix.cli }}
-          path: test-results/
-      - uses: test-summary/action@v2
-        if: always()
-        with:
-          paths: test-results/${{ matrix.cli }}/**/*.xml
-```
+### Anti-Pattern 5: Dedup on Raw Events Instead of Content
 
-### Progression Strategy
+**What:** Checking dedup at the raw event level (every user_message, tool_result, etc.).
+**Why bad:** Many events are legitimately similar (e.g., "yes", "okay", session_start). Dedup should focus on substantive content.
+**Instead:** Only dedup events with `min_text_length >= 50` (already in NoveltyConfig). Consider only user_message and assistant_message types.
+
+## Scalability Considerations
+
+| Concern | At 100 events/day | At 1K events/day | At 10K events/day |
+|---------|-------------------|-------------------|-------------------|
+| InFlightBuffer size | 256 entries plenty | 256 entries fine (5min TTL) | May need 512-1024 entries |
+| Dedup latency | <5ms | <10ms (buffer scan) | <20ms (larger buffer) |
+| HNSW search for dedup | <5ms | <10ms | <15ms (larger index) |
+| Stale pairwise check | Negligible (10 results) | Negligible | Negligible (still 10-20 results) |
+| Buffer memory | ~400KB | ~400KB | ~1.6MB at 1024 entries |
+
+## Build Order (Dependency-Aware)
 
 ```
-Phase 1: continue-on-error: true (informational)
-Phase 2: Required for Claude Code only (most stable)
-Phase 3: Required for all CLIs with available binaries
+Phase 1: DedupGate foundation
+    +--> DedupConfig in memory-types (extends NoveltyConfig)
+    +--> InFlightBuffer in memory-service (pure data structure, no deps)
+    +--> Enhanced NoveltyChecker with buffer integration
+    +--> Unit tests with MockEmbedder + MockVectorIndex
+
+Phase 2: Wire DedupGate into IngestEvent
+    +--> Inject DedupGate into MemoryServiceImpl
+    +--> Add dedup check before storage.put_event
+    +--> Proto changes (IngestEventResponse.deduplicated)
+    +--> Integration tests
+
+Phase 3: StaleFilter
+    +--> StaleConfig in memory-types
+    +--> StaleFilter implementation
+    +--> Integration with RetrievalExecutor (post-processing step)
+    +--> Unit tests
+
+Phase 4: E2E validation
+    +--> E2E test: duplicate events rejected
+    +--> E2E test: near-duplicate events rejected
+    +--> E2E test: stale results downranked
+    +--> E2E test: fail-open on embedder failure
+    +--> CLI bats tests for dedup behavior
 ```
 
-## Taskfile Integration
-
-```yaml
-  cli-e2e:
-    desc: "Run CLI E2E tests (all available CLIs)"
-    cmds:
-      - cargo build --release -p memory-daemon -p memory-ingest
-      - export PATH="$PWD/target/release:$PATH" && bats tests/e2e-cli/*/
-
-  cli-e2e-claude:
-    desc: "Run CLI E2E tests (Claude Code only)"
-    cmds:
-      - cargo build --release -p memory-daemon -p memory-ingest
-      - export PATH="$PWD/target/release:$PATH" && bats tests/e2e-cli/claude/
-
-  setup-bats:
-    desc: "Install bats-core and helpers locally"
-    cmds:
-      - tests/e2e-cli/setup-bats.sh
-```
-
-## New Files Summary
-
-| File/Dir | Type | Purpose |
-|----------|------|---------|
-| `tests/e2e-cli/test_helper/common.bash` | New | Core shared library |
-| `tests/e2e-cli/setup-bats.sh` | New | Install bats + helpers |
-| `tests/e2e-cli/fixtures/` | New | Test data and project templates |
-| `tests/e2e-cli/{claude,gemini,opencode,copilot,codex}/*.bats` | New | Per-CLI test files |
-
-### Modified Files
-
-| File | Change |
-|------|--------|
-| `.gitignore` | Add `tests/e2e-cli/test_helper/bats-*`, `test-results/`, `test-artifacts/` |
-| `Taskfile.yml` | Add `cli-e2e`, `cli-e2e-claude`, `setup-bats` tasks |
-| `.github/workflows/ci.yml` | Add `cli-e2e` matrix job (initially optional) |
+**Rationale for this order:**
+1. DedupGate first because StaleFilter can be built independently, but DedupGate changes the write path (higher risk, needs more testing)
+2. InFlightBuffer before wiring because it can be tested in isolation as a pure data structure
+3. StaleFilter after DedupGate because it is read-path only (lower risk, no data mutation)
+4. E2E last because it needs both features working end-to-end
 
 ## Sources
 
-- [bats-core docs](https://bats-core.readthedocs.io/en/latest/) -- HIGH confidence
-- [Claude Code headless docs](https://code.claude.com/docs/en/headless) -- HIGH confidence
-- [Gemini CLI headless docs](https://google-gemini.github.io/gemini-cli/docs/cli/headless.html) -- HIGH confidence
-- [Codex CLI non-interactive docs](https://developers.openai.com/codex/noninteractive) -- HIGH confidence
-- [Copilot CLI docs](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli) -- HIGH confidence
-- [OpenCode CLI docs](https://opencode.ai/docs/cli/) -- MEDIUM confidence
-- [test-summary/action](https://github.com/test-summary/action) -- HIGH confidence
+- Direct codebase analysis of:
+  - `crates/memory-service/src/novelty.rs` -- existing NoveltyChecker pattern (fail-open, opt-in, metrics)
+  - `crates/memory-service/src/ingest.rs` -- IngestEvent handler (MemoryServiceImpl, event storage)
+  - `crates/memory-indexing/src/pipeline.rs` -- IndexingPipeline (outbox processing, checkpoint tracking)
+  - `crates/memory-indexing/src/vector_updater.rs` -- VectorIndexUpdater (HNSW + Candle integration)
+  - `crates/memory-vector/src/hnsw.rs` -- HnswIndex (usearch wrapper, cosine similarity)
+  - `crates/memory-vector/src/index.rs` -- VectorIndex trait (search, add, remove interface)
+  - `crates/memory-retrieval/src/executor.rs` -- RetrievalExecutor (fallback chains, merge, scoring)
+  - `crates/memory-retrieval/src/types.rs` -- QueryIntent, CapabilityTier, StopConditions, ExecutionMode
+  - `crates/memory-types/src/salience.rs` -- SalienceScorer (write-time importance scoring)
+  - `crates/memory-types/src/usage.rs` -- UsageStats, usage_penalty (read-time decay)
+  - `crates/memory-types/src/config.rs` -- NoveltyConfig, Settings (layered config)
+  - `crates/memory-types/src/outbox.rs` -- OutboxEntry, OutboxAction (async index pipeline)
+  - `.planning/PROJECT.md` -- requirements, architectural decisions, constraints

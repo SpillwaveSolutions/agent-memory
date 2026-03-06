@@ -1,208 +1,108 @@
-# Feature Landscape: Headless Multi-CLI E2E Testing Harness
+# Feature Landscape
 
-**Domain:** Shell-based E2E integration testing for 5 AI coding CLI tools
-**Researched:** 2026-02-22
-**Overall Confidence:** HIGH
-
-## Executive Summary
-
-This document maps the feature landscape for building a shell-first E2E testing harness that spawns real CLI processes (Claude Code, Gemini CLI, OpenCode, Copilot CLI, Codex CLI) in headless mode. The harness validates hook/event capture, skill/command invocation, and state persistence across the full CLI-to-daemon pipeline. It complements the existing 29 cargo E2E tests (which test handlers directly via tonic::Request) by adding a process-level integration layer.
-
-Codex CLI has NO hook/extension system, so hook-dependent test scenarios must be skipped for it.
-
----
+**Domain:** Semantic deduplication and retrieval quality for agent conversation memory
+**Researched:** 2026-03-05
 
 ## Table Stakes
 
-Features the harness must have. Missing = harness is unreliable or unusable.
+Features users expect from a dedup/stale-filtering system. Missing = the feature feels incomplete or broken.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Isolated workspace per test file | Tests must not pollute each other; fresh temp dir with its own RocksDB, config, and plugin files | Medium | bats `setup_file`/`teardown_file` with `mktemp -d` |
-| Process spawning with timeout | Real CLI binaries run headless with kill guard to prevent CI deadlock | Low | `timeout 120s` (gtimeout on macOS) wrapping every CLI invocation |
-| Exit code assertion | Verify CLI exits 0 on success, non-zero on failure | Low | bats built-in `[ "$status" -eq 0 ]` |
-| Stdout/stderr capture | Capture and assert on CLI output (JSON or text) | Low | bats `run` captures output and status automatically |
-| Environment variable injection | Set `MEMORY_INGEST_PATH`, API keys, config paths per test | Low | bats `export` in setup functions |
-| CLI availability detection | Skip tests gracefully when a CLI binary is not installed | Low | `command -v claude` check in `setup_file`, then `skip` |
-| Daemon lifecycle management | Start memory-daemon before tests, stop after; health check before test runs | Medium | Port 0 for OS-assigned port, health check loop |
-| Hook script unit tests | Test each adapter's memory-capture.sh in isolation with mock stdin | Low | Existing `MEMORY_INGEST_DRY_RUN=1` flag supports this |
-| Fixture data management | Predefined JSON payloads for hook events, prompts, expected outputs | Low | `tests/e2e-cli/fixtures/` directory |
-| JUnit XML reporting | CI-parseable test results | Low | bats `--report-formatter junit --output ./results/` |
-| Cleanup on failure preservation | Preserve workspace on failure for debugging, clean on success | Medium | Conditional cleanup in `teardown_file` based on `BATS_SUITE_TEST_FAILED` |
-
----
+| Ingest-time vector similarity gate | Core dedup mechanism. Without it, repeated agent conversations fill the index with near-identical content, degrading retrieval quality. | Medium | Existing `NoveltyChecker` in `memory-service/src/novelty.rs` already implements the pattern (embed -> search top-1 -> threshold check). Must be wired into the actual ingest pipeline rather than being a standalone checker. |
+| Configurable similarity threshold | Different projects have different repetition patterns. A code-heavy project tolerates lower thresholds than a conversational one. | Low | `NoveltyConfig.threshold` already exists (default 0.82). Expose through config.toml. Threshold is domain-specific; 0.80-0.90 is the practical range per community evidence. |
+| Fail-open on dedup errors | Dedup must never block ingestion. If embedder is down, index not ready, or timeout hit, store the event anyway. | Low | Already implemented in `NoveltyChecker::should_store()` with full fail-open semantics (6 skip paths). This is validated design. |
+| Temporal decay in ranking | Old results about superseded topics must rank lower than recent ones. Without this, stale answers pollute retrieval. | Medium | `VectorEntry` already stores `timestamp_millis`. Layer 6 ranking has `salience` and `usage_penalty` but no time-decay factor yet. Add exponential decay based on document age. |
+| Dedup metrics/observability | Operators need to know how many events were deduplicated vs stored, to tune thresholds. | Low | `NoveltyMetrics` already tracks `rejected_duplicate`, `stored_novel`, and 6 skip categories. Expose via gRPC `GetDedupStats` or similar. |
+| Minimum text length bypass | Short events (session_start, tool_result status lines) should skip dedup entirely -- they are structurally important but semantically thin. | Low | `NoveltyConfig.min_text_length` already exists (default 50 chars). Already implemented. |
 
 ## Differentiators
 
-Features that make this harness excellent rather than merely functional.
+Features that set the dedup system apart from naive implementations. Not expected, but add significant value.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| CLI x Scenario test matrix | Same logical test across all 5 CLIs with skip rules (e.g., skip hooks for Codex) | Medium | GitHub Actions matrix: `cli: [claude, gemini, opencode, copilot, codex]` with `fail-fast: false` |
-| End-to-end hook pipeline verification | Spawn CLI headless -> hook fires -> memory-ingest receives -> verify in RocksDB via gRPC query | High | The "real" E2E test; proves entire pipeline works |
-| Structured JSON output parsing | Parse JSON from `--output-format json` for precise field assertions | Medium | `jq` for extraction, bats-assert for validation |
-| CI artifact retention on failure | Failed test workspace preserved as tar.gz and uploaded as GitHub Actions artifact | Medium | `actions/upload-artifact@v4` with `if: always()` |
-| Shared common.bash helper library | Reusable functions for workspace creation, daemon lifecycle, CLI wrappers, skip logic | Medium | Single source of truth for all test patterns |
-| Per-CLI wrapper functions | `run_claude`, `run_gemini`, etc. that encapsulate each CLI's headless flags | Low | Standardizes invocation across test files |
-
----
+| Supersession detection (content-aware staleness) | Instead of just time-decay, detect when a newer event semantically supersedes an older one on the same topic. Mark the older result as superseded. Goes beyond dumb temporal decay. | High | Requires comparing new ingest against existing similar entries and marking old entries with a `superseded_by` reference. Could use the same vector search but with a "supersession window" (e.g., only check events from same agent/session). |
+| Per-event-type dedup policies | Different event types warrant different dedup behavior: `user_message` should be aggressively deduped, `session_start`/`session_end` should never be deduped, `assistant_stop` may have a looser threshold. | Low | Add `event_type` to the dedup decision. Simple match on `EventType` enum to select threshold or skip. |
+| Staleness half-life configuration | Configurable half-life for temporal decay (e.g., 7 days, 30 days) rather than a fixed decay curve. Projects with fast-moving topics want aggressive decay; archival projects want gentle decay. | Low | Single `half_life_days` config parameter. Decay formula: `score * exp(-ln(2) * age_days / half_life_days)`. |
+| Agent-scoped dedup | Dedup within a single agent's history, not across all agents. Agent A saying "let's fix the bug" and Agent B saying the same thing are independent events worth keeping. | Medium | Already have `Event.agent` field. Scope the vector similarity search with an agent filter. Requires post-filtering HNSW results by agent metadata since usearch has no native metadata filtering. |
+| Dedup dry-run mode | Allow operators to see what WOULD be deduped without actually dropping events. Useful for threshold tuning. | Low | Add `dry_run` flag to `NoveltyConfig`. Log rejections but store anyway. Return dedup decisions in metrics. |
+| Stale result exclusion window | Hard cutoff: results older than N days are excluded from retrieval entirely (not just downranked). Configurable per intent type -- `TimeBoxed` queries might exclude results older than 7 days while `Explore` queries include everything. | Medium | Add `max_age_days` to retrieval config per `QueryIntent`. Filter at query time before ranking. |
 
 ## Anti-Features
 
-Features to explicitly NOT build.
+Features to explicitly NOT build. These seem tempting but create more problems than they solve.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Mock CLI simulators | Simulating CLI behavior defeats E2E purpose; tests the mock, not the CLI | Spawn real CLI binaries; skip when unavailable |
-| Interactive/TUI test mode | Driving interactive sessions with keystroke simulation is extremely brittle | Only test headless/non-interactive modes |
-| Full LLM round-trip in every test | Real LLM calls are slow, expensive, and non-deterministic | Test mechanical pipeline (spawn -> hook -> ingest -> verify); LLM quality is out of scope |
-| API key management in tests | Hardcoding or committing keys is a security risk | Use CI secrets; skip tests locally when keys absent |
-| Custom test framework | Building a bespoke runner adds maintenance and breaks tool integration | Use bats-core with standard helpers |
-| Cross-platform shell abstraction | Windows cmd/PowerShell compatibility adds massive complexity | Target macOS/Linux only; Windows is out of scope for v2.4 |
-| Shared state between tests | Shared daemons or databases create ordering dependencies and flakiness | Each test file gets its own workspace and daemon |
-| Performance benchmarking | Response time measurement belongs in perf_bench, not E2E correctness tests | Keep existing perf_bench harness separate |
-| Testing CLI authentication | Auth (OAuth, API keys) is the CLI vendor's responsibility | Assume pre-authenticated; skip with message if auth fails |
-
----
+| Mutable event deletion on dedup | Tempting to delete duplicate events from RocksDB. Violates the append-only invariant that is foundational to the architecture. Deleted events break grip references, TOC nodes, and crash recovery checkpoints. | Mark duplicates silently by not storing them at ingest time. Already-stored events stay forever. |
+| Cross-project dedup | Comparing events across different project stores adds massive complexity and violates the per-project isolation model. | Keep dedup scoped to a single project store. Cross-project memory is explicitly deferred/out-of-scope. |
+| LLM-based dedup decisions | Using an LLM to decide if two events are duplicates (like Mem0 does) adds API latency, cost, and a hard dependency on external services. Agent Memory uses local embeddings precisely to avoid API dependencies. | Use local vector similarity (all-MiniLM-L6-v2 via Candle, already in-process). The 50ms timeout is achievable with local embeddings but not with API calls. |
+| Exact-match dedup only | Hashing-based exact dedup catches identical text but misses semantic near-duplicates ("let's fix the auth bug" vs "we need to address the authentication issue"). | Semantic similarity via embeddings catches both exact and near-duplicate content. Hash-based dedup is a subset of vector similarity at threshold=1.0. |
+| Global re-ranking of all stored events | Re-ranking everything at query time based on staleness is O(n) and defeats the purpose of indexed search. | Apply staleness filtering/decay AFTER index search returns top-k candidates. Post-retrieval filtering keeps cost at O(k). |
+| Retroactive dedup of existing events | Scanning all historical events to find and mark duplicates is expensive and risks flagging legitimate repeated discussions. | Apply dedup only to new events going forward. Historical data stays as-is. |
 
 ## Feature Dependencies
 
 ```
-CLI Detection (command -v)
-    |
-    +--- Workspace Isolation (mktemp -d)
-    |       |
-    |       +--- Daemon Lifecycle (start/stop/health)
-    |       |       |
-    |       |       +--- Hook Script Unit Tests
-    |       |       |
-    |       |       +--- CLI Headless Invocation
-    |       |               |
-    |       |               +--- E2E Pipeline Tests
-    |       |
-    |       +--- Fixture Data
-    |
-    +--- Per-CLI Wrapper Functions
-    |
-    +--- Common Helper Library (common.bash)
-            |
-            +--- JUnit Reporting (bats --report-formatter junit)
-            |
-            +--- CI Matrix (GitHub Actions)
-            |
-            +--- Artifact Retention (tar.gz on failure)
+NoveltyChecker wired to ingest pipeline
+    -> Configurable threshold (already exists in NoveltyConfig)
+    -> Per-event-type policies (extends NoveltyChecker)
+    -> Agent-scoped dedup (extends vector search with agent filter)
+    -> Dedup dry-run mode (extends NoveltyChecker)
+    -> Dedup metrics exposed via gRPC (extends existing NoveltyMetrics)
+
+Temporal decay in ranking
+    -> Staleness half-life config (extends ranking config)
+    -> Stale result exclusion window (extends retrieval executor)
+    -> Supersession detection (extends ingest + retrieval)
+
+Vector similarity search at ingest (already exists: HnswIndex.search)
+    -> NoveltyChecker integration (already partially built)
+    -> Agent-scoped search filtering (needs metadata filter)
 ```
-
-**Critical path (build order):**
-1. common.bash with workspace + daemon lifecycle helpers
-2. CLI detection + skip logic
-3. Per-CLI wrapper functions (run_claude, run_gemini, etc.)
-4. Hook script unit tests (mock stdin, verify output)
-5. Smoke tests (basic headless invocation per CLI)
-6. E2E pipeline tests (hook -> ingest -> query -> verify)
-7. JUnit reporting + CI matrix + artifact retention
-
----
-
-## Test Scenario Categories
-
-### Category 1: Smoke Tests (All 5 CLIs)
-
-Verify basic headless invocation works.
-
-| Scenario | What It Tests | Assertion | Skip Rule |
-|----------|--------------|-----------|-----------|
-| CLI binary exists | Binary is installed and on PATH | `command -v` succeeds | Skip file if not found |
-| Headless invocation | CLI runs with non-interactive flags and exits | Exit code 0, some stdout produced | Skip if CLI unavailable |
-| JSON output mode | CLI produces parseable JSON in headless mode | `jq empty` succeeds on stdout | Skip if CLI has no JSON output (Copilot, Codex) |
-| Plugin recognition | CLI recognizes memory adapter commands/skills | Output references memory commands | Skip if CLI unavailable |
-
-### Category 2: Hook Capture Tests (Skip Codex -- NO hooks)
-
-Verify hook scripts fire and produce correct payloads.
-
-| Scenario | What It Tests | Assertion | Skip Rule |
-|----------|--------------|-----------|-----------|
-| SessionStart payload | Hook produces valid SessionStart JSON | JSON has event, session_id, timestamp, agent fields | Skip Codex |
-| UserPromptSubmit payload | User message captured via hook | Payload contains message field | Skip Codex |
-| PostToolUse payload | Tool use event has tool_name and tool_input | JSON has tool_name field | Skip Codex |
-| Stop/SessionEnd payload | Session end produces Stop event | Correct event type | Skip Codex |
-| Fail-open on missing binary | Hook exits 0 when memory-ingest not on PATH | Exit code 0, safe output | Skip Codex |
-| Redaction filter | Sensitive fields (api_key, token) stripped | Payload lacks redacted keys | Skip Codex |
-| ANSI stripping | Input with escape sequences produces clean JSON | Valid JSON output | Skip Codex |
-
-### Category 3: E2E Pipeline Tests (Skip Codex for hook-dependent)
-
-Full pipeline: spawn CLI -> hook fires -> daemon ingests -> query verifies.
-
-| Scenario | What It Tests | Assertion | Skip Rule |
-|----------|--------------|-----------|-----------|
-| Hook ingest -> daemon storage | Event via hook appears in gRPC query | Query returns ingested event | Skip Codex |
-| Agent tag propagation | Hook sets correct agent field per CLI | Event has correct agent tag | Skip Codex |
-| Command invocation via CLI | Memory commands work through CLI | Valid response from command | Skip if CLI unavailable |
-
-### Category 4: Negative Tests (All 5 CLIs)
-
-Graceful error handling.
-
-| Scenario | What It Tests | Assertion | Skip Rule |
-|----------|--------------|-----------|-----------|
-| Daemon not running | CLI/hook handles missing daemon | Exit 0 (fail-open), error logged | Skip Codex for hook tests |
-| Malformed stdin to hook | Hook receives invalid JSON | Exit 0, no crash | Skip Codex |
-| Timeout enforcement | CLI with hung prompt is killed | Process terminated by timeout | Skip if CLI unavailable |
-
----
-
-## CLI-Specific Skip Matrix
-
-| Scenario Category | Claude Code | Gemini CLI | OpenCode | Copilot CLI | Codex CLI |
-|-------------------|:-----------:|:----------:|:--------:|:-----------:|:---------:|
-| Smoke Tests | RUN | RUN | RUN | RUN | RUN |
-| Hook Capture | RUN | RUN | RUN | RUN | **SKIP** |
-| E2E Pipeline (hooks) | RUN | RUN | RUN | RUN | **SKIP** |
-| E2E Pipeline (commands) | RUN | RUN | RUN | RUN | RUN |
-| Negative Tests | RUN | RUN | RUN | RUN | PARTIAL |
-
----
 
 ## MVP Recommendation
 
-### Phase 1 (Claude Code -- framework phase):
+Prioritize:
 
-Build in this order:
-1. **common.bash** -- workspace isolation, daemon lifecycle, CLI detection, skip helpers
-2. **Per-CLI wrappers** -- `run_claude` function encapsulating `-p --output-format json --allowedTools`
-3. **Hook script unit tests** -- mock stdin -> verify JSON output (uses existing `MEMORY_INGEST_DRY_RUN`)
-4. **Smoke tests** -- basic headless invocation
-5. **E2E pipeline test** -- hook capture -> daemon query verification
-6. **CI integration** -- JUnit reporting, artifact retention, matrix job
+1. **Wire NoveltyChecker into actual ingest pipeline** -- The checker exists but is not connected to the real ingest path. This is the single highest-value change: it immediately reduces noise in the vector/BM25 indexes.
 
-### Defer to subsequent CLI phases:
-- CLI-specific quirk workarounds (Copilot session synthesis, OpenCode headless bugs)
-- Cross-CLI comparative tests
+2. **Temporal decay factor in Layer 6 ranking** -- Add time-based decay alongside existing salience and usage_penalty scores. Formula: `decay = exp(-ln(2) * age_days / half_life_days)`, default half-life 14 days. Apply as a multiplier on retrieval scores post-search.
 
-### Defer to post-v2.4:
-- Windows support
-- Performance regression tracking in shell tests
-- GUI/dashboard for results
+3. **Per-event-type dedup bypass** -- Skip dedup for structural events (session_start, session_end, subagent_start, subagent_stop). Only dedup content-bearing events (user_message, assistant_stop, tool_result).
 
----
+4. **Expose dedup metrics via gRPC** -- Wire existing `NoveltyMetrics` into a status RPC so operators can monitor dedup effectiveness and tune thresholds.
+
+5. **E2E tests proving dedup works** -- Ingest duplicate events, verify only one is stored. Query with temporal decay, verify recent results rank higher.
+
+Defer:
+- **Supersession detection**: High complexity, requires topic-matching infrastructure beyond simple vector similarity. Research deeper in a future phase.
+- **Agent-scoped dedup**: Requires post-filtering HNSW results by agent metadata since usearch has no native metadata filtering. Feasible but adds complexity. Defer until multi-agent dedup is a validated pain point.
+- **Stale result exclusion window per intent**: Nice to have but temporal decay covers 80% of the use case. Add later if decay alone is insufficient.
+
+## Existing Infrastructure to Leverage
+
+| Component | Location | What It Provides | What's Missing |
+|-----------|----------|-----------------|----------------|
+| `NoveltyChecker` | `memory-service/src/novelty.rs` | Full fail-open dedup logic with embed -> search -> threshold | Not wired into actual ingest pipeline |
+| `NoveltyConfig` | `memory-types/src/config.rs` | `enabled`, `threshold` (0.82), `timeout_ms` (50), `min_text_length` (50) | No per-event-type policies |
+| `NoveltyMetrics` | `memory-service/src/novelty.rs` | Atomic counters for all dedup outcomes | Not exposed via gRPC |
+| `VectorEntry.timestamp_millis` | `memory-vector/src/index.rs` | Timestamp on every indexed document | Not used in ranking |
+| `SalienceScorer` | `memory-types/src/salience.rs` | Write-time salience calculation | No temporal component |
+| `usage_penalty()` | `memory-types/src/usage.rs` | Access-count based decay formula | No time-based decay |
+| `HnswIndex` | `memory-vector/src/hnsw.rs` | Cosine similarity search via usearch | No metadata filtering for agent-scoped search |
+| `IndexingPipeline` | `memory-indexing/src/pipeline.rs` | Outbox-driven batch indexing | Dedup check not part of pipeline |
+| `VectorIndexUpdater` | `memory-indexing/src/vector_updater.rs` | Embeds and indexes TOC nodes and grips | Already skips duplicates by doc_id (exact match only) |
 
 ## Sources
 
-- [Claude Code headless docs](https://code.claude.com/docs/en/headless) -- HIGH confidence
-- [Gemini CLI headless docs](https://google-gemini.github.io/gemini-cli/docs/cli/headless.html) -- HIGH confidence
-- [Codex CLI non-interactive docs](https://developers.openai.com/codex/noninteractive) -- HIGH confidence
-- [Copilot CLI docs](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli) -- HIGH confidence
-- [OpenCode CLI docs](https://opencode.ai/docs/cli/) -- MEDIUM confidence
-- [bats-core docs](https://bats-core.readthedocs.io/en/latest/usage.html) -- HIGH confidence
-
-## Confidence Assessment
-
-| Area | Confidence | Reason |
-|------|------------|--------|
-| Table Stakes | HIGH | Standard CLI testing patterns; bats-core well-documented |
-| Test Scenarios | HIGH | Derived from existing adapter hook scripts in this repo |
-| Skip Matrix | HIGH | Codex no-hooks constraint documented; other CLIs have verified hooks |
-| Differentiators | HIGH | JUnit reporting, CI matrix, artifact retention are proven patterns |
-| Anti-Features | HIGH | Each backed by concrete reasoning and project constraints |
+- [Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory](https://arxiv.org/abs/2504.19413) -- Mem0 uses LLM-based memory extraction and dedup; we deliberately avoid this for latency reasons (MEDIUM confidence)
+- [Temporal RAG: Why RAG Always Gets 'When' Questions Wrong](https://blog.sotaaz.com/post/temporal-rag-en) -- Temporal awareness critical for retrieval freshness (MEDIUM confidence)
+- [Data Freshness Rot as the Silent Failure Mode in Production RAG Systems](https://glenrhodes.com/data-freshness-rot-as-the-silent-failure-mode-in-production-rag-systems-and-treating-document-shelf-life-as-a-first-class-reliability-concern-2/) -- Treats document shelf life as first-class concern (MEDIUM confidence)
+- [Solving Freshness in RAG: A Simple Recency Prior](https://arxiv.org/html/2509.19376) -- Recency prior fused with semantic similarity for temporal ranking (MEDIUM confidence)
+- [OpenAI Community: Rule of Thumb Cosine Similarity Thresholds](https://community.openai.com/t/rule-of-thumb-cosine-similarity-thresholds/693670) -- No universal threshold; 0.79-0.85 common for near-duplicate detection (MEDIUM confidence)
+- [Data Deduplication at Trillion Scale](https://zilliz.com/blog/data-deduplication-at-trillion-scale-solve-the-biggest-bottleneck-of-llm-training) -- MinHash LSH at 0.8 threshold for near-duplicate detection at scale (MEDIUM confidence)
+- [Enhancing RAG: A Study of Best Practices](https://arxiv.org/abs/2501.07391) -- RAG best practices including dedup in context assembly (HIGH confidence)
+- [The Knowledge Decay Problem](https://ragaboutit.com/the-knowledge-decay-problem-how-to-build-rag-systems-that-stay-fresh-at-scale/) -- Staleness monitoring as ongoing operational concern (MEDIUM confidence)
+- Existing codebase: `NoveltyChecker`, `NoveltyConfig`, `NoveltyMetrics`, `SalienceScorer`, `usage_penalty()`, `VectorEntry`, `HnswIndex` (HIGH confidence -- direct code inspection)
