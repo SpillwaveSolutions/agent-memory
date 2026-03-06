@@ -57,25 +57,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEDUP-01 | — | Pending |
-| DEDUP-02 | — | Pending |
-| DEDUP-03 | — | Pending |
-| DEDUP-04 | — | Pending |
-| DEDUP-05 | — | Pending |
-| DEDUP-06 | — | Pending |
-| RETRV-01 | — | Pending |
-| RETRV-02 | — | Pending |
-| RETRV-03 | — | Pending |
-| RETRV-04 | — | Pending |
-| TEST-01 | — | Pending |
-| TEST-02 | — | Pending |
-| TEST-03 | — | Pending |
+| DEDUP-01 | Phase 35 | Pending |
+| DEDUP-02 | Phase 36 | Pending |
+| DEDUP-03 | Phase 36 | Pending |
+| DEDUP-04 | Phase 36 | Pending |
+| DEDUP-05 | Phase 35 | Pending |
+| DEDUP-06 | Phase 35 | Pending |
+| RETRV-01 | Phase 37 | Pending |
+| RETRV-02 | Phase 37 | Pending |
+| RETRV-03 | Phase 37 | Pending |
+| RETRV-04 | Phase 37 | Pending |
+| TEST-01 | Phase 38 | Pending |
+| TEST-02 | Phase 38 | Pending |
+| TEST-03 | Phase 38 | Pending |
 
 **Coverage:**
 - v2.5 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-05*
-*Last updated: 2026-03-05 after initial definition*
+*Last updated: 2026-03-05 after roadmap creation (traceability complete)*

@@ -10,45 +10,22 @@ See: .planning/PROJECT.md (updated 2026-03-05)
 ## Current Position
 
 Milestone: v2.5 Semantic Dedup & Retrieval Quality
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-05 — Milestone v2.5 started
+Phase: 35 of 38 (DedupGate Foundation)
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-03-05 — Roadmap created for v2.5 milestone
+
+Progress: [░░░░░░░░░░] 0% (0/9 plans)
 
 ## Decisions
 
-- Shell-first harness using bats-core 1.12 (no Python/Bun unless validation)
-- Real CLI processes in headless mode, not simulated
-- Phase 30 builds all framework infra + Claude Code tests; phases 31-34 reuse it
-- Codex CLI gets new adapter with commands/skills only (no hooks)
-- Hook-dependent tests skipped for Codex
-- Existing 29 cargo E2E tests remain as separate test layer
-- Codex adapter includes sandbox workaround documentation
-- Fixtures match CchEvent struct fields from memory-ingest for compatibility
-- Bats helpers installed via git clone in CI (cross-platform reliable)
-- Missing CLI test dir triggers skip annotation, not failure
-- [Phase 30-01]: Random port selection instead of --port 0 (daemon logs requested addr not bound addr)
-- [Phase 30-03]: IPv4 (127.0.0.1) for daemon connectivity: daemon binds 0.0.0.0, not [::1]
-- [Phase 30-03]: TCP nc check preferred over grpcurl for daemon health (no grpc.health service)
-- [Phase 30-03]: Build-resilient setup: fallback to existing binary when cargo build fails
-- [Phase 30-04]: DEFAULT_ENDPOINT changed from [::1] to 127.0.0.1 to match daemon 0.0.0.0 bind address
-- [Phase 30-04]: Removed short flag from global --log-level to fix clap conflict with --limit
-- [Phase 30-05]: No unit tests for env var read -- validated by E2E bats tests
-- [Phase 30]: bash -n not valid for bats files; use bats --count for syntax validation
-- [Phase 31-01]: Fixed jq -n to jq -nc in memory-capture.sh (multi-line JSON broke memory-ingest read_line)
-- [Phase 31-01]: sleep 2 between hook invocation and gRPC query for background ingest timing
-- [Phase 31-02]: Pipeline tests use direct CchEvent format for deterministic storage layer testing
-- [Phase 31-02]: Negative tests cover both memory-ingest and memory-capture.sh fail-open paths separately
-- [Phase 32-01]: Direct CchEvent ingest pattern for OpenCode (TypeScript plugin not testable from shell)
-- [Phase 32-01]: Agent field test verifies ingest acceptance + gRPC storage (query display doesn't show agent metadata)
-- [Phase 32]: Negative tests cover memory-ingest fail-open only for OpenCode (TypeScript plugin not shell-testable)
-- [Phase 33-01]: Fixed jq -n to jq -nc in Copilot memory-capture.sh (multi-line JSON broke memory-ingest read_line)
-- [Phase 33-02]: Copilot hook negative tests assert exit 0 only (no stdout) unlike Gemini which asserts {}
-- [Phase 34-03]: Python3 xml.etree for JUnit XML parsing (no hand-rolled XML parsing)
-- [Phase 34-03]: Worst-case merge for multi-OS results (FAIL > SKIP > PASS)
-- [Phase 34]: [Phase 34-01]: Codex adapter in adapters/ (not plugins/) -- no hooks, skills only
-- [Phase 34-02]: Pipeline tests mirror copilot pattern with agent=codex substitution
-- [Phase 34-02]: Hook-skipped negative tests annotate GitHub Discussion #2150
+- Store-and-skip-outbox for dedup duplicates (preserve append-only invariant)
+- InFlightBuffer as primary dedup source (HNSW contains TOC nodes, not raw events)
+- Default similarity threshold 0.85 (conservative for all-MiniLM-L6-v2)
+- Structural events bypass dedup entirely
+- Max stale penalty bounded at 30% to prevent score collapse
+- High-salience kinds (Constraint, Definition, Procedure) exempt from staleness
+- DedupConfig replaces NoveltyConfig; [novelty] kept as serde(alias) for backward compat
 
 ## Blockers
 
@@ -60,23 +37,9 @@ Last activity: 2026-03-05 — Milestone v2.5 started
 
 ## Performance Metrics
 
-| Phase | Duration | Tasks | Files |
-|-------|----------|-------|-------|
-| 30-02 | 1min | 2 | 11 |
-| Phase 30-01 P01 | 3min | 2 tasks | 3 files |
-| Phase 30-03 P03 | 11min | 2 tasks | 4 files |
-| Phase 30-04 P04 | 17min | 2 tasks | 4 files |
-| Phase 30-05 P05 | 5min | 2 tasks | 2 files |
-| Phase 30 P06 | 2min | 2 tasks | 2 files |
-| Phase 31-01 | 6min | 2 tasks | 10 files |
-| Phase 31-02 P02 | 3min | 2 tasks | 2 files |
-| Phase 32-01 | 4min | 2 tasks | 9 files |
-| Phase 32-02 PP02 | 3min | 2 tasks | 2 files |
-| Phase 33-01 P01 | 4min | 2 tasks | 10 files |
-| Phase 33-02 P02 | 2min | 2 tasks | 2 files |
-| Phase 34-03 P03 | 1min | 2 tasks | 2 files |
-| Phase 34-01 PP01 | 7min | 2 tasks | 22 files |
-| Phase 34-02 PPP02 | 2min | 2 tasks | 2 files |
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
 
 ## Milestone History
 
@@ -91,16 +54,13 @@ See: .planning/MILESTONES.md for complete history
 
 ## Cumulative Stats
 
-- 44,912 LOC Rust across 14 crates
+- 44,917 LOC Rust across 14 crates
 - 5 adapter plugins (Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI)
-- 4 setup skills (install, configure, verify, troubleshoot)
-- 29 E2E tests + bats CLI tests across 5 CLIs, dedicated CI jobs
-- Cross-CLI matrix report in CI step summary
-- Performance benchmark harness with baselines
-- 34 phases, 106 plans across 5 milestones
+- 29 E2E tests + 144 bats CLI tests across 5 CLIs
+- 34 phases, 111 plans across 6 milestones
 
 ## Session Continuity
 
 **Last Session:** 2026-03-05
-**Stopped At:** Phase 34 complete and verified — all 3 plans executed, 12/12 must-haves verified
+**Stopped At:** v2.5 roadmap created, Phase 35 ready to plan
 **Resume File:** None
