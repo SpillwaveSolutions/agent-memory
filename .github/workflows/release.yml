@@ -176,8 +176,8 @@ jobs:
       - name: Generate checksums
         run: |
           cd artifacts
-          sha256sum *.tar.gz *.zip > SHA256SUMS.txt
-          cat SHA256SUMS.txt
+          sha256sum *.tar.gz *.zip > SHA256SUMS.txt 2>/dev/null || sha256sum *.tar.gz > SHA256SUMS.txt 2>/dev/null || echo "No artifacts to checksum"
+          cat SHA256SUMS.txt 2>/dev/null || true
 
       - name: Create tag (workflow_dispatch only)
         if: github.event_name == 'workflow_dispatch'
