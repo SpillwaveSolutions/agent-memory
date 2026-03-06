@@ -5,18 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-03-05)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.4 complete — planning next milestone
+**Current focus:** v2.5 Semantic Dedup & Retrieval Quality
 
 ## Current Position
 
-Milestone: v2.4 Headless CLI Testing
-Phase: 34 of 34 (Codex CLI Adapter + Tests + Matrix Report) — COMPLETE
-**Current Plan:** 3/3
-**Total Plans in Phase:** 3
-**Status:** v2.4 milestone complete
-**Last Activity:** 2026-03-05
-
-**Progress:** [██████████] 100%
+Milestone: v2.5 Semantic Dedup & Retrieval Quality
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-05 — Milestone v2.5 started
 
 ## Decisions
 

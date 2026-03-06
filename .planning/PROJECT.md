@@ -195,9 +195,18 @@ Agent Memory implements a layered cognitive architecture:
 
 ### Active
 
+## Current Milestone: v2.5 Semantic Dedup & Retrieval Quality
+
+**Goal:** Reduce retrieval noise by preventing duplicate events at ingest via vector similarity and filtering stale results at query time.
+
+**Target features:**
+- Ingest-time semantic dedup via HNSW similarity gate (configurable threshold)
+- Stale result filtering/downranking for superseded content
+- Configurable dedup and staleness parameters
+- E2E test coverage proving dedup and stale filtering work
+
 **Deferred / Future**
 - Cross-project unified memory
-- Semantic deduplication
 
 ### Out of Scope
 
@@ -289,4 +298,4 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Cross-CLI matrix report | Python3 xml.etree parses JUnit XML; worst-case merge for multi-OS | ✓ Validated v2.4 |
 
 ---
-*Last updated: 2026-03-05 after v2.4 milestone complete*
+*Last updated: 2026-03-05 after v2.5 milestone started*
