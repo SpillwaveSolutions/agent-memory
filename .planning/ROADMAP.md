@@ -107,7 +107,7 @@ See: `.planning/milestones/v2.4-ROADMAP.md`
   2. Similarity threshold is configurable via config.toml with a default of 0.85
   3. When the embedder or vector search fails, events pass through unchanged (fail-open)
   4. DedupGate unit tests pass with MockEmbedder and MockVectorIndex proving duplicate detection and fail-open behavior
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 35-01: InFlightBuffer data structure + DedupConfig in memory-types
