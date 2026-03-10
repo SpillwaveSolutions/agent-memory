@@ -66,6 +66,7 @@
 pub mod classifier;
 pub mod contracts;
 pub mod executor;
+pub mod stale_filter;
 pub mod tier;
 pub mod types;
 
@@ -79,6 +80,7 @@ pub use executor::{
     ExecutionResult, FallbackChain, LayerExecutor, LayerResults, MockLayerExecutor,
     RetrievalExecutor, SearchResult,
 };
+pub use stale_filter::StaleFilter;
 pub use tier::{LayerStatusProvider, MockLayerStatusProvider, TierDetectionResult, TierDetector};
 pub use types::{
     CapabilityTier, CombinedStatus, ExecutionMode, LayerStatus, QueryIntent, RetrievalLayer,

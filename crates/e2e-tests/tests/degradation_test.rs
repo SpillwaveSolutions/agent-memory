@@ -38,7 +38,7 @@ async fn test_degradation_all_indexes_missing() {
     let _toc_node = build_toc_segment(harness.storage.clone(), events).await;
 
     // 4. Create RetrievalHandler with NO indexes
-    let handler = RetrievalHandler::with_services(harness.storage.clone(), None, None, None);
+    let handler = RetrievalHandler::with_services(harness.storage.clone(), None, None, None, Default::default());
 
     // 5. Call get_retrieval_capabilities
     let response = handler
@@ -127,7 +127,7 @@ async fn test_degradation_no_bm25_index() {
     let _toc_node = build_toc_segment(harness.storage.clone(), events).await;
 
     // 3. Create RetrievalHandler with NO indexes (BM25 not configured)
-    let handler = RetrievalHandler::with_services(harness.storage.clone(), None, None, None);
+    let handler = RetrievalHandler::with_services(harness.storage.clone(), None, None, None, Default::default());
 
     // 4. Call get_retrieval_capabilities
     let response = handler
@@ -222,7 +222,7 @@ async fn test_degradation_bm25_present_vector_missing() {
 
     // 4. Create RetrievalHandler with BM25 present, vector and topics absent
     let handler =
-        RetrievalHandler::with_services(harness.storage.clone(), Some(bm25_searcher), None, None);
+        RetrievalHandler::with_services(harness.storage.clone(), Some(bm25_searcher), None, None, Default::default());
 
     // 5. Call get_retrieval_capabilities
     let response = handler
@@ -304,7 +304,7 @@ async fn test_degradation_capabilities_warnings_contain_context() {
     let harness = TestHarness::new();
 
     // 2. Create RetrievalHandler with NO indexes
-    let handler = RetrievalHandler::with_services(harness.storage.clone(), None, None, None);
+    let handler = RetrievalHandler::with_services(harness.storage.clone(), None, None, None, Default::default());
 
     // 3. Call get_retrieval_capabilities
     let response = handler

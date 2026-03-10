@@ -121,6 +121,23 @@ impl HnswIndex {
     pub fn index_file(&self) -> PathBuf {
         self.config.index_path.join("hnsw.usearch")
     }
+
+    /// Retrieve a stored vector by its internal ID.
+    ///
+    /// Returns `None` if the ID is not present in the index.
+    pub fn get_vector(&self, id: u64) -> Result<Option<Vec<f32>>, VectorError> {
+        let index = self.index.read().unwrap();
+        if !index.contains(id) {
+            return Ok(None);
+        }
+        let dim = self.config.dimension;
+        let mut buffer = vec![0.0f32; dim];
+        match index.get(id, &mut buffer) {
+            Ok(count) if count > 0 => Ok(Some(buffer)),
+            Ok(_) => Ok(None),
+            Err(e) => Err(VectorError::Index(e.to_string())),
+        }
+    }
 }
 
 impl VectorIndex for HnswIndex {
@@ -319,6 +336,37 @@ mod tests {
         let wrong_dim = random_embedding(32);
         let result = index.add(0, &wrong_dim);
         assert!(matches!(result, Err(VectorError::DimensionMismatch { .. })));
+    }
+
+    #[test]
+    fn test_get_vector() {
+        let temp = TempDir::new().unwrap();
+        let config = HnswConfig::new(64, temp.path()).with_capacity(100);
+        let mut index = HnswIndex::open_or_create(config).unwrap();
+
+        let emb = random_embedding(64);
+        let original_values = emb.values.clone();
+        index.add(99, &emb).unwrap();
+
+        // Retrieve the stored vector
+        let retrieved = index.get_vector(99).unwrap();
+        assert!(retrieved.is_some(), "Vector should be found");
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.len(), 64);
+
+        // Values should match what was inserted
+        for (a, b) in original_values.iter().zip(retrieved.iter()) {
+            assert!(
+                (a - b).abs() < 1e-6,
+                "Vector values should match: {} vs {}",
+                a,
+                b
+            );
+        }
+
+        // Non-existent ID should return None
+        let missing = index.get_vector(999).unwrap();
+        assert!(missing.is_none(), "Missing vector should return None");
     }
 
     #[test]

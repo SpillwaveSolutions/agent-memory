@@ -1,5 +1,32 @@
 # Project Milestones: Agent Memory
 
+## v2.5 Semantic Dedup & Retrieval Quality (Shipped: 2026-03-10)
+
+**Delivered:** Ingest-time semantic dedup via vector similarity gate with configurable threshold, query-time stale filtering with time-decay and supersession detection, and 10 E2E tests proving the complete pipeline.
+
+**Phases completed:** 35-38 (11 plans total)
+
+**Key accomplishments:**
+
+- InFlightBuffer (256-entry) + DedupConfig for within-session duplicate detection with configurable 0.85 similarity threshold
+- Store-and-skip-outbox ingest wiring — duplicates preserved in RocksDB but excluded from BM25/HNSW indexes
+- Cross-session dedup via CompositeVectorIndex querying HNSW + InFlightBuffer (structural events bypass)
+- StaleFilter with exponential time-decay (14-day half-life), supersession detection, and high-salience kind exemptions
+- StalenessConfig end-to-end propagation from config.toml through daemon startup to RetrievalHandler
+- 10 E2E tests proving dedup, stale filtering, and fail-open behavior through complete pipeline
+
+**Stats:**
+
+- 48,282 total LOC Rust
+- 4 phases, 11 plans, 42 commits
+- 5 days from start to ship (2026-03-05 → 2026-03-10)
+
+**Git range:** `feat(35-01)` → `docs(v2.5)`
+
+**What's next:** Cross-project memory, admin dedup dashboard, or v2.6 enhancements
+
+---
+
 ## v2.3 Install & Setup Experience (Shipped: 2026-02-12)
 
 **Delivered:** Step-by-step install/config documentation with wizard-style setup skills, plus a performance benchmark harness with baseline metrics across all retrieval layers.

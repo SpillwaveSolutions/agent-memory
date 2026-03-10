@@ -121,6 +121,40 @@ impl Storage {
         Ok((event_key, true))
     }
 
+    /// Store an event WITHOUT writing an outbox entry (DEDUP-03).
+    ///
+    /// Used for deduplicated events: preserves the append-only invariant
+    /// (event is stored in RocksDB) but skips the outbox so the event
+    /// is never picked up by indexing pipelines (BM25, HNSW, TOC).
+    ///
+    /// Returns (event_key, created) where created=false if event already existed (ING-03 idempotent).
+    pub fn put_event_only(
+        &self,
+        event_id: &str,
+        event_bytes: &[u8],
+    ) -> Result<(EventKey, bool), StorageError> {
+        let events_cf = self
+            .db
+            .cf_handle(CF_EVENTS)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_EVENTS.to_string()))?;
+
+        // Parse event_id to get key (ING-03: idempotent using event_id)
+        let event_key = EventKey::from_event_id(event_id)?;
+
+        // Check if already exists (idempotent)
+        if self.db.get_cf(&events_cf, event_key.to_bytes())?.is_some() {
+            debug!("Event {} already exists, skipping", event_id);
+            return Ok((event_key, false));
+        }
+
+        // Store event only — no outbox entry
+        self.db
+            .put_cf(&events_cf, event_key.to_bytes(), event_bytes)?;
+        debug!("Stored event {} without outbox (deduplicated)", event_id);
+
+        Ok((event_key, true))
+    }
+
     /// Get an event by its event_id
     pub fn get_event(&self, event_id: &str) -> Result<Option<Vec<u8>>, StorageError> {
         let events_cf = self

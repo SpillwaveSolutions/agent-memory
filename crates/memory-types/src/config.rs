@@ -11,13 +11,14 @@ use std::path::PathBuf;
 
 use crate::error::MemoryError;
 
-/// Configuration for novelty detection (opt-in, disabled by default).
+/// Configuration for semantic dedup gate (opt-in, disabled by default).
 ///
-/// Per Phase 16 Plan 03: Novelty check is DISABLED by default.
+/// Replaces the former `NoveltyConfig`. Controls whether incoming events
+/// are checked for near-duplicate content before storage.
 /// When disabled, all events are stored without similarity check.
 /// This respects the append-only model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NoveltyConfig {
+pub struct DedupConfig {
     /// MUST be explicitly set to true to enable (default: false).
     /// When false, all events are stored without similarity check.
     #[serde(default)]
@@ -25,24 +26,31 @@ pub struct NoveltyConfig {
 
     /// Similarity threshold - events above this are considered duplicates.
     /// Range: 0.0-1.0, higher = stricter (more duplicates detected).
-    #[serde(default = "default_novelty_threshold")]
+    #[serde(default = "default_dedup_threshold")]
     pub threshold: f32,
 
-    /// Maximum time for novelty check (ms).
+    /// Maximum time for dedup check (ms).
     /// If exceeded, event is stored anyway (fail-open).
-    #[serde(default = "default_novelty_timeout")]
+    #[serde(default = "default_dedup_timeout")]
     pub timeout_ms: u64,
 
     /// Minimum event text length to check (skip very short events).
     #[serde(default = "default_min_text_length")]
     pub min_text_length: usize,
+
+    /// Capacity of the in-flight ring buffer for recent embeddings.
+    #[serde(default = "default_buffer_capacity")]
+    pub buffer_capacity: usize,
 }
 
-fn default_novelty_threshold() -> f32 {
-    0.82
+/// Backward-compatible type alias for code that still references `NoveltyConfig`.
+pub type NoveltyConfig = DedupConfig;
+
+fn default_dedup_threshold() -> f32 {
+    0.85
 }
 
-fn default_novelty_timeout() -> u64 {
+fn default_dedup_timeout() -> u64 {
     50
 }
 
@@ -50,18 +58,23 @@ fn default_min_text_length() -> usize {
     50
 }
 
-impl Default for NoveltyConfig {
+fn default_buffer_capacity() -> usize {
+    256
+}
+
+impl Default for DedupConfig {
     fn default() -> Self {
         Self {
             enabled: false, // DISABLED by default - explicit opt-in required
-            threshold: default_novelty_threshold(),
-            timeout_ms: default_novelty_timeout(),
+            threshold: default_dedup_threshold(),
+            timeout_ms: default_dedup_timeout(),
             min_text_length: default_min_text_length(),
+            buffer_capacity: default_buffer_capacity(),
         }
     }
 }
 
-impl NoveltyConfig {
+impl DedupConfig {
     /// Validate configuration values.
     pub fn validate(&self) -> Result<(), String> {
         if !(0.0..=1.0).contains(&self.threshold) {
@@ -69,6 +82,104 @@ impl NoveltyConfig {
         }
         if self.timeout_ms == 0 {
             return Err("timeout_ms must be > 0".to_string());
+        }
+        if self.buffer_capacity == 0 {
+            return Err("buffer_capacity must be > 0".to_string());
+        }
+        Ok(())
+    }
+}
+
+/// Configuration for staleness-based score decay at query time.
+///
+/// Controls how query results are downranked based on age relative to
+/// the newest result. High-salience memory kinds (Constraint, Definition,
+/// Procedure, Preference) are exempt from decay.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StalenessConfig {
+    /// Whether staleness scoring is enabled (default: true).
+    #[serde(default = "default_staleness_enabled")]
+    pub enabled: bool,
+
+    /// Half-life for time-decay in days (default: 14.0).
+    /// After this many days, decay reaches ~50% of max_penalty.
+    #[serde(default = "default_half_life_days")]
+    pub half_life_days: f32,
+
+    /// Maximum score penalty from time-decay (default: 0.30).
+    /// Asymptotic bound -- never fully reached.
+    #[serde(default = "default_max_penalty")]
+    pub max_penalty: f32,
+
+    /// Penalty applied to superseded results (default: 0.15).
+    /// Used in Plan 37-02 when supersession detection is wired.
+    #[serde(default = "default_supersession_penalty")]
+    pub supersession_penalty: f32,
+
+    /// Similarity threshold for supersession detection (default: 0.80).
+    /// Used in Plan 37-02 when supersession detection is wired.
+    #[serde(default = "default_supersession_threshold")]
+    pub supersession_threshold: f32,
+}
+
+fn default_staleness_enabled() -> bool {
+    true
+}
+
+fn default_half_life_days() -> f32 {
+    14.0
+}
+
+fn default_max_penalty() -> f32 {
+    0.30
+}
+
+fn default_supersession_penalty() -> f32 {
+    0.15
+}
+
+fn default_supersession_threshold() -> f32 {
+    0.80
+}
+
+impl Default for StalenessConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_staleness_enabled(),
+            half_life_days: default_half_life_days(),
+            max_penalty: default_max_penalty(),
+            supersession_penalty: default_supersession_penalty(),
+            supersession_threshold: default_supersession_threshold(),
+        }
+    }
+}
+
+impl StalenessConfig {
+    /// Validate configuration values.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.half_life_days <= 0.0 {
+            return Err(format!(
+                "half_life_days must be > 0, got {}",
+                self.half_life_days
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.max_penalty) {
+            return Err(format!(
+                "max_penalty must be 0.0-1.0, got {}",
+                self.max_penalty
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.supersession_penalty) {
+            return Err(format!(
+                "supersession_penalty must be 0.0-1.0, got {}",
+                self.supersession_penalty
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.supersession_threshold) {
+            return Err(format!(
+                "supersession_threshold must be 0.0-1.0, got {}",
+                self.supersession_threshold
+            ));
         }
         Ok(())
     }
@@ -162,6 +273,15 @@ pub struct Settings {
     /// Path to HNSW vector index directory
     #[serde(default = "default_vector_index_path")]
     pub vector_index_path: String,
+
+    /// Semantic dedup gate configuration.
+    /// Accepts `[dedup]` or legacy `[novelty]` TOML section.
+    #[serde(default, alias = "novelty")]
+    pub dedup: DedupConfig,
+
+    /// Staleness-based score decay configuration.
+    #[serde(default)]
+    pub staleness: StalenessConfig,
 }
 
 fn default_db_path() -> String {
@@ -212,6 +332,8 @@ impl Default for Settings {
             log_level: default_log_level(),
             search_index_path: default_search_index_path(),
             vector_index_path: default_vector_index_path(),
+            dedup: DedupConfig::default(),
+            staleness: StalenessConfig::default(),
         }
     }
 }
@@ -340,9 +462,10 @@ mod tests {
     fn test_novelty_config_disabled_by_default() {
         let config = NoveltyConfig::default();
         assert!(!config.enabled);
-        assert!((config.threshold - 0.82).abs() < f32::EPSILON);
+        assert!((config.threshold - 0.85).abs() < f32::EPSILON);
         assert_eq!(config.timeout_ms, 50);
         assert_eq!(config.min_text_length, 50);
+        assert_eq!(config.buffer_capacity, 256);
     }
 
     #[test]
@@ -364,6 +487,113 @@ mod tests {
         let json = serde_json::to_string(&config).unwrap();
         let decoded: NoveltyConfig = serde_json::from_str(&json).unwrap();
         assert!(!decoded.enabled);
-        assert!((decoded.threshold - 0.82).abs() < f32::EPSILON);
+        assert!((decoded.threshold - 0.85).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_dedup_config_buffer_capacity_validation() {
+        let mut config = DedupConfig::default();
+        assert!(config.validate().is_ok());
+
+        config.buffer_capacity = 0;
+        let err = config.validate().unwrap_err();
+        assert!(
+            err.contains("buffer_capacity"),
+            "expected buffer_capacity error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_settings_dedup_default() {
+        let settings = Settings::default();
+        assert!(!settings.dedup.enabled);
+        assert!((settings.dedup.threshold - 0.85).abs() < f32::EPSILON);
+        assert_eq!(settings.dedup.buffer_capacity, 256);
+        assert_eq!(settings.dedup.timeout_ms, 50);
+        assert_eq!(settings.dedup.min_text_length, 50);
+    }
+
+    #[test]
+    fn test_staleness_config_defaults() {
+        let config = StalenessConfig::default();
+        assert!(config.enabled);
+        assert!((config.half_life_days - 14.0).abs() < f32::EPSILON);
+        assert!((config.max_penalty - 0.30).abs() < f32::EPSILON);
+        assert!((config.supersession_penalty - 0.15).abs() < f32::EPSILON);
+        assert!((config.supersession_threshold - 0.80).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_staleness_config_validation_pass() {
+        let config = StalenessConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_staleness_config_validation_fail_half_life() {
+        let config = StalenessConfig {
+            half_life_days: 0.0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        let config = StalenessConfig {
+            half_life_days: -1.0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_staleness_config_validation_fail_penalties() {
+        let config = StalenessConfig {
+            max_penalty: 1.5,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        let config = StalenessConfig {
+            supersession_penalty: -0.1,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        let config = StalenessConfig {
+            supersession_threshold: 1.1,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_staleness_config_serialization() {
+        let config = StalenessConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: StalenessConfig = serde_json::from_str(&json).unwrap();
+        assert!(decoded.enabled);
+        assert!((decoded.half_life_days - 14.0).abs() < f32::EPSILON);
+        assert!((decoded.max_penalty - 0.30).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_settings_staleness_default() {
+        let settings = Settings::default();
+        assert!(settings.staleness.enabled);
+        assert!((settings.staleness.half_life_days - 14.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_dedup_config_novelty_alias() {
+        // Deserialize using old field names -- NoveltyConfig is a type alias for DedupConfig
+        let json = r#"{"enabled":true,"threshold":0.9,"timeout_ms":100,"min_text_length":30,"buffer_capacity":128}"#;
+        let config: NoveltyConfig = serde_json::from_str(json).unwrap();
+        assert!(config.enabled);
+        assert!((config.threshold - 0.9).abs() < f32::EPSILON);
+        assert_eq!(config.buffer_capacity, 128);
+
+        // Deserialize with defaults (missing buffer_capacity should default to 256)
+        let json_minimal = r#"{"enabled":false}"#;
+        let config2: DedupConfig = serde_json::from_str(json_minimal).unwrap();
+        assert_eq!(config2.buffer_capacity, 256);
     }
 }

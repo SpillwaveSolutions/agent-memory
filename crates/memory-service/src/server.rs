@@ -14,8 +14,10 @@ use tracing::info;
 
 use memory_scheduler::SchedulerService;
 use memory_storage::Storage;
+use memory_types::config::StalenessConfig;
 
 use crate::ingest::MemoryServiceImpl;
+use crate::novelty::NoveltyChecker;
 use crate::pb::{memory_service_server::MemoryServiceServer, FILE_DESCRIPTOR_SET};
 
 /// Run the gRPC server with health check and reflection.
@@ -116,6 +118,8 @@ pub async fn run_server_with_scheduler<F>(
     storage: Arc<Storage>,
     scheduler: SchedulerService,
     shutdown_signal: F,
+    novelty_checker: Option<Arc<NoveltyChecker>>,
+    staleness_config: StalenessConfig,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     F: std::future::Future<Output = ()> + Send + 'static,
@@ -144,7 +148,11 @@ where
         .build_v1()?;
 
     // Main service implementation with scheduler
-    let memory_service = MemoryServiceImpl::with_scheduler(storage, scheduler.clone());
+    let mut memory_service =
+        MemoryServiceImpl::with_scheduler(storage, scheduler.clone(), staleness_config);
+    if let Some(checker) = novelty_checker {
+        memory_service.set_novelty_checker(checker);
+    }
 
     info!("gRPC server ready on {}", addr);
 

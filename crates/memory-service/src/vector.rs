@@ -3,6 +3,7 @@
 //! Provides semantic similarity search over TOC nodes and grips
 //! using HNSW vector index.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
@@ -157,6 +158,22 @@ impl VectorTeleportHandler {
             Ok(VectorTargetType::Grip) => doc_type == DocType::Grip,
             Err(_) => true,
         }
+    }
+
+    /// Retrieve embeddings for a set of doc_ids (for supersession detection).
+    ///
+    /// Returns a map of doc_id -> embedding vector. Missing entries are silently skipped.
+    pub fn get_embeddings_for_doc_ids(&self, doc_ids: &[String]) -> HashMap<String, Vec<f32>> {
+        let mut embeddings = HashMap::new();
+        let index = self.index.read().unwrap();
+        for doc_id in doc_ids {
+            if let Ok(Some(entry)) = self.metadata.find_by_doc_id(doc_id) {
+                if let Ok(Some(vector)) = index.get_vector(entry.vector_id) {
+                    embeddings.insert(doc_id.clone(), vector);
+                }
+            }
+        }
+        embeddings
     }
 
     /// Direct search method for retrieval handler.

@@ -659,6 +659,7 @@ async fn run_route_query(
         Some(bm25_searcher),
         Some(vector_handler),
         Some(topic_handler),
+        Default::default(),
     );
     let _ = handler
         .route_query(Request::new(RouteQueryRequest {

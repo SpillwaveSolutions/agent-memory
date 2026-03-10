@@ -90,7 +90,7 @@ async fn test_full_pipeline_ingest_toc_grip_route_query() {
 
     // 10. Create RetrievalHandler with BM25 searcher
     let handler =
-        RetrievalHandler::with_services(harness.storage.clone(), Some(bm25_searcher), None, None);
+        RetrievalHandler::with_services(harness.storage.clone(), Some(bm25_searcher), None, None, Default::default());
 
     // 11. Call route_query
     let response = handler

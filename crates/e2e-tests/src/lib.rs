@@ -3,11 +3,14 @@
 //! Provides a shared TestHarness and helper functions for E2E tests
 //! covering the full ingest-to-query pipeline.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use chrono::{DateTime, TimeZone, Utc};
 
+use memory_service::novelty::EmbedderTrait;
+use memory_service::pb;
 use memory_storage::Storage;
 use memory_toc::builder::TocBuilder;
 use memory_toc::segmenter::segment_events;
@@ -177,4 +180,72 @@ pub async fn build_toc_segment(storage: Arc<Storage>, events: Vec<Event>) -> Toc
         .process_segment(&segments[0])
         .await
         .expect("Failed to process segment into TocNode")
+}
+
+/// Mock embedder that returns a fixed embedding vector.
+///
+/// Useful for dedup E2E tests where deterministic cosine similarity is needed.
+/// Returns the same embedding for every call to `embed()`.
+pub struct MockEmbedder {
+    /// The fixed embedding vector to return.
+    pub embedding: Vec<f32>,
+}
+
+#[async_trait::async_trait]
+impl EmbedderTrait for MockEmbedder {
+    async fn embed(&self, _text: &str) -> Result<Vec<f32>, String> {
+        Ok(self.embedding.clone())
+    }
+}
+
+/// Create a normalized uniform vector of the given dimension.
+///
+/// Each component is `1.0 / sqrt(dim)`, so the vector has unit norm.
+/// Two such vectors have cosine similarity 1.0 with each other.
+pub fn uniform_normalized(dim: usize) -> Vec<f32> {
+    let val = 1.0 / (dim as f32).sqrt();
+    vec![val; dim]
+}
+
+/// Create a proto Event for use with `ingest_event()`.
+///
+/// Avoids each test file importing all proto types. Sets role to User (1),
+/// metadata to empty, and agent to `Some("claude")`.
+pub fn create_proto_event(
+    event_id: &str,
+    session_id: &str,
+    timestamp_ms: i64,
+    event_type: i32,
+    text: &str,
+) -> pb::Event {
+    pb::Event {
+        event_id: event_id.to_string(),
+        session_id: session_id.to_string(),
+        timestamp_ms,
+        event_type,
+        role: 1, // User
+        text: text.to_string(),
+        metadata: HashMap::new(),
+        agent: Some("claude".to_string()),
+    }
+}
+
+/// Create a structural (SessionStart) proto Event.
+///
+/// Structural events bypass the dedup gate entirely (DEDUP-04).
+pub fn create_proto_event_structural(
+    event_id: &str,
+    session_id: &str,
+    timestamp_ms: i64,
+) -> pb::Event {
+    pb::Event {
+        event_id: event_id.to_string(),
+        session_id: session_id.to_string(),
+        timestamp_ms,
+        event_type: 1, // SessionStart
+        role: 1,        // User
+        text: String::new(),
+        metadata: HashMap::new(),
+        agent: Some("claude".to_string()),
+    }
 }

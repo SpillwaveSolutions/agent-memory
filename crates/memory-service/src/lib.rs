@@ -32,7 +32,9 @@ pub mod pb {
 pub use agents::AgentDiscoveryHandler;
 pub use hybrid::HybridSearchHandler;
 pub use ingest::MemoryServiceImpl;
-pub use novelty::{NoveltyChecker, NoveltyMetrics, NoveltyMetricsSnapshot};
+pub use novelty::{
+    CandleEmbedderAdapter, DedupResult, NoveltyChecker, NoveltyMetrics, NoveltyMetricsSnapshot,
+};
 pub use retrieval::RetrievalHandler;
 pub use scheduler_service::SchedulerGrpcService;
 pub use server::{run_server, run_server_with_scheduler, run_server_with_shutdown};

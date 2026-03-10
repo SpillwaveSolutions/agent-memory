@@ -14,23 +14,27 @@ use tracing::{debug, error, info};
 use memory_scheduler::SchedulerService;
 use memory_search::TeleportSearcher;
 use memory_storage::Storage;
-use memory_types::{Event, EventRole, EventType, NoveltyConfig, OutboxEntry, SalienceConfig};
+use memory_types::{
+    config::StalenessConfig, Event, EventRole, EventType, NoveltyConfig, OutboxEntry,
+    SalienceConfig,
+};
 
 use crate::agents::AgentDiscoveryHandler;
 use crate::hybrid::HybridSearchHandler;
+use crate::novelty::NoveltyChecker;
 use crate::pb::{
     memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
     ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, Event as ProtoEvent,
     EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
-    ExpandGripResponse, GetAgentActivityRequest, GetAgentActivityResponse, GetEventsRequest,
-    GetEventsResponse, GetNodeRequest, GetNodeResponse, GetRankingStatusRequest,
-    GetRankingStatusResponse, GetRelatedTopicsRequest, GetRelatedTopicsResponse,
-    GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse, GetSchedulerStatusRequest,
-    GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest,
-    GetTopTopicsResponse, GetTopicGraphStatusRequest, GetTopicGraphStatusResponse,
-    GetTopicsByQueryRequest, GetTopicsByQueryResponse, GetVectorIndexStatusRequest,
-    HybridSearchRequest, HybridSearchResponse, IngestEventRequest, IngestEventResponse,
-    ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
+    ExpandGripResponse, GetAgentActivityRequest, GetAgentActivityResponse, GetDedupStatusRequest,
+    GetDedupStatusResponse, GetEventsRequest, GetEventsResponse, GetNodeRequest, GetNodeResponse,
+    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
+    GetRelatedTopicsResponse, GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse,
+    GetSchedulerStatusRequest, GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse,
+    GetTopTopicsRequest, GetTopTopicsResponse, GetTopicGraphStatusRequest,
+    GetTopicGraphStatusResponse, GetTopicsByQueryRequest, GetTopicsByQueryResponse,
+    GetVectorIndexStatusRequest, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
+    IngestEventResponse, ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
     PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
     PruneVectorIndexResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
     RouteQueryResponse, SearchChildrenRequest, SearchChildrenResponse, SearchNodeRequest,
@@ -55,6 +59,7 @@ pub struct MemoryServiceImpl {
     topic_service: Option<Arc<TopicGraphHandler>>,
     retrieval_service: Option<Arc<RetrievalHandler>>,
     agent_service: Arc<AgentDiscoveryHandler>,
+    novelty_checker: Option<Arc<NoveltyChecker>>,
 }
 
 impl MemoryServiceImpl {
@@ -71,6 +76,7 @@ impl MemoryServiceImpl {
             topic_service: None,
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
+            novelty_checker: None,
         }
     }
 
@@ -78,8 +84,18 @@ impl MemoryServiceImpl {
     ///
     /// When scheduler is provided, the scheduler-related RPCs
     /// (GetSchedulerStatus, PauseJob, ResumeJob) will be functional.
-    pub fn with_scheduler(storage: Arc<Storage>, scheduler: Arc<SchedulerService>) -> Self {
-        let retrieval = Arc::new(RetrievalHandler::new(storage.clone()));
+    pub fn with_scheduler(
+        storage: Arc<Storage>,
+        scheduler: Arc<SchedulerService>,
+        staleness_config: StalenessConfig,
+    ) -> Self {
+        let retrieval = Arc::new(RetrievalHandler::with_services(
+            storage.clone(),
+            None,
+            None,
+            None,
+            staleness_config,
+        ));
         let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
             storage,
@@ -90,6 +106,7 @@ impl MemoryServiceImpl {
             topic_service: None,
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
+            novelty_checker: None,
         }
     }
 
@@ -100,12 +117,14 @@ impl MemoryServiceImpl {
         storage: Arc<Storage>,
         scheduler: Arc<SchedulerService>,
         searcher: Arc<TeleportSearcher>,
+        staleness_config: StalenessConfig,
     ) -> Self {
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             Some(searcher.clone()),
             None,
             None,
+            staleness_config,
         ));
         let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
@@ -117,16 +136,22 @@ impl MemoryServiceImpl {
             topic_service: None,
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
+            novelty_checker: None,
         }
     }
 
     /// Create a new MemoryServiceImpl with storage and teleport searcher (no scheduler).
-    pub fn with_search(storage: Arc<Storage>, searcher: Arc<TeleportSearcher>) -> Self {
+    pub fn with_search(
+        storage: Arc<Storage>,
+        searcher: Arc<TeleportSearcher>,
+        staleness_config: StalenessConfig,
+    ) -> Self {
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             Some(searcher.clone()),
             None,
             None,
+            staleness_config,
         ));
         let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
@@ -138,19 +163,25 @@ impl MemoryServiceImpl {
             topic_service: None,
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
+            novelty_checker: None,
         }
     }
 
     /// Create a new MemoryServiceImpl with storage and vector search.
     ///
     /// When vector service is provided, VectorTeleport and HybridSearch RPCs will be functional.
-    pub fn with_vector(storage: Arc<Storage>, vector_handler: Arc<VectorTeleportHandler>) -> Self {
+    pub fn with_vector(
+        storage: Arc<Storage>,
+        vector_handler: Arc<VectorTeleportHandler>,
+        staleness_config: StalenessConfig,
+    ) -> Self {
         let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             None,
             Some(vector_handler.clone()),
             None,
+            staleness_config,
         ));
         let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
@@ -162,18 +193,24 @@ impl MemoryServiceImpl {
             topic_service: None,
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
+            novelty_checker: None,
         }
     }
 
     /// Create a new MemoryServiceImpl with storage and topic graph.
     ///
     /// When topic service is provided, the topic graph RPCs will be functional.
-    pub fn with_topics(storage: Arc<Storage>, topic_handler: Arc<TopicGraphHandler>) -> Self {
+    pub fn with_topics(
+        storage: Arc<Storage>,
+        topic_handler: Arc<TopicGraphHandler>,
+        staleness_config: StalenessConfig,
+    ) -> Self {
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             None,
             None,
             Some(topic_handler.clone()),
+            staleness_config,
         ));
         let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
@@ -185,6 +222,7 @@ impl MemoryServiceImpl {
             topic_service: Some(topic_handler),
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
+            novelty_checker: None,
         }
     }
 
@@ -194,6 +232,7 @@ impl MemoryServiceImpl {
         scheduler: Arc<SchedulerService>,
         searcher: Arc<TeleportSearcher>,
         vector_handler: Arc<VectorTeleportHandler>,
+        staleness_config: StalenessConfig,
     ) -> Self {
         let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
         let retrieval = Arc::new(RetrievalHandler::with_services(
@@ -201,6 +240,7 @@ impl MemoryServiceImpl {
             Some(searcher.clone()),
             Some(vector_handler.clone()),
             None,
+            staleness_config,
         ));
         let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
@@ -212,6 +252,7 @@ impl MemoryServiceImpl {
             topic_service: None,
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
+            novelty_checker: None,
         }
     }
 
@@ -222,6 +263,7 @@ impl MemoryServiceImpl {
         searcher: Arc<TeleportSearcher>,
         vector_handler: Arc<VectorTeleportHandler>,
         topic_handler: Arc<TopicGraphHandler>,
+        staleness_config: StalenessConfig,
     ) -> Self {
         let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
         let retrieval = Arc::new(RetrievalHandler::with_services(
@@ -229,6 +271,7 @@ impl MemoryServiceImpl {
             Some(searcher.clone()),
             Some(vector_handler.clone()),
             Some(topic_handler.clone()),
+            staleness_config,
         ));
         let agent_svc = Arc::new(AgentDiscoveryHandler::new(storage.clone()));
         Self {
@@ -240,7 +283,16 @@ impl MemoryServiceImpl {
             topic_service: Some(topic_handler),
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
+            novelty_checker: None,
         }
+    }
+
+    /// Set the novelty checker for dedup gating.
+    ///
+    /// Called during daemon startup after construction.
+    /// When set, ingest_event will check events for duplicates.
+    pub fn set_novelty_checker(&mut self, checker: Arc<NoveltyChecker>) {
+        self.novelty_checker = Some(checker);
     }
 
     /// Convert proto EventRole to domain EventRole
@@ -346,21 +398,51 @@ impl MemoryService for MemoryServiceImpl {
             Status::internal("Failed to serialize event")
         })?;
 
-        // Create outbox entry for async index updates (ING-05)
-        let outbox_entry = OutboxEntry::for_toc(event_id.clone(), timestamp_ms);
-        let outbox_bytes = outbox_entry.to_bytes().map_err(|e| {
-            error!("Failed to serialize outbox entry: {}", e);
-            Status::internal("Failed to serialize outbox entry")
-        })?;
+        // Dedup gate (DEDUP-02, DEDUP-03, DEDUP-04)
+        let (deduplicated, dedup_embedding) = if event.event_type.is_structural() {
+            // DEDUP-04: structural events always bypass dedup
+            (false, None)
+        } else if let Some(ref checker) = self.novelty_checker {
+            let result = checker.should_store_with_embedding(&event).await;
+            (!result.should_store, result.embedding)
+        } else {
+            // No checker = no dedup
+            (false, None)
+        };
 
-        // Store event with atomic outbox write
-        let (_, created) = self
-            .storage
-            .put_event(&event_id, &event_bytes, &outbox_bytes)
-            .map_err(|e| {
-                error!("Failed to store event: {}", e);
-                Status::internal(format!("Storage error: {}", e))
+        let (_, created) = if deduplicated {
+            // DEDUP-03: store but skip outbox (no indexing)
+            info!(event_id = %event_id, "Dedup: storing without outbox");
+            self.storage
+                .put_event_only(&event_id, &event_bytes)
+                .map_err(|e| {
+                    error!("Failed to store event: {}", e);
+                    Status::internal(format!("Storage error: {}", e))
+                })?
+        } else {
+            // Normal path: store + outbox entry for indexing
+            let outbox_entry = OutboxEntry::for_toc(event_id.clone(), timestamp_ms);
+            let outbox_bytes = outbox_entry.to_bytes().map_err(|e| {
+                error!("Failed to serialize outbox entry: {}", e);
+                Status::internal("Failed to serialize outbox entry")
             })?;
+            self.storage
+                .put_event(&event_id, &event_bytes, &outbox_bytes)
+                .map_err(|e| {
+                    error!("Failed to store event: {}", e);
+                    Status::internal(format!("Storage error: {}", e))
+                })?
+        };
+
+        // Push novel event embedding to buffer for future dedup checks.
+        // Only push if: event was stored (created=true), not deduplicated, and we have an embedding.
+        if created && !deduplicated {
+            if let (Some(ref checker), Some(ref embedding)) =
+                (&self.novelty_checker, &dedup_embedding)
+            {
+                checker.push_to_buffer(&event_id, embedding);
+            }
+        }
 
         if created {
             info!("Stored new event: {}", event_id);
@@ -368,7 +450,11 @@ impl MemoryService for MemoryServiceImpl {
             debug!("Event already exists (idempotent): {}", event_id);
         }
 
-        Ok(Response::new(IngestEventResponse { event_id, created }))
+        Ok(Response::new(IngestEventResponse {
+            event_id,
+            created,
+            deduplicated,
+        }))
     }
 
     /// Get root TOC nodes (year level).
@@ -936,6 +1022,39 @@ impl MemoryService for MemoryServiceImpl {
         request: Request<GetAgentActivityRequest>,
     ) -> Result<Response<GetAgentActivityResponse>, Status> {
         self.agent_service.get_agent_activity(request).await
+    }
+
+    /// Get dedup gate status and metrics.
+    ///
+    /// Per DEDUP-03: Observability for dedup gate configuration and counters.
+    async fn get_dedup_status(
+        &self,
+        _request: Request<GetDedupStatusRequest>,
+    ) -> Result<Response<GetDedupStatusResponse>, Status> {
+        let response = if let Some(ref checker) = self.novelty_checker {
+            let config = checker.config();
+            let snapshot = checker.metrics().snapshot();
+            GetDedupStatusResponse {
+                enabled: config.enabled,
+                threshold: config.threshold,
+                events_checked: snapshot.total_checked(),
+                events_deduplicated: snapshot.total_rejected(),
+                events_skipped: snapshot.total_stored() - snapshot.stored_novel,
+                buffer_size: 0,
+                buffer_capacity: config.buffer_capacity as u32,
+            }
+        } else {
+            GetDedupStatusResponse {
+                enabled: false,
+                threshold: 0.0,
+                events_checked: 0,
+                events_deduplicated: 0,
+                events_skipped: 0,
+                buffer_size: 0,
+                buffer_capacity: 0,
+            }
+        };
+        Ok(Response::new(response))
     }
 }
 

@@ -19,6 +19,7 @@
 //! ```
 
 pub mod config;
+pub mod dedup;
 pub mod error;
 pub mod event;
 pub mod grip;
@@ -29,7 +30,10 @@ pub mod toc;
 pub mod usage;
 
 // Re-export main types at crate root
-pub use config::{MultiAgentMode, NoveltyConfig, Settings, SummarizerSettings};
+pub use config::{
+    DedupConfig, MultiAgentMode, NoveltyConfig, Settings, StalenessConfig, SummarizerSettings,
+};
+pub use dedup::{BufferEntry, InFlightBuffer};
 pub use error::MemoryError;
 pub use event::{Event, EventRole, EventType};
 pub use grip::Grip;

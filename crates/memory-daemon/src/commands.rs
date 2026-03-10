@@ -22,6 +22,7 @@ use memory_scheduler::{
     create_compaction_job, create_indexing_job, create_rollup_jobs, CompactionJobConfig,
     IndexingJobConfig, RollupJobConfig, SchedulerConfig, SchedulerService,
 };
+use memory_service::novelty::{CandleEmbedderAdapter, NoveltyChecker};
 use memory_service::pb::{
     GetSchedulerStatusRequest, JobResultStatus, PauseJobRequest, ResumeJobRequest,
     SearchChildrenRequest, SearchField as ProtoSearchField, SearchNodeRequest,
@@ -30,6 +31,7 @@ use memory_service::pb::{
 use memory_service::run_server_with_scheduler;
 use memory_storage::Storage;
 use memory_toc::summarizer::MockSummarizer;
+use memory_types::dedup::InFlightBuffer;
 use memory_types::Settings;
 
 use crate::cli::{
@@ -393,6 +395,68 @@ pub async fn start_daemon(
         scheduler.registry().job_count()
     );
 
+    // Create NoveltyChecker for dedup gate (DEDUP-02, DEDUP-03)
+    let novelty_checker = if settings.dedup.enabled {
+        match memory_embeddings::CandleEmbedder::load_default() {
+            Ok(embedder) => {
+                let adapter = Arc::new(CandleEmbedderAdapter::new(embedder))
+                    as Arc<dyn memory_service::novelty::EmbedderTrait>;
+                let buffer = Arc::new(RwLock::new(InFlightBuffer::new(
+                    settings.dedup.buffer_capacity,
+                    384,
+                )));
+
+                // Try to open HNSW index for cross-session dedup (DEDUP-02)
+                let vector_dir = PathBuf::from(&settings.db_path).join("vector");
+                let hnsw_opt = if vector_dir.exists() {
+                    let hnsw_config = memory_vector::HnswConfig::new(384, &vector_dir);
+                    match memory_vector::HnswIndex::open_or_create(hnsw_config) {
+                        Ok(hnsw) => {
+                            info!("HNSW index loaded for cross-session dedup");
+                            Some(Arc::new(std::sync::RwLock::new(hnsw)))
+                        }
+                        Err(e) => {
+                            warn!("Failed to open HNSW for dedup, using buffer-only: {e}");
+                            None
+                        }
+                    }
+                } else {
+                    info!("No vector index found, using buffer-only dedup");
+                    None
+                };
+
+                let has_hnsw = hnsw_opt.is_some();
+                let checker = if let Some(hnsw_index) = hnsw_opt {
+                    NoveltyChecker::with_composite_index(
+                        Some(adapter),
+                        buffer,
+                        hnsw_index,
+                        settings.dedup.clone(),
+                    )
+                } else {
+                    NoveltyChecker::with_in_flight_buffer(
+                        Some(adapter),
+                        buffer,
+                        settings.dedup.clone(),
+                    )
+                };
+
+                info!(
+                    "Dedup gate enabled (threshold: {}, buffer: {}, hnsw: {})",
+                    settings.dedup.threshold, settings.dedup.buffer_capacity, has_hnsw
+                );
+                Some(Arc::new(checker))
+            }
+            Err(e) => {
+                warn!("Failed to load CandleEmbedder for dedup, disabling: {e}");
+                None
+            }
+        }
+    } else {
+        tracing::debug!("Dedup gate disabled by config");
+        None
+    };
+
     // Write PID file
     write_pid_file()?;
 
@@ -431,8 +495,21 @@ pub async fn start_daemon(
         }
     };
 
+    info!(
+        "  Staleness filter: enabled={}, half_life={}d, max_penalty={}",
+        settings.staleness.enabled, settings.staleness.half_life_days, settings.staleness.max_penalty
+    );
+
     // Start server with scheduler
-    let result = run_server_with_scheduler(addr, storage, scheduler, shutdown_signal).await;
+    let result = run_server_with_scheduler(
+        addr,
+        storage,
+        scheduler,
+        shutdown_signal,
+        novelty_checker,
+        settings.staleness.clone(),
+    )
+    .await;
 
     // Cleanup
     remove_pid_file();

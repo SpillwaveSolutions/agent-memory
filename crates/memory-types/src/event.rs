@@ -54,6 +54,23 @@ pub enum EventType {
     SessionEnd,
 }
 
+impl EventType {
+    /// Returns true for structural event types that bypass dedup (DEDUP-04).
+    ///
+    /// Structural events (session boundaries, subagent lifecycle) always get
+    /// indexed regardless of content similarity, because they carry control
+    /// semantics rather than conversational content.
+    pub fn is_structural(&self) -> bool {
+        matches!(
+            self,
+            EventType::SessionStart
+                | EventType::SessionEnd
+                | EventType::SubagentStart
+                | EventType::SubagentStop
+        )
+    }
+}
+
 /// A conversation event.
 ///
 /// Events are the fundamental unit of storage. They are immutable and

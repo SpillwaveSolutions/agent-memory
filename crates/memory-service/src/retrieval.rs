@@ -18,6 +18,7 @@ use tracing::{debug, info};
 use memory_retrieval::{
     classifier::IntentClassifier,
     executor::{FallbackChain, LayerExecutor, RetrievalExecutor, SearchResult},
+    stale_filter::StaleFilter,
     types::{
         CapabilityTier as CrateTier, CombinedStatus, ExecutionMode as CrateExecMode,
         LayerStatus as CrateLayerStatus, QueryIntent as CrateIntent, RetrievalLayer as CrateLayer,
@@ -26,6 +27,7 @@ use memory_retrieval::{
 };
 use memory_search::TeleportSearcher;
 use memory_storage::Storage;
+use memory_types::config::StalenessConfig;
 
 use crate::pb::{
     CapabilityTier as ProtoTier, ClassifyQueryIntentRequest, ClassifyQueryIntentResponse,
@@ -54,6 +56,9 @@ pub struct RetrievalHandler {
 
     /// Optional topic handler
     topic_handler: Option<Arc<TopicGraphHandler>>,
+
+    /// Staleness scoring configuration
+    staleness_config: StalenessConfig,
 }
 
 impl RetrievalHandler {
@@ -65,6 +70,7 @@ impl RetrievalHandler {
             bm25_searcher: None,
             vector_handler: None,
             topic_handler: None,
+            staleness_config: StalenessConfig::default(),
         }
     }
 
@@ -74,6 +80,7 @@ impl RetrievalHandler {
         bm25_searcher: Option<Arc<TeleportSearcher>>,
         vector_handler: Option<Arc<VectorTeleportHandler>>,
         topic_handler: Option<Arc<TopicGraphHandler>>,
+        staleness_config: StalenessConfig,
     ) -> Self {
         Self {
             storage,
@@ -81,6 +88,7 @@ impl RetrievalHandler {
             bm25_searcher,
             vector_handler,
             topic_handler,
+            staleness_config,
         }
     }
 
@@ -264,11 +272,24 @@ impl RetrievalHandler {
             .execute(&req.query, chain, &stop_conditions, mode, tier)
             .await;
 
+        // Apply staleness filter post-merge, pre-return
+        let stale_filter = StaleFilter::new(self.staleness_config.clone());
+        let filtered_results = if self.staleness_config.enabled {
+            // Look up embeddings for supersession detection (fail-open)
+            let embeddings = self.vector_handler.as_ref().map(|vh| {
+                let doc_ids: Vec<String> =
+                    result.results.iter().map(|r| r.doc_id.clone()).collect();
+                vh.get_embeddings_for_doc_ids(&doc_ids)
+            });
+            stale_filter.apply_with_supersession(result.results, embeddings.as_ref())
+        } else {
+            result.results
+        };
+
         let total_time_ms = start.elapsed().as_millis() as u64;
 
         // Convert results to proto
-        let results: Vec<ProtoResult> = result
-            .results
+        let results: Vec<ProtoResult> = filtered_results
             .iter()
             .take(limit)
             .map(|r| ProtoResult {
@@ -301,13 +322,14 @@ impl RetrievalHandler {
                 None
             },
             total_time_ms,
-            grip_ids: result
-                .results
+            grip_ids: results
                 .iter()
                 .filter(|r| r.doc_type == "grip")
                 .map(|r| r.doc_id.clone())
                 .collect(),
         };
+
+        let has_results = !results.is_empty();
 
         info!(
             query = %req.query,
@@ -322,7 +344,7 @@ impl RetrievalHandler {
         Ok(Response::new(RouteQueryResponse {
             results,
             explanation: Some(explanation),
-            has_results: result.has_results(),
+            has_results,
             layers_attempted: result
                 .layers_attempted
                 .iter()
@@ -472,7 +494,11 @@ impl LayerExecutor for SimpleLayerExecutor {
                             score: r.score,
                             text_preview: r.keywords.unwrap_or_default(),
                             source_layer: CrateLayer::BM25,
-                            metadata: HashMap::new(),
+                            metadata: build_metadata(
+                                r.timestamp_ms,
+                                r.agent.as_deref(),
+                                "observation",
+                            ),
                         })
                         .collect())
                 } else {
@@ -490,7 +516,11 @@ impl LayerExecutor for SimpleLayerExecutor {
                             score: r.score,
                             text_preview: r.text_preview,
                             source_layer: CrateLayer::Vector,
-                            metadata: HashMap::new(),
+                            metadata: build_metadata(
+                                Some(r.timestamp_ms),
+                                r.agent.as_deref(),
+                                "observation",
+                            ),
                         })
                         .collect())
                 } else {
@@ -508,7 +538,7 @@ impl LayerExecutor for SimpleLayerExecutor {
                             score: t.importance_score,
                             text_preview: t.label,
                             source_layer: CrateLayer::Topics,
-                            metadata: HashMap::new(),
+                            metadata: build_metadata(None, None, "observation"),
                         })
                         .collect())
                 } else {
@@ -528,7 +558,11 @@ impl LayerExecutor for SimpleLayerExecutor {
                             score: r.score,
                             text_preview: r.keywords.unwrap_or_default(),
                             source_layer: CrateLayer::Hybrid,
-                            metadata: HashMap::new(),
+                            metadata: build_metadata(
+                                r.timestamp_ms,
+                                r.agent.as_deref(),
+                                "observation",
+                            ),
                         })
                         .collect())
                 } else if let Some(handler) = &self.vector_handler {
@@ -541,7 +575,11 @@ impl LayerExecutor for SimpleLayerExecutor {
                             score: r.score,
                             text_preview: r.text_preview,
                             source_layer: CrateLayer::Hybrid,
-                            metadata: HashMap::new(),
+                            metadata: build_metadata(
+                                Some(r.timestamp_ms),
+                                r.agent.as_deref(),
+                                "observation",
+                            ),
                         })
                         .collect())
                 } else {
@@ -567,6 +605,26 @@ impl LayerExecutor for SimpleLayerExecutor {
             CrateLayer::Agentic => true, // Always available
         }
     }
+}
+
+/// Build metadata map for SearchResult enrichment.
+///
+/// Populates timestamp_ms, agent, and memory_kind fields so that
+/// StaleFilter can compute time-decay downstream.
+fn build_metadata(
+    timestamp_ms: Option<i64>,
+    agent: Option<&str>,
+    memory_kind: &str,
+) -> HashMap<String, String> {
+    let mut metadata = HashMap::new();
+    if let Some(ts) = timestamp_ms {
+        metadata.insert("timestamp_ms".to_string(), ts.to_string());
+    }
+    if let Some(a) = agent {
+        metadata.insert("agent".to_string(), a.to_string());
+    }
+    metadata.insert("memory_kind".to_string(), memory_kind.to_string());
+    metadata
 }
 
 // ===== Conversion helpers =====

@@ -2,26 +2,27 @@
 
 ## Current State
 
-**Version:** v2.4 (Shipped 2026-03-05)
-**Status:** Production-ready with 5-CLI E2E test harness, matrix reporting, and full adapter coverage
+**Version:** v2.5 (Shipped 2026-03-10)
+**Status:** Production-ready with semantic dedup, stale filtering, 5-CLI E2E test harness, and full adapter coverage
 
-The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, production verification, setup experience, and comprehensive CLI testing:
-- Layer 0: Raw Events (RocksDB) — agent-tagged
+The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, and comprehensive testing:
+- Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)
 - Layer 1: TOC Hierarchy (time-based navigation) — contributing_agents tracking
 - Layer 2: Agentic TOC Search (index-free, always works)
 - Layer 3: Lexical Teleport (BM25/Tantivy)
-- Layer 4: Semantic Teleport (Vector/HNSW)
+- Layer 4: Semantic Teleport (Vector/HNSW) — also used for dedup similarity checks
 - Layer 5: Conceptual Discovery (Topic Graph) — agent-filtered queries
-- Layer 6: Ranking Policy (salience, usage, novelty, lifecycle)
+- Layer 6: Ranking Policy (salience, usage, novelty, lifecycle) + StaleFilter (time-decay, supersession)
 - Control: Retrieval Policy (intent routing, tier detection, fallbacks)
+- Dedup: InFlightBuffer + HNSW composite gate, configurable threshold, fail-open
 - Adapters: Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI
 - Discovery: ListAgents, GetAgentActivity, agent-filtered topics
-- Testing: 29 cargo E2E tests + 144 bats CLI tests across 5 CLIs
+- Testing: 39 cargo E2E tests + 144 bats CLI tests across 5 CLIs
 - CI/CD: Dedicated E2E job + CLI matrix report in GitHub Actions
 - Setup: Quickstart, full guide, agent setup docs + 4 wizard-style setup skills
 - Benchmarks: perf_bench harness with baseline metrics across all retrieval layers
 
-44,917 LOC Rust across 14 crates. 5 adapters (4 plugins + 1 adapter). 4 setup skills. 29 E2E tests + 144 bats tests. Cross-CLI matrix report.
+48,282 LOC Rust across 14 crates. 5 adapters (4 plugins + 1 adapter). 4 setup skills. 39 E2E tests + 144 bats tests. Cross-CLI matrix report.
 
 ## What This Is
 
@@ -193,20 +194,27 @@ Agent Memory implements a layered cognitive architecture:
 - [x] Cross-CLI matrix report aggregating JUnit XML from all 5 CLIs — v2.4
 - [x] CI integration with artifact retention on failure — v2.4
 
+### Validated (v2.5 - Shipped 2026-03-10)
+
+**Semantic Dedup & Retrieval Quality (v2.5)**
+- [x] InFlightBuffer within-session dedup (256-entry buffer, 0.85 threshold) — v2.5
+- [x] HNSW cross-session dedup via CompositeVectorIndex — v2.5
+- [x] Store-and-skip-outbox for duplicates (append-only preserved) — v2.5
+- [x] Structural events bypass dedup entirely — v2.5
+- [x] Configurable similarity threshold via config.toml — v2.5
+- [x] Fail-open dedup gate (embedding/search failures pass through) — v2.5
+- [x] Time-decay stale filtering with configurable 14-day half-life — v2.5
+- [x] Supersession detection for semantically similar newer content — v2.5
+- [x] High-salience kind exemption from time-decay — v2.5
+- [x] Configurable staleness parameters via config.toml — v2.5
+- [x] 10 E2E tests proving dedup, stale filtering, and fail-open — v2.5
+
 ### Active
-
-## Current Milestone: v2.5 Semantic Dedup & Retrieval Quality
-
-**Goal:** Reduce retrieval noise by preventing duplicate events at ingest via vector similarity and filtering stale results at query time.
-
-**Target features:**
-- Ingest-time semantic dedup via HNSW similarity gate (configurable threshold)
-- Stale result filtering/downranking for superseded content
-- Configurable dedup and staleness parameters
-- E2E test coverage proving dedup and stale filtering work
 
 **Deferred / Future**
 - Cross-project unified memory
+- Admin dedup dashboard (events skipped, threshold hits, buffer utilization)
+- Per-agent dedup scoping
 
 ### Out of Scope
 
@@ -296,6 +304,14 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Codex adapter (no hooks) | Codex lacks hook support; skip hook-dependent tests | ✓ Validated v2.4 |
 | Direct CchEvent ingest for hookless CLIs | OpenCode/Codex use pre-translated events for pipeline tests | ✓ Validated v2.4 |
 | Cross-CLI matrix report | Python3 xml.etree parses JUnit XML; worst-case merge for multi-OS | ✓ Validated v2.4 |
+| Store-and-skip-outbox for dedup | Preserves append-only invariant; duplicates stored but not indexed | ✓ Validated v2.5 |
+| InFlightBuffer as primary dedup source | HNSW contains TOC nodes not raw events; buffer catches within-session | ✓ Validated v2.5 |
+| Default similarity threshold 0.85 | Conservative for all-MiniLM-L6-v2; configurable via config.toml | ✓ Validated v2.5 |
+| Structural events bypass dedup | Session markers must always be indexed for TOC integrity | ✓ Validated v2.5 |
+| Max stale penalty 30% | Bounded to prevent score collapse with existing ranking layers | ✓ Validated v2.5 |
+| High-salience kind exemption | Constraints/Definitions/Procedures are timeless; no decay | ✓ Validated v2.5 |
+| CompositeVectorIndex for cross-session dedup | Searches both HNSW and InFlightBuffer, returns highest score | ✓ Validated v2.5 |
+| std::sync::RwLock for InFlightBuffer | Operations are sub-microsecond; tokio RwLock overhead unnecessary | ✓ Validated v2.5 |
 
 ---
-*Last updated: 2026-03-05 after v2.5 milestone started*
+*Last updated: 2026-03-10 after v2.5 milestone*

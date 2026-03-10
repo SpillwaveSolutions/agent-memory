@@ -148,6 +148,7 @@ async fn test_multi_agent_cross_agent_query() {
         Some(bm25_searcher.clone()),
         None,
         None,
+        Default::default(),
     );
 
     // 10. Call route_query with a query matching content from at least one agent
@@ -261,6 +262,7 @@ async fn test_multi_agent_filtered_query() {
         Some(bm25_searcher.clone()),
         None,
         None,
+        Default::default(),
     );
 
     // 3. Call route_query with agent_filter for claude

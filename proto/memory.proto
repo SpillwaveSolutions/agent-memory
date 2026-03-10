@@ -110,6 +110,11 @@ service MemoryService {
 
     // Get agent activity bucketed by time period
     rpc GetAgentActivity(GetAgentActivityRequest) returns (GetAgentActivityResponse);
+
+    // ===== Dedup Gate RPCs (Phase 36 - DEDUP-03) =====
+
+    // Get dedup gate status and metrics
+    rpc GetDedupStatus(GetDedupStatusRequest) returns (GetDedupStatusResponse);
 }
 
 // Role of the message author
@@ -198,6 +203,9 @@ message IngestEventResponse {
 
     // True if event was newly created, false if already existed (idempotent)
     bool created = 2;
+
+    // True if event was detected as a semantic duplicate and stored without indexing (DEDUP-03)
+    bool deduplicated = 3;
 }
 
 // ===== TOC Navigation Messages (QRY-01, QRY-02, QRY-03) =====
@@ -1016,4 +1024,27 @@ message ActivityBucket {
 
 message GetAgentActivityResponse {
     repeated ActivityBucket buckets = 1;
+}
+
+// ===== Dedup Gate Messages (Phase 36 - DEDUP-03) =====
+
+// Request for dedup gate status
+message GetDedupStatusRequest {}
+
+// Response with dedup gate status and metrics
+message GetDedupStatusResponse {
+    // Whether dedup checking is enabled
+    bool enabled = 1;
+    // Similarity threshold for duplicate detection
+    float threshold = 2;
+    // Total events checked by the dedup gate
+    uint64 events_checked = 3;
+    // Total events marked as duplicates
+    uint64 events_deduplicated = 4;
+    // Total events skipped (fail-open cases)
+    uint64 events_skipped = 5;
+    // Current in-flight buffer size
+    uint32 buffer_size = 6;
+    // Maximum buffer capacity
+    uint32 buffer_capacity = 7;
 }
