@@ -633,10 +633,9 @@ fn enrich_with_salience(storage: &Storage, mut results: Vec<SearchResult>) -> Ve
             result
                 .metadata
                 .insert("memory_kind".to_string(), node.memory_kind.to_string());
-            result.metadata.insert(
-                "access_count".to_string(),
-                node.access_count.to_string(),
-            );
+            result
+                .metadata
+                .insert("access_count".to_string(), node.access_count.to_string());
         } else if let Ok(Some(grip)) = storage.get_grip(&result.doc_id) {
             result.metadata.insert(
                 "salience_score".to_string(),
