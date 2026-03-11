@@ -1,238 +1,216 @@
-# Technology Stack: v2.5 Semantic Dedup & Retrieval Quality
+# Technology Stack: v2.6 Episodic Memory, Salience Scoring, Lifecycle Automation
 
-**Project:** Agent Memory v2.5
-**Researched:** 2026-03-05
-**Focus:** Ingest-time semantic dedup gate and stale result filtering
+**Project:** Agent Memory — Local agentic memory system with retrieval layers
+**Researched:** 2026-03-11
+**Confidence:** HIGH
 
-## Key Finding: No New Dependencies Required
+## Executive Summary
 
-The existing stack already provides everything needed for both features. This milestone is purely a **feature implementation** on top of existing infrastructure, not a stack expansion.
+The v2.6 milestone adds episodic memory (task outcome tracking), salience/usage-based ranking, lifecycle automation, and BM25 hybrid wiring to a mature 14-crate Rust system (v2.5 shipped with semantic dedup + stale filtering).
 
-**Confidence:** HIGH -- based on direct codebase inspection of all relevant crates.
-
-## Existing Stack (Relevant to v2.5)
-
-### Already Present -- Use As-Is
-
-| Technology | Version (Locked) | Crate | Role in v2.5 |
-|------------|-----------------|-------|---------------|
-| usearch | 2.23.0 | memory-vector | HNSW index for dedup similarity search at ingest |
-| candle-core/nn/transformers | 0.8.4 | memory-embeddings | all-MiniLM-L6-v2 embedding generation for dedup |
-| RocksDB | 0.22 | memory-storage | Dedup metadata storage, staleness markers |
-| chrono | 0.4 | memory-types | Timestamp comparison for staleness decay |
-| tokio | 1.43 | memory-service | Async timeout for dedup gate (fail-open) |
-| serde/serde_json | 1.0 | memory-types | Config serialization for dedup/staleness settings |
-
-### No Version Bumps Needed
-
-All current versions support the required operations:
-- **usearch 2.23.0**: `search()` returns distances, `add()` inserts vectors -- both needed for dedup gate. Already validated in `HnswIndex::search()` at `crates/memory-vector/src/hnsw.rs`.
-- **candle 0.8.4**: `embed()` generates 384-dim vectors -- same embedder used for query-path vector teleport. Already wrapped in `CandleEmbedder` at `crates/memory-embeddings/`.
-- **RocksDB 0.22**: Column families support metadata storage. `VectorMetadata` at `crates/memory-vector/src/metadata.rs` already maps vector IDs to doc IDs with timestamps (`VectorEntry.created_at`).
-
-## Integration Points for v2.5
-
-### Feature 1: Ingest-Time Semantic Dedup Gate
-
-**What exists:** The `NoveltyChecker` at `crates/memory-service/src/novelty.rs` already implements the exact pattern needed -- a fail-open, opt-in, async vector similarity check at ingest time. It:
-- Has `EmbedderTrait` and `VectorIndexTrait` abstractions
-- Implements timeout with fail-open behavior
-- Tracks metrics (skipped_disabled, skipped_no_embedder, skipped_no_index, skipped_index_not_ready, skipped_error, skipped_timeout, skipped_short_text, stored_novel, rejected_duplicate)
-- Uses `NoveltyConfig` with threshold (default 0.82), timeout (50ms), min_text_length (50)
-- Is disabled by default, requires explicit opt-in
-
-**What needs to change:** The current `NoveltyChecker` uses its own `EmbedderTrait` and `VectorIndexTrait` that are **not wired to the actual usearch index**. The `check_similarity()` method delegates to abstract traits but the real `HnswIndex` and `CandleEmbedder` are not connected. The implementation needs:
-
-1. **Wire `NoveltyChecker` to real `HnswIndex`** -- Implement `VectorIndexTrait` for `Arc<RwLock<HnswIndex>>` with `VectorMetadata` lookup to convert vector IDs back to doc IDs
-2. **Wire `NoveltyChecker` to real `CandleEmbedder`** -- Implement `EmbedderTrait` for `Arc<CandleEmbedder>` (wrapping the sync `embed()` call in `tokio::task::spawn_blocking`)
-3. **Integrate into ingest path** -- The `MemoryServiceImpl` at `crates/memory-service/src/ingest.rs` needs to call `NoveltyChecker::should_store()` before `storage.put_event()`
-4. **Adjust threshold** -- Current default of 0.82 may need tuning; 0.92 is more appropriate for dedup (vs novelty detection which should be looser)
-
-**Stack impact:** Zero new crates. The `NoveltyChecker` pattern is already built; it just needs plumbing.
-
-### Feature 2: Stale Result Filtering/Downranking
-
-**What exists:** The ranking layer already has these components:
-- **Salience scoring** (`crates/memory-types/src/salience.rs`): Write-time importance scoring with `SalienceScorer`, formula: `base(0.35) + length_density + kind_boost + pinned_boost`
-- **Usage decay** (`crates/memory-types/src/usage.rs`): `usage_penalty()` function using `1 / (1 + decay_factor * access_count)`, `apply_usage_penalty()` multiplies score by penalty
-- **VectorMetadata** (`crates/memory-vector/src/metadata.rs`): `VectorEntry.created_at` timestamp (ms since epoch) already stored for every indexed vector
-- **Retrieval policy** (`crates/memory-retrieval/src/`): Intent classification, tier detection, execution orchestration with `StopConditions` including `min_confidence`
-
-**What needs to be added (pure Rust, no new deps):**
-
-1. **Staleness config** -- Add `StalenessConfig` to `crates/memory-types/src/config.rs` alongside `NoveltyConfig`:
-   - `enabled: bool` (default: false, matching existing opt-in pattern)
-   - `decay_half_life_days: f32` (default: 30.0) -- score halves every N days
-   - `supersession_threshold: f32` (default: 0.90) -- similarity above which newer content supersedes older
-   - `max_age_penalty: f32` (default: 0.1) -- floor for time decay (never fully zero out old results)
-
-2. **Time-decay scoring** -- Add `staleness_penalty()` to `crates/memory-types/src/usage.rs` (adjacent to existing `usage_penalty()`):
-   - Formula: `max(max_age_penalty, 0.5^(age_days / half_life_days))` -- exponential decay with floor
-   - Applied as multiplicative factor on retrieval scores, same pattern as `apply_usage_penalty()`
-   - Uses `chrono::Utc::now()` vs `VectorEntry.created_at` -- both already available
-
-3. **Supersession detection** -- When multiple results are semantically similar (cosine > supersession_threshold), keep only the most recent:
-   - Compare pairwise similarity of top-K results (embeddings available via `VectorMetadata` + `HnswIndex`)
-   - For each cluster of similar results, retain the newest by `created_at`
-   - This reuses `HnswIndex::search()` and `VectorMetadata::get()` -- no new dependencies
-
-4. **Ranking integration** -- Apply staleness penalty in the retrieval/query layer at `crates/memory-service/src/teleport_service.rs` or `crates/memory-service/src/query.rs`
-
-**Stack impact:** Zero new crates. All computation uses existing `chrono` timestamps and `usearch` similarity scores.
+**No new external dependencies required.** The existing stack (Tantivy, Candle, usearch, RocksDB) handles all new features. The key changes are:
+1. **Schema extensions** in proto to episodic messages + outcome fields
+2. **New crates** for episodic storage (not new packages — use existing RocksDB)
+3. **Configuration** for retention, salience, value thresholds
+4. **Existing APIs** (vector pruning, BM25 lifecycle) wired into scheduler
 
 ## Recommended Stack
 
-### Core Framework (NO CHANGES)
+### No New External Dependencies
 
-| Technology | Version | Purpose | Why No Change |
-|------------|---------|---------|---------------|
-| usearch | 2.23.0 | HNSW vector index | Already supports search() for dedup gate |
-| candle-* | 0.8.4 | Local embeddings | Already generates 384-dim vectors |
-| RocksDB | 0.22 | Storage + metadata | Already stores timestamps for staleness |
-| tokio | 1.43 | Async runtime | Already used for timeout in NoveltyChecker |
-| chrono | 0.4 | Time calculations | Already used for timestamps throughout |
+| Category | Tech | Version | Why | Status |
+|----------|------|---------|-----|--------|
+| **Episodic Storage** | RocksDB (existing) | 0.22 | Same append-only engine + new CF_EPISODES | Already in use |
+| **Hybrid Search** | Tantivy (existing) + usearch (existing) | 0.25 / 2 | RRF fusion between BM25 and vector | Implemented in v2.2 |
+| **Embeddings** | Candle (existing) + all-MiniLM-L6-v2 | 0.8 | Local inference, no API calls | Validated v2.0 |
+| **Async Runtime** | Tokio + tonic | 1.43 / 0.12 | gRPC service, scheduler tasks | Core infrastructure |
+| **Serialization** | serde + serde_json + prost | 1.0 / 1.0 / 0.13 | Config, JSON, proto messages | Standard |
+| **Time** | chrono | 0.4 | Timestamps, decay calculations | Already in use |
+| **Concurrency** | dashmap + Arc + std::sync::RwLock | 6 / — / — | ConcurrentHashMap for usage stats, RwLock for InFlightBuffer | Already in use |
 
-### Supporting Libraries (NO CHANGES)
+### Already-Integrated Libraries (No Upgrades Needed)
 
-| Library | Version | Purpose | Why No Change |
-|---------|---------|---------|---------------|
-| serde/serde_json | 1.0 | Config/metadata serialization | Already serializes NoveltyConfig, VectorEntry |
-| tracing | 0.1 | Logging for dedup decisions | Already used in NoveltyChecker |
-| thiserror | 2.0 | Error types for new error variants | Already used in all crates |
-| async-trait | (existing) | Async trait bounds for EmbedderTrait/VectorIndexTrait | Already used in memory-service |
+| Library | Current Version | Purpose | Note |
+|---------|-----------------|---------|------|
+| usearch | 2 | HNSW vector index + dedup similarity | Used in cross-session dedup (v2.5) |
+| hdbscan | 0.12 | Semantic clustering for topic graph | Topic discovery layer (v2.0) |
+| lru | 0.12 | LRU cache for usage tracking | Access count caching in storage (v2.1) |
+| ulid | 1.1 | Unique ID generation | Event IDs, Episode IDs |
+| tokio-cron | (via tokio-util) | Background scheduler | Job scheduling for lifecycle jobs |
+| thiserror | 2.0 | Error types | Standard error handling |
+| tracing | 0.1 | Observability | Logging + metrics |
 
-### What NOT to Add
+## Architecture Integration Points
 
-| Temptation | Why Avoid |
-|------------|-----------|
-| SimHash / MinHash crate | Overkill -- cosine similarity via usearch is sufficient for 384-dim vectors. SimHash trades accuracy for speed but HNSW is already O(log n). |
-| Bloom filter crate | Adds complexity without benefit -- HNSW search is already O(log n) and provides similarity scores, not just membership |
-| Separate dedup index | Unnecessary -- reuse existing HNSW index; dedup is just search-before-insert on the same index |
-| External embedding service | Already have local Candle; adding API dependency violates zero-API-dependency design principle |
-| Time-series DB for staleness | RocksDB already stores timestamps; exponential decay is a pure math function, not a query |
-| Approximate dedup (LSH) | usearch cosine similarity is accurate enough for 384-dim; LSH adds false negatives which means lost dedup |
-| ordered-float crate | Unnecessary for score comparison; f32 comparisons with `partial_cmp` are fine for ranking |
-| New column family for dedup state | The existing `VectorMetadata` already stores everything needed (vector_id, doc_id, created_at, text_preview) |
+### 1. Episodic Memory Storage (New Crate: memory-episodes)
 
-## Architecture of Changes (Stack Perspective)
+**Location:** `crates/memory-episodes/`
+**Dependencies:** memory-types, memory-storage, memory-embeddings, tokio, serde
 
-```
-Ingest Path (BEFORE v2.5):
-  gRPC IngestEvent -> NoveltyChecker (UNWIRED) -> Store in RocksDB -> Outbox -> Background indexing
+**Integration:**
+- New column family in RocksDB: `CF_EPISODES`
+- Store Episode structs (episode_id → Episode JSON in RocksDB)
+- Reuse existing embedding pipeline (Candle all-MiniLM-L6-v2)
+- Store episode embeddings in same vector index as TOC nodes (with metadata tag "episode")
 
-Ingest Path (AFTER v2.5):
-  gRPC IngestEvent -> NoveltyChecker (WIRED) -> Store in RocksDB -> Outbox -> Background indexing
-                      |
-                      +-> Embed text (CandleEmbedder -- already instantiated in service)
-                      +-> Search HNSW (usearch -- already instantiated in service)
-                      +-> If similarity > threshold: reject (fail-open on any error)
+**No new dependencies:** RocksDB is the storage engine. Episode lifecycle management reuses the existing scheduler (memory-scheduler).
 
-Query Path (BEFORE v2.5):
-  Search -> Rank by relevance + salience + usage_decay
+### 2. Salience + Usage Ranking (memory-retrieval enhancement)
 
-Query Path (AFTER v2.5):
-  Search -> Rank by relevance + salience + usage_decay + [STALENESS] -> [SUPERSESSION] -> Return
-                                                          |                |
-                                                          |                +-> Pairwise cosine on top-K
-                                                          |                +-> Keep newest per cluster
-                                                          +-> Apply time-decay penalty (chrono math)
-```
+**Current state:**
+- Salience fields exist in proto (TocNode.salience_score, TocNode.memory_kind) and memory-types
+- Usage tracking exists (UsageStats, UsageConfig in memory-types, dashmap cache in memory-storage)
+- SalienceScorer exists in memory-types but not wired into retrieval
 
-## Crate Dependency Changes
+**Changes needed:**
+- Wire SalienceScorer into all retrieval result ranking (BM25, vector, topics)
+- Thread usage stats from storage through retrieval pipeline
+- Apply formula: `score = base_similarity * (0.55 + 0.45 * salience) * usage_penalty(access_count)`
 
-### memory-service (changes needed)
-- **Already depends on:** memory-embeddings, memory-vector, memory-types, memory-storage, memory-search, memory-scheduler, tokio, async-trait
-- **Needs:** Wire `NoveltyChecker` to real `HnswIndex` and `CandleEmbedder` implementations. Add supersession filter as post-processing step in teleport/hybrid results.
-- **No new Cargo.toml entries.**
+**No new dependencies:** Uses existing UsageConfig, SalienceScorer, and dashmaps in storage.
 
-### memory-types (changes needed)
-- **Already depends on:** serde, chrono
-- **Needs:** Add `StalenessConfig` struct (same file as `NoveltyConfig`). Add `staleness_penalty()` and `apply_staleness_penalty()` functions (same file as `usage_penalty()`).
-- **No new Cargo.toml entries.**
+### 3. Lifecycle Automation (memory-scheduler + memory-search enhancements)
 
-### memory-retrieval (may need changes)
-- **Already depends on:** memory-types, chrono, async-trait
-- **Needs:** If staleness filtering is done at the retrieval policy layer (vs service layer), add staleness config to execution context. `StopConditions` may need a `staleness_enabled` field.
-- **No new Cargo.toml entries.**
+**Current state:**
+- Tokio cron scheduler exists (memory-scheduler crate)
+- Vector pruning API exists: `VectorIndexPipeline::prune(age_days)`
+- BM25 lifecycle config exists: `Bm25LifecycleConfig`
+- RocksDB operations are append-only; soft-delete via filtered rebuild
 
-### memory-vector (no changes)
-- Already has: `HnswIndex` with `search()`, `VectorMetadata` with `VectorEntry.created_at`
-- No modifications needed -- the vector layer is a read target for dedup, not modified.
+**Changes needed:**
+- Add scheduler job for vector index pruning (daily 3 AM)
+- Add scheduler job for BM25 index rebuild with level filter (weekly)
+- Wire config from `[lifecycle]` section in config.toml
 
-### memory-indexing (no changes)
-- Already has: `VectorIndexUpdater` that adds to HNSW index via outbox pipeline
-- The dedup gate runs BEFORE event storage (and therefore before indexing), so no changes here.
-
-### memory-embeddings (no changes)
-- Already has: `CandleEmbedder` with `embed()` method, `EmbeddingModel` trait
-- The dedup gate wraps this in `EmbedderTrait` adapter at the service layer.
-
-## Configuration Design
-
+**Configuration additions (config.toml):**
 ```toml
-# In ~/.config/agent-memory/config.toml
+[lifecycle]
+enabled = true
 
-# Existing config -- already implemented, just needs wiring
-[novelty]
-enabled = false              # Opt-in dedup gate (existing field)
-threshold = 0.92             # Bump from 0.82 for stricter dedup
-timeout_ms = 100             # Bump from 50ms to allow embedding + search
-min_text_length = 50         # Existing field, keep as-is
+[lifecycle.vector]
+# Existing but needs automation
+segment_retention_days = 30
+grip_retention_days = 30
+day_retention_days = 365
+prune_schedule = "0 3 * * *"
 
-# New config section
-[staleness]
-enabled = false              # Opt-in, matching novelty pattern
-decay_half_life_days = 30.0  # Score halves every 30 days
-supersession_threshold = 0.90 # Cosine sim for "this supersedes that"
-max_age_penalty = 0.1        # Floor -- never fully zero out old results
+[lifecycle.bm25]
+segment_retention_days = 30
+grip_retention_days = 30
+rebuild_schedule = "0 4 * * 0"  # Weekly Sunday 4 AM
+
+[lifecycle.episodes]
+# New: Value-based retention for episodes
+value_threshold = 0.18
+max_episodes = 1000
+prune_schedule = "0 2 * * *"
 ```
 
-**Design decision:** Keep `NoveltyConfig` name and semantics -- the "novelty check" IS the "dedup gate." The name `novelty` accurately describes checking whether incoming content is novel relative to existing content. Adding a separate `DedupConfig` would duplicate the same structure.
+**No new dependencies:** Reuses Tokio cron, existing RocksDB, existing lifecycle APIs.
 
-**Threshold tuning note:** The default threshold should be raised from 0.82 to 0.92 because:
-- 0.82 is appropriate for "is this content novel enough to be interesting?" (novelty detection)
-- 0.92 is appropriate for "is this content essentially the same thing?" (dedup)
-- The difference matters: at 0.82, paraphrased content gets rejected; at 0.92, only near-identical content does
+### 4. BM25 Hybrid Wiring (memory-search enhancement)
 
-## Alternatives Considered
+**Current state:**
+- HybridSearch RPC exists in proto
+- BM25 search (TeleportSearch) exists
+- Vector search exists
+- RRF fusion algorithm designed but not fully wired into routing
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Dedup mechanism | Reuse NoveltyChecker + real HNSW | Separate dedup index (hash-based) | NoveltyChecker already implements the pattern; hash-based loses semantic similarity |
-| Dedup mechanism | Reuse NoveltyChecker + real HNSW | Content hash (SHA-256) | Catches only exact duplicates; misses semantic duplicates like paraphrases |
-| Staleness scoring | Exponential time decay | Linear decay | Exponential is standard for memory/forgetting curves; old results should not linearly vanish |
-| Supersession | Pairwise cosine of top-K | Track explicit supersession links in storage | Explicit links require schema changes, complex bookkeeping, and backfill; pairwise cosine is stateless |
-| Config pattern | Opt-in with fail-open | Always-on | Matches existing novelty/usage patterns; lets users enable when ready |
-| Threshold default | 0.92 for dedup | 0.82 (existing) | 0.82 is too aggressive for dedup; rejects legitimately different content |
+**Changes needed:**
+- Wire BM25 results through hybrid search handler (not hardcoded `false`)
+- Apply RRF normalization: `score = 60 / (60 + rank_bm25) + 60 / (60 + rank_vector)`
+- Weight fusion by mode (HYBRID_MODE_HYBRID uses 0.5/0.5 by default)
+- Ensure agent filtering applied to both tiers
 
-## Installation
+**No new dependencies:** Uses existing Tantivy and usearch.
 
-```bash
-# No new dependencies -- just build
-cargo build --workspace
+## Integration Path (No Blockers)
 
-# No Cargo.toml changes needed
-# All features implemented using existing crates
+```
+v2.5 (Shipped) → v2.6 (New)
+├─ Existing Schema ✓
+│  ├─ TocNode.salience_score (proto field 101)
+│  ├─ TocNode.memory_kind (proto field 102)
+│  └─ Grip.salience_score (proto field 11)
+│
+├─ New Schema (Proto additions, field numbers > 200)
+│  ├─ Episode message (new column family CF_EPISODES)
+│  ├─ StartEpisodeRequest/Response
+│  ├─ RecordActionRequest/Response
+│  ├─ CompleteEpisodeRequest/Response
+│  └─ GetSimilarEpisodesRequest/Response
+│
+├─ Storage (RocksDB only)
+│  ├─ CF_EPISODES (append-only episode journal)
+│  └─ Existing usage stats cache (dashmap)
+│
+├─ Computation (Existing ML stack)
+│  ├─ Episode embeddings (Candle all-MiniLM-L6-v2)
+│  ├─ Similarity search (usearch HNSW)
+│  └─ Salience scoring (existing formula)
+│
+├─ Lifecycle (Tokio scheduler only)
+│  ├─ Vector prune job (existing API, new scheduler wiring)
+│  ├─ BM25 rebuild job (existing API, new scheduler wiring)
+│  └─ Episode prune job (new, reuses same job framework)
+│
+└─ Retrieval (memory-retrieval + handlers)
+   ├─ Hybrid search wiring (existing RPC, new routing)
+   ├─ Salience integration (existing scorer, new ranking layer)
+   ├─ Usage decay application (existing stats, new formula)
+   └─ Episode similarity search (new handler, existing embeddings)
 ```
 
-## Proto Changes
+## What NOT to Add
 
-The gRPC proto at `proto/memory.proto` may need minor additions:
-- `IngestEventResponse` could include a `deduplicated: bool` field indicating the event was rejected
-- `GetRankingStatusResponse` could include staleness config status
-- Field numbers >200 are reserved for new additions (per project convention)
+| Anti-Pattern | Reason | What to Do Instead |
+|--------------|--------|-------------------|
+| New async runtime | Tokio is standard for Rust systems | Keep tokio 1.43 |
+| Separate vector DB (Weaviate, Qdrant, etc.) | Single-process system; RocksDB is correct | Store vectors in HNSW index + metadata |
+| SQL database (SQLx, Tokio-postgres) | Append-only RocksDB is the model | Add new column families, not tables |
+| New LLM API for embeddings | Local Candle ensures zero API dependency | Use all-MiniLM-L6-v2 exclusively |
+| Feature flag framework (feature-gates) | Not needed; code is simple enough | Use config.toml bools for toggles |
+| Streaming/real-time updates (tonic streaming for episodes) | Unidirectional request/response is correct | Keep gRPC request/response pattern |
+| Consolidation/NLP extraction (spaCy, NLTK) | Out of scope for v2.6; episodic memory only | Defer to v2.7 if pursued |
 
-No new RPCs needed. Dedup is transparent to callers (event just silently not stored). Staleness is transparent to callers (results just ranked differently).
+## Verification Checklist
+
+- [x] Episodic storage: RocksDB column family sufficient (no new DB)
+- [x] Embeddings: Candle handles episodes same as TOC nodes
+- [x] Hybrid search: Existing BM25/vector APIs, just needs routing wiring
+- [x] Lifecycle jobs: Tokio scheduler covers vector/BM25/episode pruning
+- [x] Salience: Proto fields and SalienceScorer already defined; integrate into ranking
+- [x] Usage tracking: dashmap + LRU cache already in place
+- [x] No runtime changes: Tokio 1.43 sufficient for all async operations
+- [x] Proto safety: Field numbers > 200 reserved for phase 23+ (safe to add episodes)
+- [x] Backward compatibility: All new fields optional in proto; serde(default) handles JSON parsing
+
+## Confidence Assessment
+
+| Component | Level | Notes |
+|-----------|-------|-------|
+| **RocksDB schema** | HIGH | CF_EPISODES is straightforward append-only; validated pattern |
+| **Embeddings** | HIGH | all-MiniLM-L6-v2 + Candle proven in production (v2.0+) |
+| **Vector search** | HIGH | usearch HNSW + dedup similarity search working (v2.5) |
+| **Scheduler** | HIGH | Tokio cron job framework operational since v2.0 |
+| **Hybrid fusion** | MEDIUM | RRF algorithm designed, existing handlers need wiring only |
+| **Salience integration** | HIGH | SalienceScorer exists, needs threading through retrieval |
+| **Configuration** | HIGH | config.toml pattern established; new sections are additive |
+| **Episode retention** | MEDIUM | Value-based pruning algorithm is novel but low-complexity (threshold check) |
 
 ## Sources
 
-- Direct codebase inspection: `crates/memory-service/src/novelty.rs` -- NoveltyChecker with EmbedderTrait, VectorIndexTrait, fail-open, metrics, disabled-by-default
-- Direct codebase inspection: `crates/memory-vector/src/hnsw.rs` -- HnswIndex wrapping usearch with cosine similarity, search() returns 1.0-distance
-- Direct codebase inspection: `crates/memory-vector/src/metadata.rs` -- VectorEntry with created_at timestamp, VectorMetadata RocksDB store
-- Direct codebase inspection: `crates/memory-types/src/config.rs` -- NoveltyConfig with threshold 0.82, timeout 50ms, disabled by default
-- Direct codebase inspection: `crates/memory-types/src/usage.rs` -- usage_penalty() and apply_usage_penalty() patterns
-- Direct codebase inspection: `crates/memory-types/src/salience.rs` -- SalienceScorer write-time scoring
-- Direct codebase inspection: `crates/memory-indexing/src/vector_updater.rs` -- VectorIndexUpdater pipeline
-- Direct codebase inspection: `crates/memory-service/src/ingest.rs` -- IngestEvent RPC handler
-- Direct codebase inspection: `crates/memory-retrieval/src/types.rs` -- StopConditions, CapabilityTier, QueryIntent
-- Cargo.lock: usearch 2.23.0, candle-core 0.8.4, tantivy 0.25.0, rocksdb 0.22
+- **Code:** `/Users/richardhightower/clients/spillwave/src/agent-memory/`
+  - Workspace Cargo.toml (dependencies verified 2026-03-11)
+  - proto/memory.proto (schema v2.5 shipped, v2.6 additions safe in field > 200)
+  - crates/memory-types/src/ (SalienceScorer, UsageStats, UsageConfig, DedupConfig, StalenessConfig)
+  - crates/memory-storage/src/ (dashmap 6.0, lru 0.12, RocksDB 0.22)
+  - crates/memory-search/src/lifecycle.rs (Bm25LifecycleConfig, retention_map)
+  - crates/memory-scheduler/ (Tokio cron job framework)
+  - crates/memory-vector/ (VectorIndexPipeline::prune API)
+
+- **Design:** `.planning/PROJECT.md` (v2.6 requirements, validated decisions)
+- **RFC:** `docs/plans/memory-ranking-enhancements-rfc.md` (episodic memory Tier 2 spec, lifecycle Tier 1.5)
+
+---
+*Research completed 2026-03-11. No external dependencies added. All features implemented via existing crates + RocksDB column families + proto schema extensions.*
