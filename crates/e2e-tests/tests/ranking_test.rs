@@ -177,3 +177,265 @@ fn test_combined_ranking_composition() {
         );
     }
 }
+
+// ============================================================================
+// E2E tests: Full route_query pipeline with Storage-backed enrichment
+// ============================================================================
+
+const TOPIC: &str = "Rust ownership borrow checker lifetime annotation patterns";
+
+fn make_route_query() -> Request<RouteQueryRequest> {
+    Request::new(RouteQueryRequest {
+        query: "Rust ownership borrow checker lifetime".to_string(),
+        intent_override: None,
+        stop_conditions: None,
+        mode_override: None,
+        limit: 20,
+        agent_filter: None,
+    })
+}
+
+/// Set up a pipeline with multiple sessions indexed into BM25.
+/// Returns (harness, searcher, toc_node_ids).
+async fn setup_salience_pipeline() -> (TestHarness, Arc<TeleportSearcher>, Vec<String>) {
+    let harness = TestHarness::new();
+
+    let bm25_config = SearchIndexConfig::new(&harness.bm25_index_path);
+    let bm25_index = SearchIndex::open_or_create(bm25_config).unwrap();
+    let indexer = SearchIndexer::new(&bm25_index).unwrap();
+
+    let sessions = ["session-high", "session-mid", "session-low"];
+    let mut node_ids = Vec::new();
+
+    for session_id in &sessions {
+        let events = create_test_events(session_id, 8, TOPIC);
+        ingest_events(&harness.storage, &events);
+        let toc_node = build_toc_segment(harness.storage.clone(), events).await;
+
+        indexer.index_toc_node(&toc_node).unwrap();
+
+        let grip_ids: Vec<String> = toc_node
+            .bullets
+            .iter()
+            .flat_map(|b| b.grip_ids.iter().cloned())
+            .collect();
+        for grip_id in &grip_ids {
+            if let Some(grip) = harness.storage.get_grip(grip_id).unwrap() {
+                indexer.index_grip(&grip).unwrap();
+            }
+        }
+
+        node_ids.push(toc_node.node_id.clone());
+    }
+
+    indexer.commit().unwrap();
+    let searcher = Arc::new(TeleportSearcher::new(&bm25_index).unwrap());
+    (harness, searcher, node_ids)
+}
+
+/// RANK-09 E2E: Salience enrichment flows through route_query and affects ranking.
+///
+/// Mutates TocNode salience scores in Storage, queries via route_query,
+/// and verifies that the high-salience node outranks the low-salience one.
+#[tokio::test]
+async fn test_e2e_salience_enrichment_affects_ranking() {
+    let (harness, searcher, node_ids) = setup_salience_pipeline().await;
+
+    // Mutate TocNode salience in storage
+    let salience_values: [(f32, MemoryKind, bool); 3] = [
+        (1.0, MemoryKind::Constraint, true),
+        (0.5, MemoryKind::Observation, false),
+        (0.1, MemoryKind::Observation, false),
+    ];
+
+    for (i, (score, kind, pinned)) in salience_values.iter().enumerate() {
+        if let Ok(Some(mut node)) = harness.storage.get_toc_node(&node_ids[i]) {
+            node.salience_score = *score;
+            node.memory_kind = *kind;
+            node.is_pinned = *pinned;
+            harness.storage.put_toc_node(&node).unwrap();
+        }
+    }
+
+    let handler = RetrievalHandler::with_services(
+        harness.storage.clone(),
+        Some(searcher),
+        None,
+        None,
+        StalenessConfig::default(),
+    );
+
+    let resp = handler
+        .route_query(make_route_query())
+        .await
+        .unwrap()
+        .into_inner();
+
+    assert!(resp.has_results, "Should have search results");
+
+    // Find scores for our mutated nodes
+    let score_high = resp
+        .results
+        .iter()
+        .find(|r| r.doc_id == node_ids[0])
+        .map(|r| r.score);
+    let score_low = resp
+        .results
+        .iter()
+        .find(|r| r.doc_id == node_ids[2])
+        .map(|r| r.score);
+
+    if let (Some(high), Some(low)) = (score_high, score_low) {
+        assert!(
+            high > low,
+            "High-salience node ({:.4}) should outrank low-salience node ({:.4})",
+            high,
+            low
+        );
+    }
+}
+
+/// RANK-10 E2E: Access count enrichment flows through route_query.
+///
+/// Verifies that access_count metadata is enriched from Storage and
+/// all results have valid positive scores through the pipeline.
+/// Note: usage_decay is off by default in RankingConfig, so this test
+/// validates the enrichment path rather than decay ordering (which is
+/// covered by the unit-level test_usage_decay_ranking_order above).
+#[tokio::test]
+async fn test_e2e_access_count_enrichment() {
+    let (harness, searcher, node_ids) = setup_salience_pipeline().await;
+
+    // Set different access counts; keep salience neutral
+    let access_counts: [u32; 3] = [0, 10, 50];
+    for (i, &count) in access_counts.iter().enumerate() {
+        if let Ok(Some(mut node)) = harness.storage.get_toc_node(&node_ids[i]) {
+            node.salience_score = 0.5;
+            node.access_count = count;
+            harness.storage.put_toc_node(&node).unwrap();
+        }
+    }
+
+    let handler = RetrievalHandler::with_services(
+        harness.storage.clone(),
+        Some(searcher),
+        None,
+        None,
+        StalenessConfig::default(),
+    );
+
+    let resp = handler
+        .route_query(make_route_query())
+        .await
+        .unwrap()
+        .into_inner();
+
+    assert!(resp.has_results, "Should have search results");
+
+    // All returned results should have positive scores
+    for result in &resp.results {
+        assert!(
+            result.score > 0.0,
+            "Result {} should have positive score, got {}",
+            result.doc_id,
+            result.score
+        );
+    }
+
+    // Verify the pipeline returns results for our nodes (enrichment didn't break anything)
+    let found_count = resp
+        .results
+        .iter()
+        .filter(|r| node_ids.contains(&r.doc_id))
+        .count();
+    assert!(
+        found_count > 0,
+        "Should find at least one of our TocNodes in results"
+    );
+}
+
+/// Composition: ranking composes with StaleFilter — old high-salience constraint
+/// is exempt from staleness and still ranks well.
+#[test]
+fn test_ranking_composes_with_stale_filter() {
+    let now_ms = 1_706_540_400_000i64;
+    let day_ms = 86_400_000i64;
+
+    let mut meta_old = HashMap::new();
+    meta_old.insert(
+        "timestamp_ms".to_string(),
+        (now_ms - 30 * day_ms).to_string(),
+    );
+    meta_old.insert("memory_kind".to_string(), "constraint".to_string());
+    meta_old.insert("salience_score".to_string(), "1.0".to_string());
+    meta_old.insert("access_count".to_string(), "0".to_string());
+
+    let mut meta_new = HashMap::new();
+    meta_new.insert("timestamp_ms".to_string(), now_ms.to_string());
+    meta_new.insert("memory_kind".to_string(), "observation".to_string());
+    meta_new.insert("salience_score".to_string(), "0.2".to_string());
+    meta_new.insert("access_count".to_string(), "0".to_string());
+
+    let results = vec![
+        SearchResult {
+            doc_id: "old-constraint".to_string(),
+            doc_type: "toc_node".to_string(),
+            score: 0.85,
+            text_preview: "Old but important constraint".to_string(),
+            source_layer: RetrievalLayer::BM25,
+            metadata: meta_old,
+        },
+        SearchResult {
+            doc_id: "new-observation".to_string(),
+            doc_type: "toc_node".to_string(),
+            score: 0.85,
+            text_preview: "Recent low-salience observation".to_string(),
+            source_layer: RetrievalLayer::BM25,
+            metadata: meta_new,
+        },
+    ];
+
+    // Apply stale filter first (like route_query does)
+    let stale_filter = StaleFilter::new(StalenessConfig {
+        enabled: true,
+        half_life_days: 14.0,
+        max_penalty: 0.30,
+        ..Default::default()
+    });
+    let after_stale = stale_filter.apply(results);
+
+    // Constraint should be exempt from staleness decay
+    let constraint = after_stale
+        .iter()
+        .find(|r| r.doc_id == "old-constraint")
+        .unwrap();
+    assert!(
+        (constraint.score - 0.85).abs() < f32::EPSILON,
+        "Constraint should be exempt from stale decay, got {:.4}",
+        constraint.score
+    );
+
+    // Apply combined ranking
+    let ranking_config = RankingConfig {
+        salience_enabled: true,
+        usage_decay_enabled: false,
+        ..Default::default()
+    };
+    let ranked = apply_combined_ranking(after_stale, &ranking_config);
+
+    let constraint_final = ranked
+        .iter()
+        .find(|r| r.doc_id == "old-constraint")
+        .unwrap();
+    let observation_final = ranked
+        .iter()
+        .find(|r| r.doc_id == "new-observation")
+        .unwrap();
+
+    assert!(
+        constraint_final.score > observation_final.score,
+        "High-salience constraint ({:.4}) should outrank low-salience observation ({:.4})",
+        constraint_final.score,
+        observation_final.score
+    );
+}
