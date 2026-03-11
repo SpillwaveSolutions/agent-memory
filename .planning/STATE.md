@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.6
 milestone_name: Retrieval Quality, Lifecycle & Episodic Memory
-status: not_started
-stopped_at: Defining requirements
-last_updated: "2026-03-10T12:00:00.000Z"
-last_activity: 2026-03-10 — Milestone v2.6 started
+status: ready_to_plan
+stopped_at: Roadmap created, ready to plan Phase 39
+last_updated: "2026-03-11T12:00:00.000Z"
+last_activity: 2026-03-11 — v2.6 roadmap created (6 phases, 38 requirements)
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-10 — Milestone v2.6 started
+Phase: 39 of 44 (BM25 Hybrid Wiring)
+Plan: Ready to plan
+Status: Ready to plan Phase 39
+Last activity: 2026-03-11 — v2.6 roadmap created (6 phases, 38 requirements mapped)
 
 Progress: [░░░░░░░░░░] 0% (0/0 plans)
 
@@ -39,6 +39,12 @@ Progress: [░░░░░░░░░░] 0% (0/0 plans)
 ## Blockers
 
 - None
+
+## Research Flags
+
+- Phase 40: Ranking formula weights (salience/usage/stale) are initial guesses — validate against E2E test queries
+- Phase 40: Inspect hybrid.rs to confirm BM25 routing wiring state before planning
+- Phase 41: VectorPruneJob copy-on-write HNSW rebuild — verify usearch atomic rename behavior
 
 ## Reference Projects
 
@@ -65,6 +71,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-10
-**Stopped At:** Milestone v2.6 started — defining requirements
-**Resume File:** N/A — continue with requirements definition
+**Last Session:** 2026-03-11
+**Stopped At:** v2.6 roadmap created — ready to plan Phase 39 (BM25 Hybrid Wiring)
+**Resume File:** N/A — continue with `/gsd:plan-phase 39`
