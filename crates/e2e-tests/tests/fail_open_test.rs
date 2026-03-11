@@ -83,9 +83,7 @@ async fn test_fail_open_embedder_disabled_events_still_stored() {
             ),
         );
         let resp = service
-            .ingest_event(Request::new(IngestEventRequest {
-                event: Some(event),
-            }))
+            .ingest_event(Request::new(IngestEventRequest { event: Some(event) }))
             .await
             .unwrap();
         responses.push(resp.into_inner());
@@ -98,10 +96,7 @@ async fn test_fail_open_embedder_disabled_events_still_stored() {
             !resp.deduplicated,
             "Event {i} should NOT be marked deduplicated when embedder is None"
         );
-        assert!(
-            resp.created,
-            "Event {i} should be created successfully"
-        );
+        assert!(resp.created, "Event {i} should be created successfully");
     }
 
     // 6. Assert all 5 events stored in RocksDB
@@ -113,11 +108,7 @@ async fn test_fail_open_embedder_disabled_events_still_stored() {
 
     // 7. Assert all 5 have outbox entries (proving normal ingest path)
     let outbox = harness.storage.get_outbox_entries(0, 100).unwrap();
-    assert_eq!(
-        outbox.len(),
-        5,
-        "All 5 events should have outbox entries"
-    );
+    assert_eq!(outbox.len(), 5, "All 5 events should have outbox entries");
 }
 
 /// TEST-03 (2/3): Embedder errors -- events pass through unchanged.
@@ -155,9 +146,7 @@ async fn test_fail_open_embedder_error_events_pass_through() {
             ),
         );
         let resp = service
-            .ingest_event(Request::new(IngestEventRequest {
-                event: Some(event),
-            }))
+            .ingest_event(Request::new(IngestEventRequest { event: Some(event) }))
             .await
             .unwrap();
         responses.push(resp.into_inner());
@@ -183,11 +172,7 @@ async fn test_fail_open_embedder_error_events_pass_through() {
     );
 
     let outbox = harness.storage.get_outbox_entries(0, 100).unwrap();
-    assert_eq!(
-        outbox.len(),
-        3,
-        "All 3 events should have outbox entries"
-    );
+    assert_eq!(outbox.len(), 3, "All 3 events should have outbox entries");
 }
 
 /// TEST-03 (3/3): StaleFilter fail-open -- results returned even without timestamp metadata.

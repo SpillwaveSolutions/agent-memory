@@ -258,6 +258,12 @@ message TocNode {
     MemoryKind memory_kind = 102;
     // Whether node is pinned (boosted importance)
     bool is_pinned = 103;
+
+    // Phase 40: Usage tracking fields (field numbers > 200)
+    // Number of times this node was accessed in retrieval
+    uint32 access_count = 201;
+    // Last access timestamp (ms), 0 if never accessed
+    int64 last_accessed_ms = 202;
 }
 
 // A grip providing provenance for a bullet

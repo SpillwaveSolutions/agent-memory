@@ -497,7 +497,9 @@ pub async fn start_daemon(
 
     info!(
         "  Staleness filter: enabled={}, half_life={}d, max_penalty={}",
-        settings.staleness.enabled, settings.staleness.half_life_days, settings.staleness.max_penalty
+        settings.staleness.enabled,
+        settings.staleness.half_life_days,
+        settings.staleness.max_penalty
     );
 
     // Start server with scheduler

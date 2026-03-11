@@ -243,7 +243,7 @@ pub fn create_proto_event_structural(
         session_id: session_id.to_string(),
         timestamp_ms,
         event_type: 1, // SessionStart
-        role: 1,        // User
+        role: 1,       // User
         text: String::new(),
         metadata: HashMap::new(),
         agent: Some("claude".to_string()),

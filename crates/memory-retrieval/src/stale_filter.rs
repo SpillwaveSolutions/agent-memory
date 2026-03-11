@@ -92,11 +92,7 @@ impl StaleFilter {
     }
 
     /// Apply time-decay to each result based on age relative to newest_ts.
-    fn apply_time_decay(
-        &self,
-        results: Vec<SearchResult>,
-        newest_ts: i64,
-    ) -> Vec<SearchResult> {
+    fn apply_time_decay(&self, results: Vec<SearchResult>, newest_ts: i64) -> Vec<SearchResult> {
         let half_life = self.config.half_life_days as f64;
         let max_penalty = self.config.max_penalty as f64;
 
@@ -130,8 +126,7 @@ impl StaleFilter {
 
                 // Apply decay formula:
                 // score * (1.0 - max_penalty * (1.0 - exp(-age_days / half_life)))
-                let decay_factor =
-                    1.0 - max_penalty * (1.0 - (-age_days / half_life).exp());
+                let decay_factor = 1.0 - max_penalty * (1.0 - (-age_days / half_life).exp());
                 r.score = (r.score as f64 * decay_factor) as f32;
 
                 r
@@ -414,12 +409,20 @@ mod tests {
 
         // "old_high" starts higher but is much older, should drop below "new_low"
         let results = vec![
-            make_result("old_high", 0.95, Some(now - 60 * DAY_MS), Some("observation")),
+            make_result(
+                "old_high",
+                0.95,
+                Some(now - 60 * DAY_MS),
+                Some("observation"),
+            ),
             make_result("new_low", 0.70, Some(now), Some("observation")),
         ];
         let output = filter.apply(results);
         // After decay, new_low (0.70) should be above old_high (~0.95 * 0.717 ~ 0.681)
-        assert_eq!(output[0].doc_id, "new_low", "Newer result should be ranked first");
+        assert_eq!(
+            output[0].doc_id, "new_low",
+            "Newer result should be ranked first"
+        );
     }
 
     #[test]
@@ -429,8 +432,18 @@ mod tests {
 
         let results = vec![
             make_result("recent_obs", 0.85, Some(now), Some("observation")),
-            make_result("old_obs", 0.90, Some(now - 28 * DAY_MS), Some("observation")),
-            make_result("old_constraint", 0.80, Some(now - 28 * DAY_MS), Some("constraint")),
+            make_result(
+                "old_obs",
+                0.90,
+                Some(now - 28 * DAY_MS),
+                Some("observation"),
+            ),
+            make_result(
+                "old_constraint",
+                0.80,
+                Some(now - 28 * DAY_MS),
+                Some("constraint"),
+            ),
             make_result("no_ts", 0.75, None, Some("observation")),
         ];
         let output = filter.apply(results);
@@ -444,7 +457,10 @@ mod tests {
         assert!(old.score < 0.90);
 
         // old_constraint: exempt
-        let constraint = output.iter().find(|r| r.doc_id == "old_constraint").unwrap();
+        let constraint = output
+            .iter()
+            .find(|r| r.doc_id == "old_constraint")
+            .unwrap();
         assert!((constraint.score - 0.80).abs() < f32::EPSILON);
 
         // no_ts: no penalty (fail-open)
@@ -460,7 +476,12 @@ mod tests {
         // Very old result (365 days) should approach but not exceed 30%
         let results = vec![
             make_result("new", 1.0, Some(now), Some("observation")),
-            make_result("ancient", 1.0, Some(now - 365 * DAY_MS), Some("observation")),
+            make_result(
+                "ancient",
+                1.0,
+                Some(now - 365 * DAY_MS),
+                Some("observation"),
+            ),
         ];
         let output = filter.apply(results);
         let ancient = output.iter().find(|r| r.doc_id == "ancient").unwrap();
@@ -598,7 +619,12 @@ mod tests {
 
         let results = vec![
             make_result("newer_obs", 0.9, Some(now), Some("observation")),
-            make_result("older_constraint", 0.85, Some(now - DAY_MS), Some("constraint")),
+            make_result(
+                "older_constraint",
+                0.85,
+                Some(now - DAY_MS),
+                Some("constraint"),
+            ),
         ];
 
         let (emb_a, emb_b) = similar_pair(16);

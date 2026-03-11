@@ -282,6 +282,14 @@ pub struct Settings {
     /// Staleness-based score decay configuration.
     #[serde(default)]
     pub staleness: StalenessConfig,
+
+    /// Salience scoring configuration.
+    #[serde(default)]
+    pub salience: crate::SalienceConfig,
+
+    /// Usage decay configuration.
+    #[serde(default)]
+    pub usage: crate::UsageConfig,
 }
 
 fn default_db_path() -> String {
@@ -334,6 +342,8 @@ impl Default for Settings {
             vector_index_path: default_vector_index_path(),
             dedup: DedupConfig::default(),
             staleness: StalenessConfig::default(),
+            salience: crate::SalienceConfig::default(),
+            usage: crate::UsageConfig::default(),
         }
     }
 }
