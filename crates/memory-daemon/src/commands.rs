@@ -593,6 +593,83 @@ pub fn show_status() -> Result<()> {
     }
 }
 
+/// Show verbose status by querying the running daemon for detailed metrics.
+///
+/// Calls GetDedupStatus, GetRankingStatus, and GetVectorIndexStatus RPCs
+/// to display dedup, ranking, vector, and lifecycle health information.
+pub async fn show_verbose_status(endpoint: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(endpoint)
+        .await
+        .context("Failed to connect to daemon for verbose status")?;
+
+    println!();
+    println!("Detailed Status");
+    println!("================");
+
+    // Dedup status
+    match client.get_dedup_status().await {
+        Ok(dedup) => {
+            let hit_rate = if dedup.events_checked > 0 {
+                (dedup.events_deduplicated as f64 / dedup.events_checked as f64) * 100.0
+            } else {
+                0.0
+            };
+            println!(
+                "Dedup:    enabled={}, buffer_size={}/{}, hit_rate={:.1}%, events_skipped={}",
+                dedup.enabled,
+                dedup.buffer_size,
+                dedup.buffer_capacity,
+                hit_rate,
+                dedup.events_skipped,
+            );
+        }
+        Err(e) => println!("Dedup:    error - {}", e),
+    }
+
+    // Ranking status
+    match client.get_ranking_status().await {
+        Ok(ranking) => {
+            println!(
+                "Ranking:  avg_salience={:.2}, high_salience_nodes={}, avg_usage_decay={:.2}",
+                ranking.avg_salience_score, ranking.high_salience_count, ranking.avg_usage_decay,
+            );
+            println!(
+                "Novelty:  enabled={}, checked={}, rejected={}",
+                ranking.novelty_enabled,
+                ranking.novelty_checked_total,
+                ranking.novelty_rejected_total,
+            );
+            println!(
+                "Lifecycle: vector={}, bm25={}",
+                if ranking.vector_lifecycle_enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+                if ranking.bm25_lifecycle_enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+            );
+        }
+        Err(e) => println!("Ranking:  error - {}", e),
+    }
+
+    // Vector index status
+    match client.get_vector_index_status().await {
+        Ok(vector) => {
+            println!(
+                "Vector:   vectors={}, available={}",
+                vector.vector_count, vector.available,
+            );
+        }
+        Err(e) => println!("Vector:   error - {}", e),
+    }
+
+    Ok(())
+}
+
 /// Handle query commands.
 pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> {
     let mut client = MemoryClient::connect(endpoint)

@@ -539,6 +539,17 @@ impl NoveltyChecker {
     pub fn config(&self) -> &DedupConfig {
         &self.config
     }
+
+    /// Get the current number of entries in the in-flight buffer.
+    ///
+    /// Returns 0 if no buffer is configured or if the lock cannot be acquired.
+    pub fn buffer_len(&self) -> usize {
+        self.in_flight_buffer
+            .as_ref()
+            .and_then(|buf| buf.read().ok())
+            .map(|buf| buf.len())
+            .unwrap_or(0)
+    }
 }
 
 #[cfg(test)]

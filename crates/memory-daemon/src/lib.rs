@@ -18,5 +18,5 @@ pub use cli::{
 pub use commands::{
     handle_admin, handle_agents_command, handle_clod_command, handle_query,
     handle_retrieval_command, handle_scheduler, handle_teleport_command, handle_topics_command,
-    show_status, start_daemon, stop_daemon,
+    show_status, show_verbose_status, start_daemon, stop_daemon,
 };

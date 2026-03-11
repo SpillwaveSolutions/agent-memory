@@ -842,6 +842,16 @@ message GetRankingStatusResponse {
     bool bm25_lifecycle_enabled = 10;
     int64 bm25_last_prune_timestamp = 11;
     uint32 bm25_last_prune_count = 12;
+
+    // Phase 42: Ranking metrics (field numbers > 200)
+    // Average salience score across recent TOC nodes
+    float avg_salience_score = 201;
+    // Count of nodes with salience > 0.5
+    uint32 high_salience_count = 202;
+    // Sum of all access counts across TOC nodes
+    uint64 total_access_count = 203;
+    // Average usage decay penalty factor
+    float avg_usage_decay = 204;
 }
 
 // ===== Agent Retrieval Policy Messages (Phase 17) =====

@@ -46,7 +46,15 @@ pub enum Commands {
     Stop,
 
     /// Show daemon status
-    Status,
+    Status {
+        /// Show detailed metrics (dedup, ranking, vector, lifecycle)
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// gRPC endpoint for verbose mode (default: `http://127.0.0.1:50051`)
+        #[arg(short, long, default_value = "http://127.0.0.1:50051")]
+        endpoint: String,
+    },
 
     /// Query the memory system
     Query {
@@ -646,7 +654,16 @@ mod tests {
     #[test]
     fn test_cli_status() {
         let cli = Cli::parse_from(["memory-daemon", "status"]);
-        assert!(matches!(cli.command, Commands::Status));
+        assert!(matches!(cli.command, Commands::Status { .. }));
+    }
+
+    #[test]
+    fn test_cli_status_verbose() {
+        let cli = Cli::parse_from(["memory-daemon", "status", "--verbose"]);
+        match cli.command {
+            Commands::Status { verbose, .. } => assert!(verbose),
+            _ => panic!("Expected Status command"),
+        }
     }
 
     #[test]

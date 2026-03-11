@@ -362,6 +362,53 @@ impl MemoryServiceImpl {
 
         Ok(event)
     }
+
+    /// Compute ranking metrics from recent day-level TOC nodes.
+    ///
+    /// Returns (avg_salience, high_salience_count, total_access_count, avg_usage_decay).
+    /// Scans day-level nodes from the last 30 days for a bounded, representative sample.
+    fn compute_ranking_metrics(&self) -> (f32, u32, u64, f32) {
+        use memory_types::{usage::usage_penalty, TocLevel, UsageConfig};
+
+        let now = chrono::Utc::now();
+        let thirty_days_ago = now - chrono::Duration::days(30);
+
+        let nodes = match self.storage.get_toc_nodes_by_level(
+            TocLevel::Day,
+            Some(thirty_days_ago),
+            Some(now),
+        ) {
+            Ok(nodes) => nodes,
+            Err(_) => return (0.0, 0, 0, 1.0),
+        };
+
+        if nodes.is_empty() {
+            return (0.0, 0, 0, 1.0);
+        }
+
+        let usage_config = UsageConfig::default();
+        let count = nodes.len() as f32;
+        let mut total_salience = 0.0f32;
+        let mut high_salience = 0u32;
+        let mut total_access = 0u64;
+        let mut total_decay = 0.0f32;
+
+        for node in &nodes {
+            total_salience += node.salience_score;
+            if node.salience_score > 0.5 {
+                high_salience += 1;
+            }
+            total_access += node.access_count as u64;
+            total_decay += usage_penalty(node.access_count, usage_config.decay_factor);
+        }
+
+        (
+            total_salience / count,
+            high_salience,
+            total_access,
+            total_decay / count,
+        )
+    }
 }
 
 #[tonic::async_trait]
@@ -991,14 +1038,30 @@ impl MemoryService for MemoryServiceImpl {
         let salience_config = SalienceConfig::default();
         let novelty_config = NoveltyConfig::default();
 
+        // Compute ranking metrics from recent day-level TOC nodes (bounded scan)
+        let (avg_salience, high_salience_count, total_access, avg_decay) =
+            self.compute_ranking_metrics();
+
+        // Get novelty metrics if checker is available
+        let (novelty_checked, novelty_rejected, novelty_skipped) =
+            if let Some(ref checker) = self.novelty_checker {
+                let snapshot = checker.metrics().snapshot();
+                (
+                    snapshot.total_checked() as i64,
+                    snapshot.total_rejected() as i64,
+                    (snapshot.total_stored() - snapshot.stored_novel) as i64,
+                )
+            } else {
+                (0, 0, 0)
+            };
+
         Ok(Response::new(GetRankingStatusResponse {
             salience_enabled: salience_config.enabled,
             usage_decay_enabled: true, // Always active per Phase 16 design
             novelty_enabled: novelty_config.enabled,
-            // In-memory only counters; return 0 for a fresh/stateless query
-            novelty_checked_total: 0,
-            novelty_rejected_total: 0,
-            novelty_skipped_total: 0,
+            novelty_checked_total: novelty_checked,
+            novelty_rejected_total: novelty_rejected,
+            novelty_skipped_total: novelty_skipped,
             // Vector lifecycle: enabled if vector service is configured
             vector_lifecycle_enabled: self.vector_service.is_some(),
             vector_last_prune_timestamp: 0, // No persistent prune history yet
@@ -1007,6 +1070,11 @@ impl MemoryService for MemoryServiceImpl {
             bm25_lifecycle_enabled: false,
             bm25_last_prune_timestamp: 0,
             bm25_last_prune_count: 0,
+            // Phase 42: Ranking metrics
+            avg_salience_score: avg_salience,
+            high_salience_count,
+            total_access_count: total_access,
+            avg_usage_decay: avg_decay,
         }))
     }
 
@@ -1040,13 +1108,14 @@ impl MemoryService for MemoryServiceImpl {
         let response = if let Some(ref checker) = self.novelty_checker {
             let config = checker.config();
             let snapshot = checker.metrics().snapshot();
+            let buffer_size = checker.buffer_len() as u32;
             GetDedupStatusResponse {
                 enabled: config.enabled,
                 threshold: config.threshold,
                 events_checked: snapshot.total_checked(),
                 events_deduplicated: snapshot.total_rejected(),
                 events_skipped: snapshot.total_stored() - snapshot.stored_novel,
-                buffer_size: 0,
+                buffer_size,
                 buffer_capacity: config.buffer_capacity as u32,
             }
         } else {
