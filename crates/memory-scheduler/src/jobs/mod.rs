@@ -18,6 +18,8 @@ pub mod rollup;
 #[cfg(feature = "jobs")]
 pub mod bm25_prune;
 #[cfg(feature = "jobs")]
+pub mod bm25_rebuild;
+#[cfg(feature = "jobs")]
 pub mod indexing;
 #[cfg(feature = "jobs")]
 pub mod search;
@@ -29,6 +31,10 @@ pub use rollup::{create_rollup_jobs, RollupJobConfig};
 
 #[cfg(feature = "jobs")]
 pub use bm25_prune::{create_bm25_prune_job, Bm25PruneJob, Bm25PruneJobConfig};
+#[cfg(feature = "jobs")]
+pub use bm25_rebuild::{
+    create_bm25_rebuild_job, register_bm25_rebuild_job, Bm25RebuildJob, Bm25RebuildJobConfig,
+};
 #[cfg(feature = "jobs")]
 pub use indexing::{create_indexing_job, IndexingJobConfig};
 #[cfg(feature = "jobs")]

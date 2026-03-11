@@ -31,7 +31,8 @@ pub mod usage;
 
 // Re-export main types at crate root
 pub use config::{
-    DedupConfig, MultiAgentMode, NoveltyConfig, Settings, StalenessConfig, SummarizerSettings,
+    Bm25LifecycleSettings, DedupConfig, LifecycleConfig, MultiAgentMode, NoveltyConfig, Settings,
+    StalenessConfig, SummarizerSettings, VectorLifecycleSettings,
 };
 pub use dedup::{BufferEntry, InFlightBuffer};
 pub use error::MemoryError;

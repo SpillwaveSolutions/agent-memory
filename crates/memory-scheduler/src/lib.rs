@@ -60,6 +60,10 @@ pub use jobs::bm25_prune::{
     create_bm25_prune_job, register_bm25_prune_job, Bm25PruneJob, Bm25PruneJobConfig,
 };
 #[cfg(feature = "jobs")]
+pub use jobs::bm25_rebuild::{
+    create_bm25_rebuild_job, register_bm25_rebuild_job, Bm25RebuildJob, Bm25RebuildJobConfig,
+};
+#[cfg(feature = "jobs")]
 pub use jobs::compaction::{create_compaction_job, CompactionJobConfig};
 #[cfg(feature = "jobs")]
 pub use jobs::indexing::{create_indexing_job, IndexingJobConfig};

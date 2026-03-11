@@ -290,6 +290,149 @@ pub struct Settings {
     /// Usage decay configuration.
     #[serde(default)]
     pub usage: crate::UsageConfig,
+
+    /// Lifecycle automation configuration.
+    #[serde(default)]
+    pub lifecycle: LifecycleConfig,
+}
+
+/// Lifecycle automation configuration for index pruning and rebuilding.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LifecycleConfig {
+    /// Vector index lifecycle settings.
+    #[serde(default)]
+    pub vector: VectorLifecycleSettings,
+
+    /// BM25 index lifecycle settings.
+    #[serde(default)]
+    pub bm25: Bm25LifecycleSettings,
+}
+
+/// Vector index lifecycle settings.
+///
+/// Maps to `[lifecycle.vector]` section in config.toml.
+/// Enabled by default - vector indexes grow unbounded without pruning.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VectorLifecycleSettings {
+    /// Enable automatic vector pruning (default: true).
+    #[serde(default = "default_vector_enabled")]
+    pub enabled: bool,
+
+    /// Retention days for segment-level vectors (default: 30).
+    #[serde(default = "default_segment_retention")]
+    pub segment_retention_days: u32,
+
+    /// Retention days for grip-level vectors (default: 30).
+    #[serde(default = "default_grip_retention")]
+    pub grip_retention_days: u32,
+
+    /// Retention days for day-level vectors (default: 365).
+    #[serde(default = "default_day_retention")]
+    pub day_retention_days: u32,
+
+    /// Retention days for week-level vectors (default: 1825 = 5 years).
+    #[serde(default = "default_week_retention")]
+    pub week_retention_days: u32,
+
+    /// Cron schedule for prune job (default: "0 3 * * *" = daily 3 AM).
+    #[serde(default = "default_vector_prune_schedule")]
+    pub prune_schedule: String,
+}
+
+fn default_vector_enabled() -> bool {
+    true
+}
+
+fn default_segment_retention() -> u32 {
+    30
+}
+fn default_grip_retention() -> u32 {
+    30
+}
+fn default_day_retention() -> u32 {
+    365
+}
+fn default_week_retention() -> u32 {
+    1825
+}
+
+fn default_vector_prune_schedule() -> String {
+    "0 3 * * *".to_string()
+}
+
+impl Default for VectorLifecycleSettings {
+    fn default() -> Self {
+        Self {
+            enabled: default_vector_enabled(),
+            segment_retention_days: default_segment_retention(),
+            grip_retention_days: default_grip_retention(),
+            day_retention_days: default_day_retention(),
+            week_retention_days: default_week_retention(),
+            prune_schedule: default_vector_prune_schedule(),
+        }
+    }
+}
+
+/// BM25 index lifecycle settings.
+///
+/// Maps to `[lifecycle.bm25]` section in config.toml.
+/// DISABLED by default per PRD "append-only, no eviction" philosophy.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Bm25LifecycleSettings {
+    /// Whether BM25 lifecycle is enabled (default: false, opt-in).
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Minimum TOC level to keep after rollup rebuild (default: "day").
+    /// Segments and grips below this level are excluded from rebuilt index.
+    #[serde(default = "default_min_level")]
+    pub min_level_after_rollup: String,
+
+    /// Cron schedule for rebuild job (default: "0 4 * * 0" = weekly Sunday 4 AM).
+    #[serde(default = "default_bm25_rebuild_schedule")]
+    pub rebuild_schedule: String,
+
+    /// Retention days for segment-level docs (default: 30).
+    #[serde(default = "default_segment_retention")]
+    pub segment_retention_days: u32,
+
+    /// Retention days for grip-level docs (default: 30).
+    #[serde(default = "default_grip_retention")]
+    pub grip_retention_days: u32,
+
+    /// Retention days for day-level docs (default: 180).
+    #[serde(default = "default_bm25_day_retention")]
+    pub day_retention_days: u32,
+
+    /// Retention days for week-level docs (default: 1825 = 5 years).
+    #[serde(default = "default_week_retention")]
+    pub week_retention_days: u32,
+}
+
+fn default_min_level() -> String {
+    "day".to_string()
+}
+
+fn default_bm25_rebuild_schedule() -> String {
+    "0 4 * * 0".to_string()
+}
+
+fn default_bm25_day_retention() -> u32 {
+    180
+}
+
+impl Default for Bm25LifecycleSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            min_level_after_rollup: default_min_level(),
+            rebuild_schedule: default_bm25_rebuild_schedule(),
+            segment_retention_days: default_segment_retention(),
+            grip_retention_days: default_grip_retention(),
+            day_retention_days: default_bm25_day_retention(),
+            week_retention_days: default_week_retention(),
+        }
+    }
 }
 
 fn default_db_path() -> String {
@@ -344,6 +487,7 @@ impl Default for Settings {
             staleness: StalenessConfig::default(),
             salience: crate::SalienceConfig::default(),
             usage: crate::UsageConfig::default(),
+            lifecycle: LifecycleConfig::default(),
         }
     }
 }
@@ -605,5 +749,45 @@ mod tests {
         let json_minimal = r#"{"enabled":false}"#;
         let config2: DedupConfig = serde_json::from_str(json_minimal).unwrap();
         assert_eq!(config2.buffer_capacity, 256);
+    }
+
+    #[test]
+    fn test_lifecycle_config_defaults() {
+        let config = LifecycleConfig::default();
+
+        // Vector: enabled by default
+        assert!(config.vector.enabled);
+        assert_eq!(config.vector.segment_retention_days, 30);
+        assert_eq!(config.vector.grip_retention_days, 30);
+        assert_eq!(config.vector.day_retention_days, 365);
+        assert_eq!(config.vector.week_retention_days, 1825);
+        assert_eq!(config.vector.prune_schedule, "0 3 * * *");
+
+        // BM25: disabled by default (opt-in)
+        assert!(!config.bm25.enabled);
+        assert_eq!(config.bm25.min_level_after_rollup, "day");
+        assert_eq!(config.bm25.rebuild_schedule, "0 4 * * 0");
+        assert_eq!(config.bm25.segment_retention_days, 30);
+        assert_eq!(config.bm25.grip_retention_days, 30);
+        assert_eq!(config.bm25.day_retention_days, 180);
+        assert_eq!(config.bm25.week_retention_days, 1825);
+    }
+
+    #[test]
+    fn test_lifecycle_config_serialization() {
+        let config = LifecycleConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: LifecycleConfig = serde_json::from_str(&json).unwrap();
+        assert!(decoded.vector.enabled);
+        assert!(!decoded.bm25.enabled);
+        assert_eq!(decoded.bm25.min_level_after_rollup, "day");
+        assert_eq!(decoded.vector.prune_schedule, "0 3 * * *");
+    }
+
+    #[test]
+    fn test_settings_lifecycle_default() {
+        let settings = Settings::default();
+        assert!(settings.lifecycle.vector.enabled);
+        assert!(!settings.lifecycle.bm25.enabled);
     }
 }

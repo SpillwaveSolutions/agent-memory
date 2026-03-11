@@ -276,6 +276,32 @@ pub enum AdminCommands {
         #[arg(long)]
         vector_path: Option<String>,
     },
+
+    /// Prune old vectors from the HNSW index by age
+    PruneVectors {
+        /// Remove vectors older than this many days
+        #[arg(long, default_value = "30")]
+        age_days: u32,
+
+        /// Path to vector index directory (default from config)
+        #[arg(long)]
+        vector_path: Option<String>,
+
+        /// Dry run - show what would be pruned
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Rebuild BM25 index with level filtering
+    RebuildBm25 {
+        /// Minimum TOC level to keep: segment, day, week, month, year
+        #[arg(long, default_value = "day")]
+        min_level: String,
+
+        /// Path to search index directory (default from config)
+        #[arg(long)]
+        search_path: Option<String>,
+    },
 }
 
 /// Scheduler subcommands
