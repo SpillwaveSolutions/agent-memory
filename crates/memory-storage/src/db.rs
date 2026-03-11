@@ -24,7 +24,7 @@ pub use memory_types::TocLevel;
 
 /// Main storage interface for agent-memory
 pub struct Storage {
-    db: DB,
+    pub(crate) db: DB,
     /// Outbox sequence counter for monotonic ordering
     outbox_sequence: AtomicU64,
 }

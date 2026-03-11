@@ -10,6 +10,7 @@
 
 pub mod column_families;
 pub mod db;
+pub mod episodes;
 pub mod error;
 pub mod keys;
 pub mod usage;
