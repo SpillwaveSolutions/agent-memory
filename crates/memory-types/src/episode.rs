@@ -192,7 +192,10 @@ mod tests {
     #[test]
     fn test_episode_serialization_roundtrip() {
         let mut episode = Episode::new("01TEST".to_string(), "Build auth system".to_string())
-            .with_plan(vec!["Design schema".to_string(), "Implement JWT".to_string()])
+            .with_plan(vec![
+                "Design schema".to_string(),
+                "Implement JWT".to_string(),
+            ])
             .with_agent("claude");
 
         episode.add_action(Action {

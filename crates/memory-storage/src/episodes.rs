@@ -14,8 +14,8 @@ impl Storage {
     ///
     /// The episode is serialized to JSON and stored with its episode_id as key.
     pub fn store_episode(&self, episode: &Episode) -> Result<(), StorageError> {
-        let bytes = serde_json::to_vec(episode)
-            .map_err(|e| StorageError::Serialization(e.to_string()))?;
+        let bytes =
+            serde_json::to_vec(episode).map_err(|e| StorageError::Serialization(e.to_string()))?;
 
         self.put(CF_EPISODES, episode.episode_id.as_bytes(), &bytes)?;
         debug!(episode_id = %episode.episode_id, "Stored episode");
@@ -45,9 +45,7 @@ impl Storage {
             .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_EPISODES.to_string()))?;
 
         let mut episodes = Vec::new();
-        let iter = self
-            .db
-            .iterator_cf(&cf, rocksdb::IteratorMode::End);
+        let iter = self.db.iterator_cf(&cf, rocksdb::IteratorMode::End);
 
         for item in iter.take(limit) {
             let (_, value) = item?;
@@ -201,9 +199,8 @@ mod tests {
     fn test_episode_roundtrip_with_actions() {
         let (storage, _tmp) = create_test_storage();
 
-        let mut episode =
-            Episode::new(ulid::Ulid::new().to_string(), "Complex task".to_string())
-                .with_agent("claude");
+        let mut episode = Episode::new(ulid::Ulid::new().to_string(), "Complex task".to_string())
+            .with_agent("claude");
 
         episode.add_action(Action {
             action_type: "tool_call".to_string(),
