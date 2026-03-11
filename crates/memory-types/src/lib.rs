@@ -35,7 +35,8 @@ pub mod usage;
 // Re-export main types at crate root
 pub use episode::{Action, ActionResult, Episode, EpisodeStatus};
 pub use config::{
-    DedupConfig, MultiAgentMode, NoveltyConfig, Settings, StalenessConfig, SummarizerSettings,
+    DedupConfig, EpisodicConfig, MultiAgentMode, NoveltyConfig, Settings, StalenessConfig,
+    SummarizerSettings,
 };
 pub use dedup::{BufferEntry, InFlightBuffer};
 pub use error::MemoryError;

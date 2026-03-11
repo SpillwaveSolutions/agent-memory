@@ -224,6 +224,77 @@ impl Default for SummarizerSettings {
     }
 }
 
+/// Configuration for episodic memory (Phase 43).
+///
+/// Controls whether episodic memory is enabled and how episodes are
+/// scored and retained. Disabled by default -- must be explicitly enabled.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpisodicConfig {
+    /// Whether episodic memory is enabled (default: false).
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Minimum value score for an episode to be retained in long-term storage.
+    /// Episodes below this threshold may be pruned.
+    #[serde(default = "default_episodic_value_threshold")]
+    pub value_threshold: f32,
+
+    /// Target midpoint for value scoring (default: 0.65).
+    /// Episodes with outcome scores near this value are considered most valuable.
+    #[serde(default = "default_episodic_midpoint_target")]
+    pub midpoint_target: f32,
+
+    /// Maximum number of episodes to retain (default: 1000).
+    /// Oldest low-value episodes are pruned first when this limit is reached.
+    #[serde(default = "default_episodic_max_episodes")]
+    pub max_episodes: usize,
+}
+
+fn default_episodic_value_threshold() -> f32 {
+    0.18
+}
+
+fn default_episodic_midpoint_target() -> f32 {
+    0.65
+}
+
+fn default_episodic_max_episodes() -> usize {
+    1000
+}
+
+impl Default for EpisodicConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            value_threshold: default_episodic_value_threshold(),
+            midpoint_target: default_episodic_midpoint_target(),
+            max_episodes: default_episodic_max_episodes(),
+        }
+    }
+}
+
+impl EpisodicConfig {
+    /// Validate configuration values.
+    pub fn validate(&self) -> Result<(), String> {
+        if !(0.0..=1.0).contains(&self.value_threshold) {
+            return Err(format!(
+                "value_threshold must be 0.0-1.0, got {}",
+                self.value_threshold
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.midpoint_target) {
+            return Err(format!(
+                "midpoint_target must be 0.0-1.0, got {}",
+                self.midpoint_target
+            ));
+        }
+        if self.max_episodes == 0 {
+            return Err("max_episodes must be > 0".to_string());
+        }
+        Ok(())
+    }
+}
+
 /// Multi-agent storage mode (STOR-06)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -282,6 +353,10 @@ pub struct Settings {
     /// Staleness-based score decay configuration.
     #[serde(default)]
     pub staleness: StalenessConfig,
+
+    /// Episodic memory configuration (Phase 43).
+    #[serde(default)]
+    pub episodic: EpisodicConfig,
 }
 
 fn default_db_path() -> String {
@@ -334,6 +409,7 @@ impl Default for Settings {
             vector_index_path: default_vector_index_path(),
             dedup: DedupConfig::default(),
             staleness: StalenessConfig::default(),
+            episodic: EpisodicConfig::default(),
         }
     }
 }
@@ -595,5 +671,70 @@ mod tests {
         let json_minimal = r#"{"enabled":false}"#;
         let config2: DedupConfig = serde_json::from_str(json_minimal).unwrap();
         assert_eq!(config2.buffer_capacity, 256);
+    }
+
+    #[test]
+    fn test_episodic_config_defaults() {
+        let config = EpisodicConfig::default();
+        assert!(!config.enabled);
+        assert!((config.value_threshold - 0.18).abs() < f32::EPSILON);
+        assert!((config.midpoint_target - 0.65).abs() < f32::EPSILON);
+        assert_eq!(config.max_episodes, 1000);
+    }
+
+    #[test]
+    fn test_episodic_config_validation_pass() {
+        let config = EpisodicConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_episodic_config_validation_fail() {
+        let config = EpisodicConfig {
+            value_threshold: 1.5,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        let config = EpisodicConfig {
+            midpoint_target: -0.1,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        let config = EpisodicConfig {
+            max_episodes: 0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_episodic_config_serialization() {
+        let config = EpisodicConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: EpisodicConfig = serde_json::from_str(&json).unwrap();
+        assert!(!decoded.enabled);
+        assert!((decoded.value_threshold - 0.18).abs() < f32::EPSILON);
+        assert!((decoded.midpoint_target - 0.65).abs() < f32::EPSILON);
+        assert_eq!(decoded.max_episodes, 1000);
+    }
+
+    #[test]
+    fn test_episodic_config_backward_compat() {
+        // Deserialize with missing episodic section (pre-phase-43 config)
+        let json = r#"{}"#;
+        let config: EpisodicConfig = serde_json::from_str(json).unwrap();
+        assert!(!config.enabled);
+        assert_eq!(config.max_episodes, 1000);
+    }
+
+    #[test]
+    fn test_settings_episodic_default() {
+        let settings = Settings::default();
+        assert!(!settings.episodic.enabled);
+        assert!((settings.episodic.value_threshold - 0.18).abs() < f32::EPSILON);
+        assert!((settings.episodic.midpoint_target - 0.65).abs() < f32::EPSILON);
+        assert_eq!(settings.episodic.max_episodes, 1000);
     }
 }
