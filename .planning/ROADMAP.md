@@ -129,11 +129,11 @@ See: `.planning/milestones/v2.5-ROADMAP.md`
   2. When the vector index is unavailable, route_query falls back to BM25-only results instead of returning empty
   3. The hybrid search handler reports bm25_available() = true (no longer hardcoded false)
   4. An E2E test proves that a query matching content indexed by both BM25 and vector returns combined results from both layers
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 39-01: TBD
-- [ ] 39-02: TBD
+- [ ] 39-01: Wire BM25 into HybridSearchHandler and retrieval routing
+- [ ] 39-02: E2E hybrid search test
 
 ### Phase 40: Salience Scoring + Usage Decay
 **Goal**: Retrieval results are ranked by a composed formula that rewards high-salience content, penalizes overused results, and composes cleanly with existing stale filtering
@@ -145,12 +145,12 @@ Plans:
   3. Frequently accessed results receive a usage decay penalty so that fresh results surface above stale, over-accessed ones
   4. The combined ranking formula (similarity x salience_factor x usage_penalty) composes with StaleFilter without collapsing scores below min_confidence threshold
   5. Salience weights and usage decay parameters are configurable via config.toml sections
-**Plans**: TBD
+**Plans**: 3
 
 Plans:
-- [ ] 40-01: TBD
-- [ ] 40-02: TBD
-- [ ] 40-03: TBD
+- [ ] 40-01: Salience scoring at write time
+- [ ] 40-02: Usage-based decay in retrieval ranking
+- [ ] 40-03: Ranking E2E tests
 
 ### Phase 41: Lifecycle Automation
 **Goal**: Index sizes are automatically managed through scheduled pruning jobs, preventing unbounded growth of vector and BM25 indexes
@@ -162,11 +162,11 @@ Plans:
   3. BM25 index can be rebuilt with a --min-level filter that excludes fine-grain segment docs after rollup
   4. An admin CLI command allows manual BM25 rebuild with level filtering
   5. An E2E test proves that old segments are removed from the vector index after a lifecycle job runs
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 41-01: TBD
-- [ ] 41-02: TBD
+- [ ] 41-01: Vector pruning wiring + CLI command
+- [ ] 41-02: BM25 lifecycle policy + E2E test
 
 ### Phase 42: Observability RPCs
 **Goal**: Operators can inspect dedup, ranking, and system health metrics through admin RPCs and CLI, enabling production monitoring and debugging
@@ -177,11 +177,11 @@ Plans:
   2. IngestEventResponse includes a deduplicated boolean field indicating whether the event was a duplicate
   3. Ranking metrics (salience distribution, usage decay stats) are queryable via admin RPC
   4. `memory-daemon status --verbose` prints a human-readable summary of dedup and ranking health
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 42-01: TBD
-- [ ] 42-02: TBD
+- [ ] 42-01: Dedup observability — buffer size + deduplicated field
+- [ ] 42-02: Ranking metrics + verbose status CLI
 
 ### Phase 43: Episodic Memory Schema & Storage
 **Goal**: The system has a persistent, queryable storage layer for task episodes with structured actions and outcomes
@@ -191,10 +191,10 @@ Plans:
   1. Episode struct exists with episode_id, task, plan, actions, outcome_score, lessons_learned, failure_modes, embedding, and created_at fields
   2. Action struct exists with action_type, input, result, and timestamp fields
   3. CF_EPISODES column family is registered in RocksDB and episodes can be stored and retrieved by ID
-**Plans**: TBD
+**Plans**: 1
 
 Plans:
-- [ ] 43-01: TBD
+- [ ] 43-01: Episode schema, storage, and column family
 
 ### Phase 44: Episodic Memory gRPC & Retrieval
 **Goal**: Agents can record task outcomes as episodes, search for similar past episodes by vector similarity, and the system retains episodes based on their learning value
@@ -206,12 +206,12 @@ Plans:
   3. Value-based retention scores episodes by distance from the 0.65 optimal outcome, and episodes below the retention threshold are eligible for pruning
   4. Episodic memory is configurable via [episodic] config section (enabled flag, value_threshold, max_episodes)
   5. E2E tests prove the full episode lifecycle (create, record, complete, search) and value-based retention scoring
-**Plans**: TBD
+**Plans**: 3
 
 Plans:
-- [ ] 44-01: TBD
-- [ ] 44-02: TBD
-- [ ] 44-03: TBD
+- [ ] 44-01: Episode gRPC proto definitions and handler
+- [ ] 44-02: Similar episode search and value-based retention
+- [ ] 44-03: Episodic memory E2E tests
 
 ## Progress
 
@@ -228,12 +228,12 @@ Note: Phases 43-44 (Episodic Memory) are independent of 39-42 and could be paral
 | 28-29 | v2.3 | 2/2 | Complete | 2026-02-12 |
 | 30-34 | v2.4 | 15/15 | Complete | 2026-03-05 |
 | 35-38 | v2.5 | 11/11 | Complete | 2026-03-10 |
-| 39. BM25 Hybrid Wiring | v2.6 | 0/TBD | Not started | - |
-| 40. Salience + Usage Decay | v2.6 | 0/TBD | Not started | - |
-| 41. Lifecycle Automation | v2.6 | 0/TBD | Not started | - |
-| 42. Observability RPCs | v2.6 | 0/TBD | Not started | - |
-| 43. Episodic Schema & Storage | v2.6 | 0/TBD | Not started | - |
-| 44. Episodic gRPC & Retrieval | v2.6 | 0/TBD | Not started | - |
+| 39. BM25 Hybrid Wiring | v2.6 | 0/2 | Planned | - |
+| 40. Salience + Usage Decay | v2.6 | 0/3 | Planned | - |
+| 41. Lifecycle Automation | v2.6 | 0/2 | Planned | - |
+| 42. Observability RPCs | v2.6 | 0/2 | Planned | - |
+| 43. Episodic Schema & Storage | v2.6 | 0/1 | Planned | - |
+| 44. Episodic gRPC & Retrieval | v2.6 | 0/3 | Planned | - |
 
 ---
 
