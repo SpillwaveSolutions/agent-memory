@@ -175,7 +175,7 @@ impl MemoryServiceImpl {
         vector_handler: Arc<VectorTeleportHandler>,
         staleness_config: StalenessConfig,
     ) -> Self {
-        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone(), None));
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             None,
@@ -234,7 +234,10 @@ impl MemoryServiceImpl {
         vector_handler: Arc<VectorTeleportHandler>,
         staleness_config: StalenessConfig,
     ) -> Self {
-        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(
+            vector_handler.clone(),
+            Some(searcher.clone()),
+        ));
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             Some(searcher.clone()),
@@ -265,7 +268,10 @@ impl MemoryServiceImpl {
         topic_handler: Arc<TopicGraphHandler>,
         staleness_config: StalenessConfig,
     ) -> Self {
-        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(
+            vector_handler.clone(),
+            Some(searcher.clone()),
+        ));
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             Some(searcher.clone()),
