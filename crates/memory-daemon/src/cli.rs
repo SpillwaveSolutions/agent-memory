@@ -46,7 +46,15 @@ pub enum Commands {
     Stop,
 
     /// Show daemon status
-    Status,
+    Status {
+        /// Show detailed metrics (dedup, ranking, vector, lifecycle)
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// gRPC endpoint for verbose mode (default: `http://127.0.0.1:50051`)
+        #[arg(short, long, default_value = "http://127.0.0.1:50051")]
+        endpoint: String,
+    },
 
     /// Query the memory system
     Query {
@@ -275,6 +283,32 @@ pub enum AdminCommands {
         /// Path to vector index directory (default from config)
         #[arg(long)]
         vector_path: Option<String>,
+    },
+
+    /// Prune old vectors from the HNSW index by age
+    PruneVectors {
+        /// Remove vectors older than this many days
+        #[arg(long, default_value = "30")]
+        age_days: u32,
+
+        /// Path to vector index directory (default from config)
+        #[arg(long)]
+        vector_path: Option<String>,
+
+        /// Dry run - show what would be pruned
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Rebuild BM25 index with level filtering
+    RebuildBm25 {
+        /// Minimum TOC level to keep: segment, day, week, month, year
+        #[arg(long, default_value = "day")]
+        min_level: String,
+
+        /// Path to search index directory (default from config)
+        #[arg(long)]
+        search_path: Option<String>,
     },
 }
 
@@ -620,7 +654,16 @@ mod tests {
     #[test]
     fn test_cli_status() {
         let cli = Cli::parse_from(["memory-daemon", "status"]);
-        assert!(matches!(cli.command, Commands::Status));
+        assert!(matches!(cli.command, Commands::Status { .. }));
+    }
+
+    #[test]
+    fn test_cli_status_verbose() {
+        let cli = Cli::parse_from(["memory-daemon", "status", "--verbose"]);
+        match cli.command {
+            Commands::Status { verbose, .. } => assert!(verbose),
+            _ => panic!("Expected Status command"),
+        }
     }
 
     #[test]

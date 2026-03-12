@@ -224,6 +224,77 @@ impl Default for SummarizerSettings {
     }
 }
 
+/// Configuration for episodic memory (Phase 43).
+///
+/// Controls whether episodic memory is enabled and how episodes are
+/// scored and retained. Disabled by default -- must be explicitly enabled.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpisodicConfig {
+    /// Whether episodic memory is enabled (default: false).
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Minimum value score for an episode to be retained in long-term storage.
+    /// Episodes below this threshold may be pruned.
+    #[serde(default = "default_episodic_value_threshold")]
+    pub value_threshold: f32,
+
+    /// Target midpoint for value scoring (default: 0.65).
+    /// Episodes with outcome scores near this value are considered most valuable.
+    #[serde(default = "default_episodic_midpoint_target")]
+    pub midpoint_target: f32,
+
+    /// Maximum number of episodes to retain (default: 1000).
+    /// Oldest low-value episodes are pruned first when this limit is reached.
+    #[serde(default = "default_episodic_max_episodes")]
+    pub max_episodes: usize,
+}
+
+fn default_episodic_value_threshold() -> f32 {
+    0.18
+}
+
+fn default_episodic_midpoint_target() -> f32 {
+    0.65
+}
+
+fn default_episodic_max_episodes() -> usize {
+    1000
+}
+
+impl Default for EpisodicConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            value_threshold: default_episodic_value_threshold(),
+            midpoint_target: default_episodic_midpoint_target(),
+            max_episodes: default_episodic_max_episodes(),
+        }
+    }
+}
+
+impl EpisodicConfig {
+    /// Validate configuration values.
+    pub fn validate(&self) -> Result<(), String> {
+        if !(0.0..=1.0).contains(&self.value_threshold) {
+            return Err(format!(
+                "value_threshold must be 0.0-1.0, got {}",
+                self.value_threshold
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.midpoint_target) {
+            return Err(format!(
+                "midpoint_target must be 0.0-1.0, got {}",
+                self.midpoint_target
+            ));
+        }
+        if self.max_episodes == 0 {
+            return Err("max_episodes must be > 0".to_string());
+        }
+        Ok(())
+    }
+}
+
 /// Multi-agent storage mode (STOR-06)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -282,6 +353,161 @@ pub struct Settings {
     /// Staleness-based score decay configuration.
     #[serde(default)]
     pub staleness: StalenessConfig,
+
+    /// Salience scoring configuration.
+    #[serde(default)]
+    pub salience: crate::SalienceConfig,
+
+    /// Usage decay configuration.
+    #[serde(default)]
+    pub usage: crate::UsageConfig,
+
+    /// Lifecycle automation configuration.
+    #[serde(default)]
+    pub lifecycle: LifecycleConfig,
+
+    /// Episodic memory configuration (Phase 43).
+    #[serde(default)]
+    pub episodic: EpisodicConfig,
+}
+
+/// Lifecycle automation configuration for index pruning and rebuilding.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LifecycleConfig {
+    /// Vector index lifecycle settings.
+    #[serde(default)]
+    pub vector: VectorLifecycleSettings,
+
+    /// BM25 index lifecycle settings.
+    #[serde(default)]
+    pub bm25: Bm25LifecycleSettings,
+}
+
+/// Vector index lifecycle settings.
+///
+/// Maps to `[lifecycle.vector]` section in config.toml.
+/// Enabled by default - vector indexes grow unbounded without pruning.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VectorLifecycleSettings {
+    /// Enable automatic vector pruning (default: true).
+    #[serde(default = "default_vector_enabled")]
+    pub enabled: bool,
+
+    /// Retention days for segment-level vectors (default: 30).
+    #[serde(default = "default_segment_retention")]
+    pub segment_retention_days: u32,
+
+    /// Retention days for grip-level vectors (default: 30).
+    #[serde(default = "default_grip_retention")]
+    pub grip_retention_days: u32,
+
+    /// Retention days for day-level vectors (default: 365).
+    #[serde(default = "default_day_retention")]
+    pub day_retention_days: u32,
+
+    /// Retention days for week-level vectors (default: 1825 = 5 years).
+    #[serde(default = "default_week_retention")]
+    pub week_retention_days: u32,
+
+    /// Cron schedule for prune job (default: "0 3 * * *" = daily 3 AM).
+    #[serde(default = "default_vector_prune_schedule")]
+    pub prune_schedule: String,
+}
+
+fn default_vector_enabled() -> bool {
+    true
+}
+
+fn default_segment_retention() -> u32 {
+    30
+}
+fn default_grip_retention() -> u32 {
+    30
+}
+fn default_day_retention() -> u32 {
+    365
+}
+fn default_week_retention() -> u32 {
+    1825
+}
+
+fn default_vector_prune_schedule() -> String {
+    "0 3 * * *".to_string()
+}
+
+impl Default for VectorLifecycleSettings {
+    fn default() -> Self {
+        Self {
+            enabled: default_vector_enabled(),
+            segment_retention_days: default_segment_retention(),
+            grip_retention_days: default_grip_retention(),
+            day_retention_days: default_day_retention(),
+            week_retention_days: default_week_retention(),
+            prune_schedule: default_vector_prune_schedule(),
+        }
+    }
+}
+
+/// BM25 index lifecycle settings.
+///
+/// Maps to `[lifecycle.bm25]` section in config.toml.
+/// DISABLED by default per PRD "append-only, no eviction" philosophy.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Bm25LifecycleSettings {
+    /// Whether BM25 lifecycle is enabled (default: false, opt-in).
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Minimum TOC level to keep after rollup rebuild (default: "day").
+    /// Segments and grips below this level are excluded from rebuilt index.
+    #[serde(default = "default_min_level")]
+    pub min_level_after_rollup: String,
+
+    /// Cron schedule for rebuild job (default: "0 4 * * 0" = weekly Sunday 4 AM).
+    #[serde(default = "default_bm25_rebuild_schedule")]
+    pub rebuild_schedule: String,
+
+    /// Retention days for segment-level docs (default: 30).
+    #[serde(default = "default_segment_retention")]
+    pub segment_retention_days: u32,
+
+    /// Retention days for grip-level docs (default: 30).
+    #[serde(default = "default_grip_retention")]
+    pub grip_retention_days: u32,
+
+    /// Retention days for day-level docs (default: 180).
+    #[serde(default = "default_bm25_day_retention")]
+    pub day_retention_days: u32,
+
+    /// Retention days for week-level docs (default: 1825 = 5 years).
+    #[serde(default = "default_week_retention")]
+    pub week_retention_days: u32,
+}
+
+fn default_min_level() -> String {
+    "day".to_string()
+}
+
+fn default_bm25_rebuild_schedule() -> String {
+    "0 4 * * 0".to_string()
+}
+
+fn default_bm25_day_retention() -> u32 {
+    180
+}
+
+impl Default for Bm25LifecycleSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            min_level_after_rollup: default_min_level(),
+            rebuild_schedule: default_bm25_rebuild_schedule(),
+            segment_retention_days: default_segment_retention(),
+            grip_retention_days: default_grip_retention(),
+            day_retention_days: default_bm25_day_retention(),
+            week_retention_days: default_week_retention(),
+        }
+    }
 }
 
 fn default_db_path() -> String {
@@ -334,6 +560,10 @@ impl Default for Settings {
             vector_index_path: default_vector_index_path(),
             dedup: DedupConfig::default(),
             staleness: StalenessConfig::default(),
+            salience: crate::SalienceConfig::default(),
+            usage: crate::UsageConfig::default(),
+            lifecycle: LifecycleConfig::default(),
+            episodic: EpisodicConfig::default(),
         }
     }
 }
@@ -595,5 +825,110 @@ mod tests {
         let json_minimal = r#"{"enabled":false}"#;
         let config2: DedupConfig = serde_json::from_str(json_minimal).unwrap();
         assert_eq!(config2.buffer_capacity, 256);
+    }
+
+    #[test]
+    fn test_lifecycle_config_defaults() {
+        let config = LifecycleConfig::default();
+
+        // Vector: enabled by default
+        assert!(config.vector.enabled);
+        assert_eq!(config.vector.segment_retention_days, 30);
+        assert_eq!(config.vector.grip_retention_days, 30);
+        assert_eq!(config.vector.day_retention_days, 365);
+        assert_eq!(config.vector.week_retention_days, 1825);
+        assert_eq!(config.vector.prune_schedule, "0 3 * * *");
+
+        // BM25: disabled by default (opt-in)
+        assert!(!config.bm25.enabled);
+        assert_eq!(config.bm25.min_level_after_rollup, "day");
+        assert_eq!(config.bm25.rebuild_schedule, "0 4 * * 0");
+        assert_eq!(config.bm25.segment_retention_days, 30);
+        assert_eq!(config.bm25.grip_retention_days, 30);
+        assert_eq!(config.bm25.day_retention_days, 180);
+        assert_eq!(config.bm25.week_retention_days, 1825);
+    }
+
+    #[test]
+    fn test_lifecycle_config_serialization() {
+        let config = LifecycleConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: LifecycleConfig = serde_json::from_str(&json).unwrap();
+        assert!(decoded.vector.enabled);
+        assert!(!decoded.bm25.enabled);
+        assert_eq!(decoded.bm25.min_level_after_rollup, "day");
+        assert_eq!(decoded.vector.prune_schedule, "0 3 * * *");
+    }
+
+    #[test]
+    fn test_settings_lifecycle_default() {
+        let settings = Settings::default();
+        assert!(settings.lifecycle.vector.enabled);
+        assert!(!settings.lifecycle.bm25.enabled);
+    }
+
+    #[test]
+    fn test_episodic_config_defaults() {
+        let config = EpisodicConfig::default();
+        assert!(!config.enabled);
+        assert!((config.value_threshold - 0.18).abs() < f32::EPSILON);
+        assert!((config.midpoint_target - 0.65).abs() < f32::EPSILON);
+        assert_eq!(config.max_episodes, 1000);
+    }
+
+    #[test]
+    fn test_episodic_config_validation_pass() {
+        let config = EpisodicConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_episodic_config_validation_fail() {
+        let config = EpisodicConfig {
+            value_threshold: 1.5,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        let config = EpisodicConfig {
+            midpoint_target: -0.1,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        let config = EpisodicConfig {
+            max_episodes: 0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_episodic_config_serialization() {
+        let config = EpisodicConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: EpisodicConfig = serde_json::from_str(&json).unwrap();
+        assert!(!decoded.enabled);
+        assert!((decoded.value_threshold - 0.18).abs() < f32::EPSILON);
+        assert!((decoded.midpoint_target - 0.65).abs() < f32::EPSILON);
+        assert_eq!(decoded.max_episodes, 1000);
+    }
+
+    #[test]
+    fn test_episodic_config_backward_compat() {
+        // Deserialize with missing episodic section (pre-phase-43 config)
+        let json = r#"{}"#;
+        let config: EpisodicConfig = serde_json::from_str(json).unwrap();
+        assert!(!config.enabled);
+        assert_eq!(config.max_episodes, 1000);
+    }
+
+    #[test]
+    fn test_settings_episodic_default() {
+        let settings = Settings::default();
+        assert!(!settings.episodic.enabled);
+        assert!((settings.episodic.value_threshold - 0.18).abs() < f32::EPSILON);
+        assert!((settings.episodic.midpoint_target - 0.65).abs() < f32::EPSILON);
+        assert_eq!(settings.episodic.max_episodes, 1000);
     }
 }

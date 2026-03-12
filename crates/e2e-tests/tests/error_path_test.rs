@@ -167,7 +167,13 @@ async fn test_ingest_valid_event_succeeds() {
 #[tokio::test]
 async fn test_route_query_empty_query() {
     let harness = TestHarness::new();
-    let handler = RetrievalHandler::with_services(harness.storage.clone(), None, None, None, Default::default());
+    let handler = RetrievalHandler::with_services(
+        harness.storage.clone(),
+        None,
+        None,
+        None,
+        Default::default(),
+    );
 
     let result = handler
         .route_query(Request::new(RouteQueryRequest {
@@ -194,7 +200,13 @@ async fn test_route_query_empty_query() {
 #[tokio::test]
 async fn test_classify_intent_empty_query() {
     let harness = TestHarness::new();
-    let handler = RetrievalHandler::with_services(harness.storage.clone(), None, None, None, Default::default());
+    let handler = RetrievalHandler::with_services(
+        harness.storage.clone(),
+        None,
+        None,
+        None,
+        Default::default(),
+    );
 
     let result = handler
         .classify_query_intent(Request::new(ClassifyQueryIntentRequest {

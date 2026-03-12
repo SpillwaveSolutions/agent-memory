@@ -20,26 +20,29 @@ use memory_types::{
 };
 
 use crate::agents::AgentDiscoveryHandler;
+use crate::episodes::EpisodeHandler;
 use crate::hybrid::HybridSearchHandler;
 use crate::novelty::NoveltyChecker;
 use crate::pb::{
     memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
-    ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, Event as ProtoEvent,
-    EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
-    ExpandGripResponse, GetAgentActivityRequest, GetAgentActivityResponse, GetDedupStatusRequest,
-    GetDedupStatusResponse, GetEventsRequest, GetEventsResponse, GetNodeRequest, GetNodeResponse,
-    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
-    GetRelatedTopicsResponse, GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse,
-    GetSchedulerStatusRequest, GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse,
-    GetTopTopicsRequest, GetTopTopicsResponse, GetTopicGraphStatusRequest,
-    GetTopicGraphStatusResponse, GetTopicsByQueryRequest, GetTopicsByQueryResponse,
-    GetVectorIndexStatusRequest, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
-    IngestEventResponse, ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
-    PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
-    PruneVectorIndexResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
+    ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, CompleteEpisodeRequest,
+    CompleteEpisodeResponse, Event as ProtoEvent, EventRole as ProtoEventRole,
+    EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, GetAgentActivityRequest,
+    GetAgentActivityResponse, GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest,
+    GetEventsResponse, GetNodeRequest, GetNodeResponse, GetRankingStatusRequest,
+    GetRankingStatusResponse, GetRelatedTopicsRequest, GetRelatedTopicsResponse,
+    GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse, GetSchedulerStatusRequest,
+    GetSchedulerStatusResponse, GetSimilarEpisodesRequest, GetSimilarEpisodesResponse,
+    GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest, GetTopTopicsResponse,
+    GetTopicGraphStatusRequest, GetTopicGraphStatusResponse, GetTopicsByQueryRequest,
+    GetTopicsByQueryResponse, GetVectorIndexStatusRequest, HybridSearchRequest,
+    HybridSearchResponse, IngestEventRequest, IngestEventResponse, ListAgentsRequest,
+    ListAgentsResponse, PauseJobRequest, PauseJobResponse, PruneBm25IndexRequest,
+    PruneBm25IndexResponse, PruneVectorIndexRequest, PruneVectorIndexResponse, RecordActionRequest,
+    RecordActionResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
     RouteQueryResponse, SearchChildrenRequest, SearchChildrenResponse, SearchNodeRequest,
-    SearchNodeResponse, TeleportSearchRequest, TeleportSearchResponse, VectorIndexStatus,
-    VectorTeleportRequest, VectorTeleportResponse,
+    SearchNodeResponse, StartEpisodeRequest, StartEpisodeResponse, TeleportSearchRequest,
+    TeleportSearchResponse, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use crate::query;
 use crate::retrieval::RetrievalHandler;
@@ -60,6 +63,7 @@ pub struct MemoryServiceImpl {
     retrieval_service: Option<Arc<RetrievalHandler>>,
     agent_service: Arc<AgentDiscoveryHandler>,
     novelty_checker: Option<Arc<NoveltyChecker>>,
+    episode_handler: Option<Arc<EpisodeHandler>>,
 }
 
 impl MemoryServiceImpl {
@@ -77,6 +81,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -107,6 +112,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -137,6 +143,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -164,6 +171,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -175,7 +183,7 @@ impl MemoryServiceImpl {
         vector_handler: Arc<VectorTeleportHandler>,
         staleness_config: StalenessConfig,
     ) -> Self {
-        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone(), None));
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             None,
@@ -194,6 +202,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -223,6 +232,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -234,7 +244,10 @@ impl MemoryServiceImpl {
         vector_handler: Arc<VectorTeleportHandler>,
         staleness_config: StalenessConfig,
     ) -> Self {
-        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(
+            vector_handler.clone(),
+            Some(searcher.clone()),
+        ));
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             Some(searcher.clone()),
@@ -253,6 +266,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -265,7 +279,10 @@ impl MemoryServiceImpl {
         topic_handler: Arc<TopicGraphHandler>,
         staleness_config: StalenessConfig,
     ) -> Self {
-        let hybrid_handler = Arc::new(HybridSearchHandler::new(vector_handler.clone()));
+        let hybrid_handler = Arc::new(HybridSearchHandler::new(
+            vector_handler.clone(),
+            Some(searcher.clone()),
+        ));
         let retrieval = Arc::new(RetrievalHandler::with_services(
             storage.clone(),
             Some(searcher.clone()),
@@ -284,6 +301,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -293,6 +311,14 @@ impl MemoryServiceImpl {
     /// When set, ingest_event will check events for duplicates.
     pub fn set_novelty_checker(&mut self, checker: Arc<NoveltyChecker>) {
         self.novelty_checker = Some(checker);
+    }
+
+    /// Set the episode handler for episodic memory RPCs.
+    ///
+    /// Called during daemon startup after construction.
+    /// When set, episodic memory RPCs will be functional.
+    pub fn set_episode_handler(&mut self, handler: Arc<EpisodeHandler>) {
+        self.episode_handler = Some(handler);
     }
 
     /// Convert proto EventRole to domain EventRole
@@ -355,6 +381,53 @@ impl MemoryServiceImpl {
         }
 
         Ok(event)
+    }
+
+    /// Compute ranking metrics from recent day-level TOC nodes.
+    ///
+    /// Returns (avg_salience, high_salience_count, total_access_count, avg_usage_decay).
+    /// Scans day-level nodes from the last 30 days for a bounded, representative sample.
+    fn compute_ranking_metrics(&self) -> (f32, u32, u64, f32) {
+        use memory_types::{usage::usage_penalty, TocLevel, UsageConfig};
+
+        let now = chrono::Utc::now();
+        let thirty_days_ago = now - chrono::Duration::days(30);
+
+        let nodes = match self.storage.get_toc_nodes_by_level(
+            TocLevel::Day,
+            Some(thirty_days_ago),
+            Some(now),
+        ) {
+            Ok(nodes) => nodes,
+            Err(_) => return (0.0, 0, 0, 1.0),
+        };
+
+        if nodes.is_empty() {
+            return (0.0, 0, 0, 1.0);
+        }
+
+        let usage_config = UsageConfig::default();
+        let count = nodes.len() as f32;
+        let mut total_salience = 0.0f32;
+        let mut high_salience = 0u32;
+        let mut total_access = 0u64;
+        let mut total_decay = 0.0f32;
+
+        for node in &nodes {
+            total_salience += node.salience_score;
+            if node.salience_score > 0.5 {
+                high_salience += 1;
+            }
+            total_access += node.access_count as u64;
+            total_decay += usage_penalty(node.access_count, usage_config.decay_factor);
+        }
+
+        (
+            total_salience / count,
+            high_salience,
+            total_access,
+            total_decay / count,
+        )
     }
 }
 
@@ -985,14 +1058,30 @@ impl MemoryService for MemoryServiceImpl {
         let salience_config = SalienceConfig::default();
         let novelty_config = NoveltyConfig::default();
 
+        // Compute ranking metrics from recent day-level TOC nodes (bounded scan)
+        let (avg_salience, high_salience_count, total_access, avg_decay) =
+            self.compute_ranking_metrics();
+
+        // Get novelty metrics if checker is available
+        let (novelty_checked, novelty_rejected, novelty_skipped) =
+            if let Some(ref checker) = self.novelty_checker {
+                let snapshot = checker.metrics().snapshot();
+                (
+                    snapshot.total_checked() as i64,
+                    snapshot.total_rejected() as i64,
+                    (snapshot.total_stored() - snapshot.stored_novel) as i64,
+                )
+            } else {
+                (0, 0, 0)
+            };
+
         Ok(Response::new(GetRankingStatusResponse {
             salience_enabled: salience_config.enabled,
             usage_decay_enabled: true, // Always active per Phase 16 design
             novelty_enabled: novelty_config.enabled,
-            // In-memory only counters; return 0 for a fresh/stateless query
-            novelty_checked_total: 0,
-            novelty_rejected_total: 0,
-            novelty_skipped_total: 0,
+            novelty_checked_total: novelty_checked,
+            novelty_rejected_total: novelty_rejected,
+            novelty_skipped_total: novelty_skipped,
             // Vector lifecycle: enabled if vector service is configured
             vector_lifecycle_enabled: self.vector_service.is_some(),
             vector_last_prune_timestamp: 0, // No persistent prune history yet
@@ -1001,6 +1090,11 @@ impl MemoryService for MemoryServiceImpl {
             bm25_lifecycle_enabled: false,
             bm25_last_prune_timestamp: 0,
             bm25_last_prune_count: 0,
+            // Phase 42: Ranking metrics
+            avg_salience_score: avg_salience,
+            high_salience_count,
+            total_access_count: total_access,
+            avg_usage_decay: avg_decay,
         }))
     }
 
@@ -1034,13 +1128,14 @@ impl MemoryService for MemoryServiceImpl {
         let response = if let Some(ref checker) = self.novelty_checker {
             let config = checker.config();
             let snapshot = checker.metrics().snapshot();
+            let buffer_size = checker.buffer_len() as u32;
             GetDedupStatusResponse {
                 enabled: config.enabled,
                 threshold: config.threshold,
                 events_checked: snapshot.total_checked(),
                 events_deduplicated: snapshot.total_rejected(),
                 events_skipped: snapshot.total_stored() - snapshot.stored_novel,
-                buffer_size: 0,
+                buffer_size,
                 buffer_capacity: config.buffer_capacity as u32,
             }
         } else {
@@ -1055,6 +1150,66 @@ impl MemoryService for MemoryServiceImpl {
             }
         };
         Ok(Response::new(response))
+    }
+
+    /// Start a new episode for tracking a task execution.
+    ///
+    /// Per Phase 44: Episodic memory lifecycle.
+    async fn start_episode(
+        &self,
+        request: Request<StartEpisodeRequest>,
+    ) -> Result<Response<StartEpisodeResponse>, Status> {
+        match &self.episode_handler {
+            Some(handler) => handler.start_episode(request).await,
+            None => Err(Status::failed_precondition(
+                "Episodic memory is not enabled",
+            )),
+        }
+    }
+
+    /// Record an action taken during an in-progress episode.
+    ///
+    /// Per Phase 44: Episodic memory action tracking.
+    async fn record_action(
+        &self,
+        request: Request<RecordActionRequest>,
+    ) -> Result<Response<RecordActionResponse>, Status> {
+        match &self.episode_handler {
+            Some(handler) => handler.record_action(request).await,
+            None => Err(Status::failed_precondition(
+                "Episodic memory is not enabled",
+            )),
+        }
+    }
+
+    /// Complete an episode with outcome score and lessons.
+    ///
+    /// Per Phase 44: Episodic memory completion and value scoring.
+    async fn complete_episode(
+        &self,
+        request: Request<CompleteEpisodeRequest>,
+    ) -> Result<Response<CompleteEpisodeResponse>, Status> {
+        match &self.episode_handler {
+            Some(handler) => handler.complete_episode(request).await,
+            None => Err(Status::failed_precondition(
+                "Episodic memory is not enabled",
+            )),
+        }
+    }
+
+    /// Find episodes similar to a query.
+    ///
+    /// Per Phase 44: Episodic memory similarity search.
+    async fn get_similar_episodes(
+        &self,
+        request: Request<GetSimilarEpisodesRequest>,
+    ) -> Result<Response<GetSimilarEpisodesResponse>, Status> {
+        match &self.episode_handler {
+            Some(handler) => handler.get_similar_episodes(request).await,
+            None => Err(Status::failed_precondition(
+                "Episodic memory is not enabled",
+            )),
+        }
     }
 }
 

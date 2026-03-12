@@ -120,7 +120,10 @@ async fn test_dedup_duplicate_stored_but_not_indexed() {
         .await
         .expect("Second ingest should succeed");
     let resp2 = resp2.into_inner();
-    assert_eq!(resp2.created, true, "Second event should be created (stored)");
+    assert_eq!(
+        resp2.created, true,
+        "Second event should be created (stored)"
+    );
     assert_eq!(
         resp2.deduplicated, true,
         "Second event should be deduplicated"
@@ -164,8 +167,7 @@ async fn test_dedup_novel_events_all_indexed() {
         *v = 1.0 / ((dim / 2) as f32).sqrt();
     }
 
-    let embedder: Arc<dyn EmbedderTrait> =
-        Arc::new(SequentialEmbedder::new(vec![vec_a, vec_b]));
+    let embedder: Arc<dyn EmbedderTrait> = Arc::new(SequentialEmbedder::new(vec![vec_a, vec_b]));
     let buffer = Arc::new(RwLock::new(InFlightBuffer::new(256, dim)));
     let checker = Arc::new(NoveltyChecker::with_in_flight_buffer(
         Some(embedder),
@@ -214,7 +216,10 @@ async fn test_dedup_novel_events_all_indexed() {
         .await
         .unwrap()
         .into_inner();
-    assert_eq!(resp2.deduplicated, false, "Second event should also be novel");
+    assert_eq!(
+        resp2.deduplicated, false,
+        "Second event should also be novel"
+    );
 
     // Both events should have outbox entries
     let outbox_entries = harness.storage.get_outbox_entries(0, 100).unwrap();

@@ -344,6 +344,44 @@ impl SearchIndexer {
         Ok(stats)
     }
 
+    /// Rebuild the index keeping only documents at or above the specified level.
+    ///
+    /// This removes all documents below `min_level` from the index.
+    /// For example, with `min_level = "day"`, all segment and grip documents
+    /// are deleted, keeping only day, week, month, and year docs.
+    ///
+    /// This is useful after TOC rollup when fine-grained segments are no longer
+    /// needed in the search index.
+    ///
+    /// Returns the count of documents removed.
+    pub fn rebuild_with_filter(&self, min_level: &str) -> Result<u32, SearchError> {
+        let level_order = ["segment", "grip", "day", "week", "month", "year"];
+        let min_idx = level_order
+            .iter()
+            .position(|l| *l == min_level)
+            .unwrap_or(0);
+
+        let mut total_removed: u32 = 0;
+
+        // Prune all levels below the minimum (age_days=0 means "prune everything at this level")
+        for level in &level_order[..min_idx] {
+            let stats = self.prune(0, Some(level), false)?;
+            total_removed += stats.total();
+        }
+
+        if total_removed > 0 {
+            self.commit()?;
+        }
+
+        info!(
+            min_level = min_level,
+            removed = total_removed,
+            "Rebuild with filter complete"
+        );
+
+        Ok(total_removed)
+    }
+
     /// Prune and commit in one operation.
     ///
     /// Convenience method that calls prune() followed by commit().

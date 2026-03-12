@@ -1,248 +1,215 @@
 # Project Research Summary
 
-**Project:** Agent Memory v2.5 — Semantic Dedup & Retrieval Quality
-**Domain:** Ingest-time semantic deduplication and stale result filtering for append-only event store
-**Researched:** 2026-03-05
+**Project:** Agent Memory — v2.6 Episodic Memory, Ranking Quality, Lifecycle & Observability
+**Domain:** Rust-based cognitive memory architecture for AI agents (gRPC service, 14-crate workspace)
+**Researched:** 2026-03-11
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Agent Memory v2.5 adds two capabilities: ingest-time semantic deduplication to prevent near-identical events from polluting the vector and BM25 indexes, and stale result filtering to downrank superseded content at query time. All four research streams confirm that no new Rust crate dependencies are required — usearch 2.23.0, Candle 0.8.4, RocksDB 0.22, and chrono 0.4 already provide everything needed. The codebase already contains a largely-complete `NoveltyChecker` in `memory-service/src/novelty.rs` that implements the correct fail-open, opt-in, metric-tracked pattern — the primary work is wiring it to real infrastructure and resolving four critical design decisions identified by the pitfalls researcher.
+Agent Memory v2.6 is a mature milestone adding four orthogonal capabilities to a production-proven 14-crate Rust system: episodic memory (task outcome recording and retrieval), ranking quality (salience + usage-based decay composition), lifecycle automation (scheduled vector/BM25/episode pruning), and observability RPCs (admin metrics for dedup, ranking, episodes). The system already has 7 shipped milestones (v1.0–v2.5), 48,282 LOC, 122 plans, and a complete 6-layer retrieval stack (TOC, agentic search, BM25, vector, topic graph, ranking). The critical architectural insight is that v2.6 requires zero new external dependencies — every new feature plugs into existing patterns (RocksDB column families, Tokio scheduler jobs, Arc<Storage> handler injection, proto field extensions) rather than introducing structural changes.
 
-The hardest problem is not the feature implementation itself but the architectural constraints that must be resolved first. The PITFALLS researcher identified four critical issues that contradict the naive implementation: (1) the HNSW index contains TOC nodes and grips, NOT raw events, so comparing incoming events against it produces misleading similarity scores; (2) the async outbox pipeline creates a timing gap where burst duplicates (the most common kind) escape detection entirely; (3) ingest-time event dropping breaks the append-only invariant that TOC segmentation depends on; and (4) stale filtering stacks multiplicatively with existing ranking penalties, risking score collapse on high-salience historical content. Each of these requires a design decision before implementation begins.
+The recommended approach is additive integration in four phases (39–42). Phase 39 lays the episodic storage foundation (CF_EPISODES column family + proto schema), Phase 40 implements the EpisodeHandler RPCs (StartEpisode, RecordAction, CompleteEpisode, GetSimilarEpisodes), Phase 41 wires the RankingPayloadBuilder (salience × usage decay × stale penalty = explainable final score + observability extensions), and Phase 42 registers lifecycle scheduler jobs (EpisodeRetentionJob, VectorPruneJob). The architecture is dependency-ordered: storage before handlers, handlers before ranking composition, ranking before lifecycle. The key feature dependency that must be respected is that hybrid search wiring (BM25 routing) should come before or alongside salience/usage ranking to ensure ranking signals have results to operate on.
 
-The recommended approach addresses all four: use a two-tier dedup system (in-memory in-flight buffer of 384-dim embeddings as primary, HNSW as secondary for cross-session), store-and-skip-indexing instead of dropping events to preserve append-only semantics, set a conservative default threshold of 0.85 with dry-run mode for calibration, and exempt high-salience memory kinds (Constraint, Definition, Procedure) from stale filtering entirely. The architecture researcher and pitfalls researcher are in full agreement on this approach, and the STACK researcher confirms no new dependencies are needed to implement it.
+The primary risks come from the existing dedup architecture (v2.5): the HNSW vector index does NOT contain raw event embeddings (only TOC summaries), so dedup and similarity comparisons must use the in-memory InFlightBuffer as the primary source rather than the index. Stale filtering must be bounded (max 30% score reduction) and must exempt structural memory kinds (Constraint, Definition, Procedure) to avoid burying critical historical context. Ranking signals must be composed with a defined formula before implementation to avoid score collapse — multiplicative stacking of salience + usage + stale + novelty penalties can crush all scores to near-zero, triggering false fallback-chain activations and dropping valid results below the min_confidence threshold.
 
 ## Key Findings
 
 ### Recommended Stack
 
-No new dependencies. The entire milestone is implemented using existing crates — nothing in `Cargo.toml` changes. See `.planning/research/STACK.md` for full detail.
+The v2.6 stack requires no new external dependencies. All features are implemented via existing crates. See `.planning/research/STACK.md` for full details.
 
 **Core technologies:**
-- **usearch 2.23.0** (`memory-vector`): HNSW index for cross-session dedup similarity search — already has `search()` and `add()`, already instantiated in the service
-- **Candle 0.8.4** (`memory-embeddings`): all-MiniLM-L6-v2 local embedding generation — already wrapped in `CandleEmbedder`, already generates 384-dim vectors; no external API dependency
-- **RocksDB 0.22** (`memory-storage`): dedup metadata storage, staleness markers, existing `VectorEntry.created_at` timestamps cover all staleness needs
-- **chrono 0.4** (`memory-types`): timestamp comparison for staleness decay — already used throughout
-- **tokio 1.43** (`memory-service`): async timeout for dedup gate (fail-open on timeout) — already used in `NoveltyChecker`
+- **RocksDB (0.22):** Episodic storage via new CF_EPISODES and CF_EPISODE_METRICS column families; append-only, crash-safe — already in production
+- **Candle + all-MiniLM-L6-v2:** Episode embeddings for GetSimilarEpisodes; 384-dim, CPU-only, ~5ms per embedding — validated since v2.0
+- **usearch HNSW (v2):** Vector similarity search for episode retrieval; O(log n) approximate nearest neighbor — in production since v2.2
+- **Tantivy BM25 (0.25):** Hybrid search lexical tier; needs routing wiring to complete Layer 3/4 integration — implemented but not fully wired into routing handler
+- **Tokio cron scheduler:** Background lifecycle jobs; framework exists since v1.0, needs EpisodeRetentionJob + VectorPruneJob registered
+- **dashmap + Arc<RwLock>:** Usage stats tracking (access_count, last_accessed_ms) for ranking decay — already in CF_USAGE_COUNTERS
+- **prost + tonic (0.13/0.12):** Proto schema extensions for Episode messages + 4 new RPCs; field numbers reserved above 200 — backward-compatible additions
 
-**What NOT to add:** SimHash/MinHash crates, Bloom filter crates, external embedding services, separate time-series databases for staleness, ordered-float crate — all are overkill for the 384-dim cosine similarity + exponential decay approach.
+**Critical constraint:** All proto additions must use field numbers above 200 (reserved for Phase 23+ per PROJECT.md). The CF_EPISODES key format is `ep:{start_ts:013}:{ulid}` — lexicographic ordering enables time-range scans without secondary indexes. No SQL, no separate vector DB, no streaming RPCs, no LLM-based summarization.
 
 ### Expected Features
 
-See `.planning/research/FEATURES.md` for full detail with dependency graph.
+See `.planning/research/FEATURES.md` for full feature details with complexity analysis and implementation patterns.
 
 **Must have (table stakes):**
-- **Ingest-time vector similarity gate** — core dedup; without it, repeated agent conversations fill indexes with near-identical content degrading retrieval quality. `NoveltyChecker` pattern exists, needs wiring.
-- **Configurable similarity threshold** — different projects have different repetition patterns; `NoveltyConfig.threshold` already exists (default 0.82, should be raised to 0.85 for dedup).
-- **Fail-open on dedup errors** — dedup must never block ingestion; already implemented in `NoveltyChecker::should_store()` with 6 skip paths.
-- **Temporal decay in ranking** — old results about superseded topics must rank lower; `VectorEntry` already stores `timestamp_millis`.
-- **Dedup metrics/observability** — operators need to know how many events were deduplicated to tune thresholds; `NoveltyMetrics` already tracks the right counters, needs gRPC exposure.
-- **Minimum text length bypass** — short events (session_start, tool_result status lines) skip dedup entirely; `NoveltyConfig.min_text_length` already exists.
+- Hybrid Search (BM25 + Vector fusion via RRF) — lexical + semantic search is industry standard; currently hardcoded routing logic in hybrid handler
+- Salience Scoring at Write Time — high-value events (Definitions, Constraints) must rank higher; proto fields exist, need population at ingest
+- Usage-Based Decay in Ranking — access_count-weighted score adjustment; CF_USAGE_COUNTERS exists, needs threading into ranking pipeline
+- Vector Index Pruning — prevents unbounded HNSW index growth; VectorIndexPipeline::prune() API exists, needs scheduler wiring
+- BM25 Index Maintenance — prevents Tantivy segment bloat; Bm25LifecycleConfig exists, needs job wiring
+- Admin Observability RPCs — GetDedupMetrics, GetRankingStatus extensions; operators need production visibility
+- Episodic Memory Storage + RPCs — CF_EPISODES + StartEpisode/RecordAction/CompleteEpisode/GetSimilarEpisodes
 
-**Should have (differentiators):**
-- **Supersession detection** — mark older events semantically replaced by newer content on same topic (goes beyond time decay); high complexity, architecture researcher provides concrete design.
-- **Per-event-type dedup policies** — `session_start`/`session_end` never deduped, `user_message`/`assistant_stop` deduped with higher threshold; low complexity, high value.
-- **Staleness half-life configuration** — configurable `half_life_days` for exponential decay rather than fixed curve.
-- **Dedup dry-run mode** — log what WOULD be rejected without dropping events; critical for threshold tuning before production enable.
-- **Agent-scoped dedup** — dedup within single agent's history, not across agents; requires post-filtering HNSW results by agent metadata.
+**Should have (competitive differentiators):**
+- Value-Based Episode Retention — percentile-based culling (delete value_score below p25, retain p50–p75 sweet spot)
+- RankingPayload with explanation field — per-result explainability ("salience=0.8, usage=0.905, stale=0.0 → final=0.724")
+- GetSimilarEpisodes with vector similarity — "we solved this before" retrieval pattern bridging episodic to semantic memory
 
-**Defer to v2.6+:**
-- **Agent-scoped dedup**: requires post-filtering HNSW results by agent metadata since usearch has no native metadata filtering — feasible but adds complexity; defer until multi-agent dedup is a validated pain point.
-- **Stale result exclusion window per intent**: temporal decay covers 80% of the use case; add hard cutoff by `QueryIntent` only if decay alone proves insufficient.
-
-**Anti-features (explicitly excluded):**
-- Mutable event deletion on dedup — violates append-only invariant; mark by not indexing, never by deleting.
-- LLM-based dedup decisions — adds API latency, cost, external dependency; use local Candle embeddings.
-- Exact-match dedup only — misses semantic near-duplicates; use vector similarity.
-- Global re-ranking of all stored events — O(n) at query time; apply staleness to top-k only.
-- Retroactive dedup of historical events — expensive, risky; new events only going forward.
-- Cross-project dedup — violates per-project isolation model.
+**Defer (v2.7+):**
+- Adaptive Lifecycle Policies — storage-pressure-based threshold adjustment (HIGH complexity, needs usage data to tune)
+- Cross-Episode Learning Patterns — NLP/clustering on episode summaries (VERY HIGH complexity, requires separate NLP pipeline)
+- Real-Time Outcome Feedback Loop — agent self-correction via reward signaling (out of scope for memory service)
+- LLM-Based Episode Summarization — API dependency, hallucination risk, high latency (anti-pattern for local-first design)
 
 ### Architecture Approach
 
-The architecture is an enhancement of existing patterns, not a new system. The `NoveltyChecker` in `memory-service/src/novelty.rs` IS the dedup gate — it already implements fail-open, opt-in, metric-rich semantics. Two new components are added alongside it: an `InFlightBuffer` (in-memory ring buffer of recent embeddings) and a `StaleFilter` (post-retrieval ranking adjustment). All three components follow the same four architectural patterns: fail-open gate, opt-in with sensible defaults, metric-rich observability, and trait-based abstractions for testability. See `.planning/research/ARCHITECTURE.md` for complete component designs with Rust structs and proto definitions.
+The v2.6 architecture is purely additive: four new components plug into the existing handler pattern (Arc<Storage> injection, checkpoint-based jobs, on-demand metrics computation). No architectural rewrite is required. The component dependency order (39 → 40 → 41 → 42) matches storage-before-handler, handler-before-ranking, ranking-before-lifecycle. All new storage uses RocksDB column families (CF_EPISODES, CF_EPISODE_METRICS) with the existing append-only immutability invariant. See `.planning/research/ARCHITECTURE.md` for full data flow diagrams and Rust struct definitions.
 
 **Major components:**
-1. **DedupGate (enhanced NoveltyChecker)** (`memory-service/src/novelty.rs`) — rejects semantically duplicate events at ingest; two-tier check: InFlightBuffer first (O(n) linear scan on bounded set), then HNSW index (O(log n) for cross-session); wraps both in the existing timeout/fail-open wrapper
-2. **InFlightBuffer** (`memory-service`, internal to DedupGate) — `VecDeque<InFlightEntry>` with max_size (256) and max_age (5 min) eviction; stores raw event embeddings for the timing gap window; ~400KB memory footprint; volatile (lost on restart, acceptable by design)
-3. **StaleFilter** (`memory-service/src/stale.rs` or integrated into `memory-retrieval`) — post-retrieval, pre-return; applies exponential time decay and pairwise supersession detection on top-k results only (never O(n)); exempts Constraint/Definition/Procedure memory kinds
-4. **DedupConfig / StaleConfig** (`memory-types/src/config.rs`) — extends existing `NoveltyConfig`; `[novelty]` kept as deprecated alias for backward compatibility via `serde(alias)`
-5. **DedupMetrics** (extended `NoveltyMetrics`) — adds buffer hit rate, HNSW fallback rate; exposed via new `GetDedupStatus` gRPC RPC
-
-**Data flow changes:**
-
-```
-Write path (BEFORE): IngestEvent -> validate -> serialize -> storage.put_event -> return
-Write path (AFTER):  IngestEvent -> validate -> serialize -> DedupGate.should_store()
-                                                               -> embed (CandleEmbedder)
-                                                               -> check InFlightBuffer (linear)
-                                                               -> check HNSW (if not in buffer)
-                                                               -> if novel: add to buffer, STORE
-                                                               -> if dup: SKIP indexing only*
-                                                             -> if STORE: storage.put_event -> return {created: true}
-                                                             -> if SKIP: store event (append-only!), skip outbox* -> return {created: false, deduplicated: true}
-
-Read path (BEFORE):  RouteQuery -> classify -> execute layers -> merge -> return
-Read path (AFTER):   RouteQuery -> classify -> execute layers -> merge -> StaleFilter.apply() -> return
-```
-
-*See Pitfall 3: "store event, skip outbox" preserves the append-only invariant for TOC segmentation.
+1. **EpisodeHandler** (`crates/memory-service/src/episode.rs`) — 4 RPCs for episode lifecycle; uses Arc<Storage> + optional VectorTeleportHandler for similarity search; episodes are immutable after CompleteEpisode (enforces append-only invariant)
+2. **RankingPayloadBuilder** (`crates/memory-service/src/ranking.rs`) — composes salience × usage_adjusted × (1 - stale_penalty) into final_score with human-readable explanation; extends TeleportResult proto field
+3. **ObservabilityHandler extensions** — GetRankingStatus + GetDedupStatus + GetEpisodeMetrics; reads from primary CF data, no separate metrics store (single source of truth, no sync issues)
+4. **EpisodeRetentionJob** (`crates/memory-scheduler/src/jobs/episode_retention.rs`) — daily 2am cron; deletes episodes where (age > 180d AND value_score < 0.3); checkpoint-based crash recovery
+5. **VectorPruneJob** (`crates/memory-scheduler/src/jobs/vector_prune.rs`) — weekly Sunday 1am; copy-on-write HNSW rebuild in temp directory with atomic rename; zero query downtime during rebuild
 
 ### Critical Pitfalls
 
-The PITFALLS researcher identified 4 critical, 4 high-severity, and 3 minor pitfalls. See `.planning/research/PITFALLS.md` for full analysis with codebase evidence and detection guidance.
+See `.planning/research/PITFALLS.md` for full analysis with codebase evidence. All pitfalls are from v2.5's dedup/ranking architecture that v2.6 must build on top of correctly.
 
-**Top 5 by severity:**
+1. **HNSW index contains TOC summaries, NOT raw events** — Reusing the existing HNSW index for raw event dedup produces misleading similarity scores (~0.6–0.7). The InFlightBuffer (256-entry, RwLock, stores raw event embeddings) is the correct primary dedup source for within-session comparison. HNSW search is secondary for cross-session only.
 
-1. **HNSW index contains TOC nodes/grips, NOT raw events (Pitfall 8)** — Reusing the existing HNSW index for dedup compares incoming events to summaries, producing misleading similarity scores (~0.6-0.7 instead of 0.85+). Comparing "implement JWT token validation" (event) vs "Day summary: authentication work" (TOC node) will NOT catch the duplicate. **Prevention:** The InFlightBuffer (which stores raw event embeddings by design) is the primary dedup source; the HNSW index is a secondary fallback for cross-session only. Do NOT attempt to reuse the TOC/grip index for dedup at raw event granularity.
+2. **Threshold miscalibration for all-MiniLM-L6-v2** — Cosine similarity scores cluster [0.07, 0.80] for unrelated content with this model. Default dedup threshold must be 0.85+ (not the 0.82 novelty default). Below 0.70 causes dangerous false positives and PERMANENT data loss in the append-only store. Use dry-run mode for one week before enabling dedup in production.
 
-2. **Timing gap: burst duplicates escape detection (Pitfall 1)** — The outbox pipeline is async; events ingested in rapid succession cannot see each other in the HNSW index. Within-session duplicates (the most common kind) are exactly what the current design misses. **Prevention:** InFlightBuffer catches these — it holds raw embeddings for the last N events with a TTL covering the maximum expected indexing lag. Size 256 entries x 5min TTL covers typical session bursts.
+3. **Ranking score collapse from multiplicative signal stacking** — Salience × usage × stale × novelty penalties compound destructively. Define composition formula before implementation. Stale penalty must be bounded at max 30% reduction. Exempt Constraint/Definition/Procedure memory kinds from all decay signals. The `min_confidence: 0.3` threshold in RetrievalExecutor will silently drop results pushed below it.
 
-3. **Dedup drops break the append-only invariant (Pitfall 3)** — Dropping events at ingest changes event counts, breaking TOC segment boundaries, causing segments to cover longer time spans, and potentially omitting discussed topics from day summaries. **Prevention:** Store ALL events; for dedup duplicates, store the event to RocksDB but do NOT create an outbox entry (so it is never indexed into HNSW or BM25). Event count is preserved for segmentation; index quality is preserved by not indexing duplicates. This is a critical design decision that must be made before implementation.
+4. **Append-only invariant: store events, skip outbox (not drop events)** — Dedup must store all events but skip the outbox entry for duplicates. Dropping events before storage breaks TOC segmentation (segment boundaries use event counts) and breaks causality debugging. The store-and-skip-outbox pattern (implemented in v2.5) is the architectural precedent.
 
-4. **Stale filtering hides critical historical context (Pitfall 4)** — Conversational memory is not a news feed; old context is frequently the most important. An agent asking "what was the authentication approach we decided on?" needs the ORIGINAL decision (old, high-salience), not the latest passing mention (new, low-salience). Stale filtering stacked with existing salience + usage_decay can bury the right answer below the `min_confidence` threshold. **Prevention:** Exempt `Constraint`, `Definition`, and `Procedure` memory kinds from staleness penalties entirely; cap maximum stale penalty at 30% score reduction; apply stale filtering AFTER the fallback chain resolves (not within individual layer results).
-
-5. **Threshold miscalibration for all-MiniLM-L6-v2 (Pitfall 2)** — The model's cosine similarity distribution is non-intuitive: unrelated content scores 0.20-0.40, near-duplicates 0.75-0.85, verbatim duplicates 0.85+. The existing `NoveltyConfig` default of 0.82 was set for novelty detection (a different use case); for dedup the consequences of false positives are IRREVERSIBLE (event never stored). **Prevention:** Default threshold 0.85 for dedup; mandatory dry-run mode for first week; per-event-type thresholds; compound check (cosine + Jaccard token overlap) to reduce false positives.
-
-**Additional high-severity pitfalls:**
-- **Embedding latency on hot path (Pitfall 5)**: Candle runs synchronously; on CI Linux or older hardware, embedding takes 20-50ms. Prevention: text hash pre-check for exact duplicates before computing embedding; embedding cache; increase timeout to 200ms; skip structural events.
-- **HNSW RwLock contention (Pitfall 6)**: Indexing pipeline holds write lock while dedup reads; under load, dedup times out during indexing runs. Prevention: use `try_read()` with buffer fallback; never block ingest path on HNSW lock.
-- **Stale filtering interacts poorly with ranking layers (Pitfall 7)**: Score collapse when stale penalty stacks with salience + usage_decay + novelty. Prevention: bounded penalty (max 30%), test against existing 29 E2E queries before ship.
-- **Dedup + Novelty double-filtering**: Two similarity checks on ingest path with different thresholds create unpredictable interaction. Prevention: dedup REPLACES novelty filtering; unify into single `DedupConfig`; keep `[novelty]` as deprecated alias.
+5. **HNSW write lock blocks dedup reads during index rebuild** — VectorIndexUpdater holds write lock for batch inserts; dedup reads queue behind it. Use try_read() with InFlightBuffer fallback. The VectorPruneJob copy-on-write approach (temp dir → atomic rename) eliminates contention during lifecycle sweeps.
 
 ## Implications for Roadmap
 
-Based on combined research, the implementation should follow a dependency-aware 4-phase structure. The dedup work (write path, higher risk) comes before stale filtering (read path, lower risk). Design decisions must precede implementation to avoid the critical pitfalls.
+Based on combined research, the suggested phase structure for v2.6 maps to phases 39–42 as defined in ARCHITECTURE.md. The ordering respects storage-before-handler dependencies, puts observability before lifecycle (so jobs can report metrics), and treats episodic storage as the foundation all other features depend on.
 
-### Phase 1: DedupGate Foundation
+### Phase 39: Episodic Memory Storage Foundation
 
-**Rationale:** Pure data structures and enhanced checker can be fully unit-tested before touching the ingest path. The InFlightBuffer and enhanced NoveltyChecker are the riskiest new code (they define correctness); isolate them for thorough testing.
+**Rationale:** All other v2.6 phases depend on CF_EPISODES and the Episode proto schema. This is the lowest-risk phase — pure storage additions following established patterns (cf_descriptors, serde-serialized structs, ULID keys). No handler logic, no new RPCs yet. Building storage first allows thorough unit testing before handler complexity is introduced.
 
-**Delivers:** InFlightBuffer data structure; enhanced NoveltyChecker wired to real `CandleEmbedder` and `HnswIndex`; DedupConfig in memory-types; unit tests with MockEmbedder + MockVectorIndex.
+**Delivers:** CF_EPISODES column family, CF_EPISODE_METRICS column family, Episode/EpisodeAction/EpisodeOutcome proto messages, Episode Rust struct in memory-types, Storage::put_episode/get_episode/scan_episodes helpers, unit tests for CRUD operations.
 
-**Addresses (from FEATURES.md):** Ingest-time vector similarity gate (table stakes), fail-open behavior (table stakes), configurable threshold (table stakes), minimum text length bypass (table stakes).
+**Addresses:** "Episodic Memory Storage & Schema" (table stakes), foundation for "Value-Based Episode Retention."
 
-**Avoids (from PITFALLS.md):** Timing gap (Pitfall 1) via InFlightBuffer; TOC/grip index reuse (Pitfall 8) by using buffer as primary source; threshold miscalibration (Pitfall 2) by implementing dry-run mode.
+**Avoids:** Embedding episode storage logic in the handler layer before the storage layer is tested and stable.
 
-**Needs research:** Threshold calibration for all-MiniLM-L6-v2 — need calibration test fixture with known similarity pairs covering identical, near-duplicate, related, and unrelated text pairs.
+**Research flag:** Standard patterns — RocksDB column family additions are well-documented in existing codebase. No additional research needed; use CF_TOPICS and CF_TOPIC_LINKS additions from v2.0 as templates.
 
-### Phase 2: Wire DedupGate into Ingest Path
+---
 
-**Rationale:** Depends on Phase 1 being solid. Changes the write path (higher risk than read path). Proto changes and integration tests required. Fail-open design ensures backward compatibility on any failure.
+### Phase 40: Episodic Memory Handler & RPCs
 
-**Delivers:** DedupGate injected into `MemoryServiceImpl`; store-event-skip-outbox behavior for duplicates (preserving append-only invariant); proto additions (`IngestEventResponse.deduplicated`, `GetDedupStatus` RPC, field numbers 201+); integration tests proving dedup catches burst duplicates.
+**Rationale:** After storage foundation is stable, the handler can be built following the Arc<Storage> injection pattern used by RetrievalHandler and AgentDiscoveryHandler. This phase completes the episodic memory user-facing API before ranking or lifecycle features touch it. Episode similarity search (GetSimilarEpisodes) uses the existing HNSW index — the same vector infrastructure, different granularity than dedup.
 
-**Addresses (from FEATURES.md):** Dedup metrics/observability via gRPC (table stakes), per-event-type dedup bypass (differentiator), dedup dry-run mode (differentiator).
+**Delivers:** EpisodeHandler struct (memory-service/src/episode.rs), StartEpisode/RecordAction/CompleteEpisode/GetSimilarEpisodes RPCs, handler wired into MemoryServiceImpl, optional embedding generation on CompleteEpisode for similarity indexing, E2E test: start → record → complete → retrieve similar.
 
-**Avoids (from PITFALLS.md):** Append-only invariant break (Pitfall 3) via store-event-skip-outbox design; HNSW RwLock contention (Pitfall 6) via try_read() + buffer fallback; embedding latency (Pitfall 5) via text hash pre-check and skip for structural events; dedup+novelty double-filtering via unified DedupConfig replacing NoveltyConfig.
+**Addresses:** "Episodic Memory Storage & RPCs" (table stakes), "Retrieval Integration for Similar Episodes" (differentiator).
 
-**Standard patterns:** Wiring pattern is straightforward given Phase 1 foundation; unlikely to need deeper research.
+**Avoids:** HNSW lock contention during GetSimilarEpisodes — use try_read() pattern; never block on write lock. Episode records are immutable after CompleteEpisode — enforce via early return Err(EpisodeAlreadyCompleted) in RecordAction.
 
-### Phase 3: StaleFilter
+**Research flag:** Standard patterns — handler injection + ULID key + vector search are established in v2.5. No additional research needed.
 
-**Rationale:** Read-path only — no data mutation concerns. Can be built/tested in parallel with Phase 2 if resources allow. Depends on having retrieval infrastructure in place (which predates v2.5).
+---
 
-**Delivers:** `StaleFilter` component in memory-service or memory-retrieval; `StalenessConfig` in memory-types (alongside `NoveltyConfig`); exponential time-decay factor applied post-retrieval on top-k results; pairwise supersession detection (O(k^2) bounded, k<=20); Constraint/Definition/Procedure kind exemptions; bounded penalty (max 30% reduction).
+### Phase 41: Ranking Payload & Observability
 
-**Addresses (from FEATURES.md):** Temporal decay in ranking (table stakes), staleness half-life configuration (differentiator), stale result exclusion window (differentiator, partial).
+**Rationale:** Ranking quality improvements (salience + usage decay composition) are the highest-value retrieval changes in v2.6. They depend on v2.5's SalienceScorer and CF_USAGE_COUNTERS already being in place, and on Phase 39's Episode storage for GetEpisodeMetrics. This phase also extends admin observability RPCs to expose the metrics needed for lifecycle monitoring in Phase 42. Hybrid search BM25 routing wiring must be confirmed or completed here — FEATURES.md identifies it as the critical path prerequisite.
 
-**Avoids (from PITFALLS.md):** Historical context buried (Pitfall 4) via kind exemptions and bounded penalty; ranking score collapse (Pitfall 7) via bounded penalty and post-fallback-chain application; O(n^2) comparison (Architecture anti-pattern) by bounding to top-k.
+**Delivers:** RankingPayloadBuilder (memory-service/src/ranking.rs), composed final_score = salience × usage_adjusted × (1 - stale_penalty), explanation field in TeleportResult, GetRankingStatus extension (usage_tracked_count, memory_kind_distribution), GetDedupStatus extension (buffer_memory_bytes, dedup_rate_24h_percent), GetEpisodeMetrics RPC (new), unit tests for ranking formula, E2E test for RouteQuery explainability.
 
-**May need research:** Interaction between stale filtering and existing min_confidence threshold — run against existing 29 E2E queries to verify no regressions before finalizing score formula.
+**Addresses:** "Salience Scoring at Write Time" (table stakes), "Usage-Based Decay in Ranking" (table stakes), "Admin Observability RPCs" (table stakes), "Multi-Layer Decay Coordination" (differentiator), "Hybrid Search" wiring (table stakes — confirm or complete).
 
-### Phase 4: E2E Validation and Observability
+**Avoids:** Score collapse from unbounded stale penalty — cap at max 30% reduction; exempt Constraint/Definition/Procedure from all decay; define formula as named constants before threading through callers. Apply stale filtering AFTER the fallback chain resolves, not within individual layer results.
 
-**Rationale:** Validates both features working end-to-end through the real pipeline. CLI bats tests provide regression coverage. Standard E2E patterns.
+**Research flag:** Needs attention before planning. The exact composition formula weights (salience=0.5, usage=0.3, stale=0.2) are initial guesses from STACK.md config — validate against E2E test queries before shipping. Also inspect `crates/memory-service/src/hybrid.rs` to confirm actual state of BM25 routing wiring.
 
-**Delivers:** E2E tests for duplicate event rejection, near-duplicate rejection, stale result downranking, fail-open on embedder failure, fail-open on timeout; CLI bats tests for dedup behavior; `GetDedupStatus` and `SetDedupThreshold` gRPC admin RPCs for runtime tuning.
+---
 
-**Addresses (from FEATURES.md):** E2E proof that dedup works (table stakes), dedup metrics exposed via gRPC (table stakes).
+### Phase 42: Lifecycle Automation Jobs
 
-**Avoids (from PITFALLS.md):** Test fixture calibration problem (Pitfall 11) by building calibration test suite with pre-computed similarity pairs as ground truth; no runtime tuning gap (Pitfall 10) via admin RPCs; model version drift detection via model metadata in dedup index header.
+**Rationale:** Lifecycle jobs are last because they depend on Phase 39 (episode storage to scan), Phase 41 (observability to report job metrics), and the v2.5 scheduler framework. VectorPruneJob uses copy-on-write (temp dir + atomic rename) to avoid query downtime. BM25 pruning is explicitly deferred — it requires SearchIndexer write access that needs a separate design pass (noted as "Phase 42b" in ARCHITECTURE.md).
 
-**Standard patterns:** E2E test patterns well-established in this codebase (29 existing tests as reference); unlikely to need deeper research.
+**Delivers:** EpisodeRetentionJob (daily 2am, deletes episodes where age > 180d AND value_score < 0.3), VectorPruneJob (weekly Sunday 1am, copy-on-write HNSW rebuild), checkpoint-based crash recovery for both jobs, cron registration in memory-daemon/src/main.rs, integration test for checkpoint recovery, E2E test for vector index shrinkage after prune.
+
+**Addresses:** "Vector Index Pruning" (table stakes), "BM25 Index Maintenance" (table stakes, partial — full wiring deferred), "Value-Based Episode Retention" (differentiator, threshold-based initial implementation using value_score < 0.3 hardcoded rather than percentile analysis).
+
+**Avoids:** Episode retention job deleting wrong records — conservative defaults (max_age=180d, threshold=0.3), dry-run mode, checkpoint recovery so aborted sweeps resume correctly. Vector prune locking out queries — copy-on-write pattern (temp directory → atomic rename) with RwLock on index directory pointer.
+
+**Research flag:** The copy-on-write HNSW prune is the most novel engineering in v2.6. Validate that usearch supports the atomic directory rename pattern under concurrent reads. If HNSW metadata file format (embedding_id → timestamp mappings) is unclear from source, request a `/gsd:research-phase` before implementation.
+
+---
 
 ### Phase Ordering Rationale
 
-- DedupGate foundation before wiring because the InFlightBuffer and trait adapters can be fully unit-tested in isolation — the highest-risk new code gets the most testing time before it touches the live ingest path.
-- Ingest wiring before StaleFilter because write-path changes have higher risk than read-path changes; shipping dedup first also generates real dedup metrics to validate the approach.
-- StaleFilter can proceed in parallel with Phase 2 if needed since they are independent subsystems (write path vs read path).
-- E2E last because it validates both features working through the complete pipeline.
-- Design decisions (append-only invariant, HNSW granularity, threshold defaults) must be recorded as architectural decisions before Phase 1 implementation begins — these cannot be retrofitted.
+- **Storage first (39):** Every other phase reads or writes CF_EPISODES. Storage changes are also the hardest to retrofit safely; establishing the schema early prevents cascading changes later.
+- **Handler second (40):** EpisodeHandler provides the write path. Once it exists, Phase 41's GetEpisodeMetrics RPC has real data to aggregate.
+- **Ranking third (41):** RankingPayloadBuilder is the highest-value retrieval change and has no lifecycle dependency. It also exposes the observability RPCs needed for lifecycle job reporting.
+- **Lifecycle last (42):** Jobs are background processes that can be added after all core functionality is tested. They depend on Phase 39 storage + Phase 41 metrics infrastructure.
+- **Hybrid search wiring:** FEATURES.md identifies this as the critical path prerequisite (unblocks routing logic so salience + usage decay have effect on real results). Treat this as a pre-Phase-39 patch or include at the start of Phase 41.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 1 (DedupGate Foundation):** Threshold calibration for all-MiniLM-L6-v2 requires a calibration test that embeds known text pairs and records similarity distributions. Do not rely on intuition about similarity scores with this model.
-- **Phase 3 (StaleFilter):** Score composition formula needs validation against existing 29 E2E tests. Run with stale filtering enabled and verify result count and top-score distributions show no regression before finalizing penalty bounds.
+**Needs deeper research during planning:**
+- **Phase 41 (Ranking formula weights):** The salience_weight/usage_weight/stale_weight config values are initial guesses. Validate against real query sets before shipping. Run existing 39 E2E tests with ranking_payload enabled to verify no regressions.
+- **Phase 41 (Hybrid BM25 routing):** Inspect `crates/memory-service/src/hybrid.rs` before writing the phase plan — FEATURES.md reports "hardcoded routing logic" but exact state is unconfirmed.
+- **Phase 42 (VectorPruneJob copy-on-write):** usearch HNSW atomic directory rename behavior under concurrent reads is the key risk. Verify RwLock release timing and directory pointer swap semantics from `crates/memory-vector/src/hnsw.rs`.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 2 (Wire DedupGate into Ingest):** Straightforward wiring given Phase 1 foundation; proto extension pattern well-established (field numbers 201+).
-- **Phase 4 (E2E Validation):** Standard bats + Rust E2E patterns; 29 existing tests provide strong reference.
+**Standard patterns (skip research-phase):**
+- **Phase 39 (Episodic storage):** RocksDB column family additions follow existing CF pattern exactly. Refer to CF_TOPICS and CF_TOPIC_LINKS additions in v2.0 as the template.
+- **Phase 40 (EpisodeHandler):** Arc<Storage> handler injection is well-established; RetrievalHandler and AgentDiscoveryHandler are direct templates.
+- **Phase 42 (EpisodeRetentionJob):** Checkpoint-based scheduler jobs follow the existing outbox_processor and rollup job patterns exactly.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Direct codebase inspection confirmed all existing crates sufficient; no new deps. Locked versions (usearch 2.23.0, candle 0.8.4, rocksdb 0.22) verified in Cargo.lock. |
-| Features | HIGH | NoveltyChecker precedent validates the dedup pattern; stale filtering is standard ranking math. External sources (Mem0, temporal RAG research) provide corroboration. |
-| Architecture | HIGH | In-flight buffer + HNSW dual-check is proven in vector DB literature. All 4 critical pitfalls have concrete prevention strategies based on direct code analysis. |
-| Pitfalls | HIGH | All pitfalls verified with specific file paths and line references in the codebase. Model threshold distributions backed by published research on all-MiniLM-L6-v2. |
+| Stack | HIGH | No new dependencies; all technologies verified against workspace Cargo.toml on 2026-03-11; zero uncertainty about what to use |
+| Features | HIGH | Feature list derived from direct codebase analysis (existing proto stubs, half-implemented handlers) + 20+ industry sources on hybrid search, episodic memory, lifecycle patterns |
+| Architecture | HIGH | Direct codebase analysis — existing handler patterns, column family descriptors, scheduler registration, and proto field numbers all confirmed; build order respects dependency graph |
+| Pitfalls | HIGH | Pitfalls derived from codebase evidence (specific file paths, line numbers, metrics confirmed) + vector search community patterns; HNSW contention, threshold calibration, and score collapse are all verifiable |
 
 **Overall confidence:** HIGH
 
+The main uncertainty is not technical but operational: ranking formula weights (0.5/0.3/0.2) are initial guesses that require tuning against real query distributions once implemented. The copy-on-write HNSW prune is the most architecturally novel component and deserves a targeted investigation before Phase 42 planning.
+
 ### Gaps to Address
 
-These are unresolved questions that must be decided as architectural decisions at the start of Phase 1:
-
-- **Threshold calibration**: Exact threshold values for all-MiniLM-L6-v2 dedup need a calibration test with known text pairs. Current recommendation (0.85 default) is conservative but not empirically validated against the specific event corpus. Build calibration fixture in Phase 1 before setting production defaults.
-
-- **Append-only design decision**: "Store event, skip outbox" (PITFALLS recommendation) vs "drop at ingest" (STACK recommendation) need explicit resolution. The pitfalls researcher's analysis of TOC segmentation impact makes "store-and-skip-outbox" the recommended choice, but this is an architectural decision that affects Phase 1 design. Must be recorded in PROJECT.md before implementation.
-
-- **HNSW lock contention strategy**: `try_read()` with buffer fallback vs periodic read-only HNSW snapshot. The in-flight buffer (Pitfall 6 prevention) is the primary defense, but the strategy for when try_read() fails needs explicit specification.
-
-- **Score composition formula for stale filtering**: The exact weighting of `vector_similarity * salience_weight * recency_factor * usage_boost` needs to be defined before Phase 3 to avoid score collapse. The PITFALLS researcher recommends bounded penalty (max 30%), the ARCHITECTURE researcher suggests `superseded_penalty = 0.3` for explicitly superseded results. These must be reconciled with the existing min_confidence threshold of 0.3 in `RetrievalExecutor`.
-
-- **Config backward compatibility**: `[novelty]` section in existing config.toml files must continue working. Use `serde(alias = "novelty")` on `DedupConfig`. Deprecation warning on startup when alias is used. This is a minor detail but must not be forgotten.
-
-- **Per-event-type dedup exemptions**: session_start, session_end, subagent_start, subagent_stop should bypass dedup entirely (structural events). user_message and assistant_stop should be deduped with conservative threshold. tool_result is ambiguous — may need a moderate threshold since repeated tool calls ARE legitimate duplicates.
+- **Hybrid search routing code:** STACK.md notes BM25 routing is "not fully wired into routing" and FEATURES.md confirms "hardcoded routing logic." Inspect `crates/memory-service/src/hybrid.rs` before writing the Phase 41 plan to understand exact wiring needed.
+- **CF_USAGE_COUNTERS schema:** UsageStats struct needs `last_accessed_ms` field added (not just access_count). Verify current schema in `crates/memory-storage/src/usage.rs` before Phase 41 — existing data may need migration handling.
+- **VectorPruneJob metadata format:** The HNSW index metadata file format (embedding_id → timestamp mappings) needs to be confirmed from the usearch crate API. ARCHITECTURE.md assumes a metadata file exists; verify this assumption in `crates/memory-vector/src/hnsw.rs`.
+- **BM25 lifecycle wiring:** STACK.md explicitly defers BM25 prune to "Phase 42b" because "SearchIndexer write access" needs its own design. Plan as a stretch goal or explicit follow-on outside the v2.6 scope.
+- **Value-based episode retention algorithm:** FEATURES.md rates this HIGH complexity and recommends deferring to v2.6.2. Phase 42 should implement a simple threshold (value_score < 0.3) rather than the full percentile-distribution algorithm.
 
 ## Sources
 
-### Primary (HIGH confidence — direct codebase inspection)
-- `crates/memory-service/src/novelty.rs` — existing `NoveltyChecker` with `EmbedderTrait`, `VectorIndexTrait`, fail-open, metrics (6 skip categories), `NoveltyConfig` integration
-- `crates/memory-service/src/ingest.rs` — `MemoryServiceImpl`, `IngestEvent` handler, `storage.put_event()` atomic write
-- `crates/memory-indexing/src/pipeline.rs` — `IndexingPipeline`, `process_batch()`, outbox checkpoint tracking
-- `crates/memory-indexing/src/vector_updater.rs` — `VectorIndexUpdater`, `find_grip_for_event()` returns None (critical: raw events NOT indexed), `index_toc_node()`, `index_grip()`
-- `crates/memory-vector/src/hnsw.rs` — `HnswIndex`, `Arc<RwLock<Index>>`, `MetricKind::Cos`, `search()` returns 1.0-distance
-- `crates/memory-vector/src/metadata.rs` — `VectorEntry.created_at` (ms since epoch), `VectorMetadata` RocksDB store
-- `crates/memory-types/src/config.rs` — `NoveltyConfig` (threshold 0.82, timeout 50ms, disabled by default)
-- `crates/memory-types/src/usage.rs` — `usage_penalty()`, `apply_usage_penalty()` (pattern for staleness functions)
-- `crates/memory-types/src/salience.rs` — `SalienceScorer`, `MemoryKind` enum (Constraint, Definition, Procedure)
-- `crates/memory-retrieval/src/executor.rs` — `RetrievalExecutor`, `min_confidence: 0.3`, fallback chain execution
-- `crates/memory-retrieval/src/types.rs` — `QueryIntent`, `CapabilityTier`, `StopConditions`
-- `Cargo.lock` — usearch 2.23.0, candle-core 0.8.4, tantivy 0.25.0, rocksdb 0.22 (versions locked)
-- `.planning/PROJECT.md` — architectural decisions, requirements, constraints
+### Primary (HIGH confidence — codebase analysis)
+- `crates/memory-types/src/` — SalienceScorer, UsageStats, UsageConfig, DedupConfig, StalenessConfig (confirmed 2026-03-11)
+- `crates/memory-storage/src/` — dashmap 6.0, lru 0.12, RocksDB 0.22, CF definitions
+- `crates/memory-search/src/lifecycle.rs` — Bm25LifecycleConfig, retention_map
+- `crates/memory-scheduler/` — Tokio cron job framework, OverlapPolicy, JitterConfig
+- `crates/memory-vector/src/hnsw.rs` — HNSW index wrapper, RwLock, cosine distance
+- `crates/memory-service/src/novelty.rs` — NoveltyChecker fail-open design, timeout handling
+- `crates/memory-indexing/src/vector_updater.rs` — Confirmed: indexes TOC nodes/grips, NOT raw events
+- `proto/memory.proto` — Field numbers, existing message types, reserved ranges
+- `.planning/PROJECT.md` — v2.6 requirements, architectural decisions
+- `docs/plans/memory-ranking-enhancements-rfc.md` — Episodic memory Tier 2 spec
 
-### Secondary (MEDIUM confidence — published research and community)
-- [Mem0: Building Production-Ready AI Agents](https://arxiv.org/abs/2504.19413) — LLM-based memory extraction and dedup (we deliberately avoid for latency reasons)
-- [Temporal RAG: Why RAG Gets 'When' Questions Wrong](https://blog.sotaaz.com/post/temporal-rag-en) — temporal awareness critical for retrieval freshness
-- [AI-Driven Semantic Similarity Pipeline (2025)](https://arxiv.org/html/2509.15292v1) — threshold calibration at 0.659 for literature dedup; score distribution [0.07, 0.80] for all-MiniLM-L6-v2
-- [Solving Freshness in RAG: A Simple Recency Prior](https://arxiv.org/html/2509.19376) — recency prior fused with semantic similarity for temporal ranking
-- [OpenAI Community: Cosine Similarity Thresholds](https://community.openai.com/t/rule-of-thumb-cosine-similarity-thresholds/693670) — no universal threshold; 0.79-0.85 common for near-duplicate detection
-- [Data Deduplication at Trillion Scale](https://zilliz.com/blog/data-deduplication-at-trillion-scale-solve-the-biggest-bottleneck-of-llm-training) — MinHash LSH at 0.8 threshold for near-duplicate detection
-- [Enhancing RAG: Best Practices](https://arxiv.org/abs/2501.07391) — dedup in context assembly best practices
-- [Data Freshness Rot in Production RAG](https://glenrhodes.com/data-freshness-rot-as-the-silent-failure-mode-in-production-rag-systems-and-treating-document-shelf-life-as-a-first-class-reliability-concern-2/) — document shelf life as first-class reliability concern
+### Secondary (HIGH confidence — industry sources)
+- [all-MiniLM-L6-v2 Model Card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) — Threshold calibration (0.659 for literature dedup, 0.85+ for conversational dedup)
+- [Elastic: A Comprehensive Hybrid Search Guide](https://www.elastic.co/what-is/hybrid-search) — RRF fusion (k=60 constant), parallel BM25+vector execution
+- [Google Vertex AI: About Hybrid Search](https://docs.cloud.google.com/vertex-ai/docs/vector-search/about-hybrid-search) — Score normalization patterns
+- [Memory Patterns for AI Agents](https://dev.to/gantz/memory-patterns-for-ai-agents-short-term-long-term-and-episodic-5ff1) — Episodic memory design for agentic systems
+- [Designing Memory Architectures for Production-Grade GenAI Systems](https://medium.com/@avijitswain11/designing-memory-architectures-for-production-grade-genai-systems-2c20f71f9a45) — Cognitive architecture layers
+- [AI-Driven Semantic Similarity Pipeline (2025)](https://arxiv.org/html/2509.15292v1) — Threshold calibration, score distribution [0.07, 0.80] for all-MiniLM-L6-v2
+- [8 Common Mistakes in Vector Search](https://kx.com/blog/8-common-mistakes-in-vector-search/) — Threshold defaults, normalization pitfalls
 - [OpenSearch Vector Dedup RFC](https://github.com/opensearch-project/k-NN/issues/2795) — 22% indexing speedup, 66% size reduction from dedup
-- [Event Sourcing Projection Deduplication](https://domaincentric.net/blog/event-sourcing-projection-patterns-deduplication-strategies) — at-least-once delivery and idempotency patterns
-- [8 Common Mistakes in Vector Search](https://kx.com/blog/8-common-mistakes-in-vector-search/) — normalization and default threshold pitfalls
 
-### Tertiary (LOW confidence — needs validation)
-- [all-MiniLM-L6-v2 Similarity Discussion](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/discussions/16) — community discussion of similarity thresholds; needs calibration test to validate against actual event corpus
-- [pgvector HNSW Dedup Issue](https://github.com/pgvector/pgvector/issues/760) — HNSW index not used with combined dedup+distance ordering; usearch behavior may differ
+### Tertiary (MEDIUM confidence — community patterns)
+- [Event Sourcing Projection Deduplication](https://domaincentric.net/blog/event-sourcing-projection-patterns-deduplication-strategies) — Store-and-skip-outbox pattern validation
+- [Redis: Full-text search for RAG apps: BM25 and hybrid search](https://redis.io/blog/full-text-search-for-rag-the-precision-layer/) — Hybrid search production patterns
+- [What is agent observability?](https://www.braintrust.dev/articles/agent-observability-tracing-tool-calls-memory) — Admin metrics for agentic systems
 
 ---
-*Research completed: 2026-03-05*
+*Research completed: 2026-03-11*
 *Synthesized by: gsd-synthesizer from STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md*
 *Ready for roadmap: yes*

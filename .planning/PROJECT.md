@@ -2,8 +2,21 @@
 
 ## Current State
 
-**Version:** v2.5 (Shipped 2026-03-10)
-**Status:** Production-ready with semantic dedup, stale filtering, 5-CLI E2E test harness, and full adapter coverage
+**Version:** v2.6 (In Progress)
+**Status:** Building retrieval quality, lifecycle automation, and episodic memory
+
+## Current Milestone: v2.6 Retrieval Quality, Lifecycle & Episodic Memory
+
+**Goal:** Complete hybrid search, add ranking intelligence, automate index lifecycle, expose operational metrics, and enable the system to learn from past task outcomes.
+
+**Target features:**
+- Complete BM25 hybrid search wiring (currently hardcoded `false`)
+- Salience scoring at write time + usage-based decay in retrieval ranking
+- Automated vector pruning and BM25 lifecycle policies via scheduler
+- Admin observability RPCs for dedup/ranking metrics
+- Episodic memory — record task outcomes, search similar past episodes, value-based retention
+
+**Previous version:** v2.5 (Shipped 2026-03-10) — semantic dedup, stale filtering, 5-CLI E2E test harness
 
 The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, and comprehensive testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)
@@ -209,12 +222,37 @@ Agent Memory implements a layered cognitive architecture:
 - [x] Configurable staleness parameters via config.toml — v2.5
 - [x] 10 E2E tests proving dedup, stale filtering, and fail-open — v2.5
 
-### Active
+### Active (v2.6)
 
-**Deferred / Future**
+**Hybrid Search**
+- [ ] BM25 wired into hybrid search handler and retrieval routing
+
+**Ranking Quality**
+- [ ] Salience scoring at write time (TOC nodes, Grips)
+- [ ] Usage-based decay in retrieval ranking (access_count tracking)
+
+**Lifecycle Automation**
+- [ ] Vector index pruning via scheduler job
+- [ ] BM25 lifecycle policy with level-filtered rebuild
+
+**Observability**
+- [ ] Admin RPCs for dedup metrics (buffer_size, events skipped)
+- [ ] Ranking metrics exposure (salience distribution, usage stats)
+- [ ] `deduplicated` field in IngestEventResponse
+
+**Episodic Memory**
+- [ ] Episode schema and RocksDB storage (CF_EPISODES)
+- [ ] gRPC RPCs (StartEpisode, RecordAction, CompleteEpisode, GetSimilarEpisodes)
+- [ ] Value-based retention (outcome score sweet spot)
+- [ ] Retrieval integration for similar episode search
+
+### Deferred / Future
+
 - Cross-project unified memory
-- Admin dedup dashboard (events skipped, threshold hits, buffer utilization)
 - Per-agent dedup scoping
+- Consolidation hook (extract durable knowledge from events, needs NLP/LLM)
+- True daemonization (double-fork on Unix)
+- API-based summarizer wiring (OpenAI/Anthropic)
 
 ### Out of Scope
 
@@ -314,4 +352,4 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | std::sync::RwLock for InFlightBuffer | Operations are sub-microsecond; tokio RwLock overhead unnecessary | ✓ Validated v2.5 |
 
 ---
-*Last updated: 2026-03-10 after v2.5 milestone*
+*Last updated: 2026-03-10 after v2.6 milestone start*

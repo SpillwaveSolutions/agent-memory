@@ -10,16 +10,19 @@
 //! - Settings: Configuration types
 //! - Salience: Memory importance scoring (Phase 16)
 //! - Usage: Access pattern tracking (Phase 16)
+//! - Episodes: Episodic memory for task execution sequences (Phase 43)
 //!
 //! ## Usage
 //!
 //! ```rust
 //! use memory_types::{Event, EventRole, EventType, Segment, Settings};
 //! use memory_types::{MemoryKind, SalienceScorer, UsageStats};
+//! use memory_types::{Episode, Action, ActionResult, EpisodeStatus};
 //! ```
 
 pub mod config;
 pub mod dedup;
+pub mod episode;
 pub mod error;
 pub mod event;
 pub mod grip;
@@ -31,9 +34,11 @@ pub mod usage;
 
 // Re-export main types at crate root
 pub use config::{
-    DedupConfig, MultiAgentMode, NoveltyConfig, Settings, StalenessConfig, SummarizerSettings,
+    Bm25LifecycleSettings, DedupConfig, EpisodicConfig, LifecycleConfig, MultiAgentMode,
+    NoveltyConfig, Settings, StalenessConfig, SummarizerSettings, VectorLifecycleSettings,
 };
 pub use dedup::{BufferEntry, InFlightBuffer};
+pub use episode::{Action, ActionResult, Episode, EpisodeStatus};
 pub use error::MemoryError;
 pub use event::{Event, EventRole, EventType};
 pub use grip::Grip;

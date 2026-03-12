@@ -24,7 +24,7 @@ use clap::Parser;
 use memory_daemon::{
     handle_admin, handle_agents_command, handle_clod_command, handle_query,
     handle_retrieval_command, handle_scheduler, handle_teleport_command, handle_topics_command,
-    show_status, start_daemon, stop_daemon, Cli, Commands,
+    show_status, show_verbose_status, start_daemon, stop_daemon, Cli, Commands,
 };
 
 #[tokio::main]
@@ -49,8 +49,11 @@ async fn main() -> Result<()> {
         Commands::Stop => {
             stop_daemon()?;
         }
-        Commands::Status => {
+        Commands::Status { verbose, endpoint } => {
             show_status()?;
+            if verbose {
+                show_verbose_status(&endpoint).await?;
+            }
         }
         Commands::Query { endpoint, command } => {
             handle_query(&endpoint, command).await?;

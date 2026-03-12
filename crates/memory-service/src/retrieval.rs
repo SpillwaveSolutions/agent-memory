@@ -18,6 +18,7 @@ use tracing::{debug, info};
 use memory_retrieval::{
     classifier::IntentClassifier,
     executor::{FallbackChain, LayerExecutor, RetrievalExecutor, SearchResult},
+    ranking::{apply_combined_ranking, RankingConfig},
     stale_filter::StaleFilter,
     types::{
         CapabilityTier as CrateTier, CombinedStatus, ExecutionMode as CrateExecMode,
@@ -272,24 +273,31 @@ impl RetrievalHandler {
             .execute(&req.query, chain, &stop_conditions, mode, tier)
             .await;
 
+        // Enrich metadata with salience scores from Storage lookups
+        let enriched_results = enrich_with_salience(&self.storage, result.results);
+
         // Apply staleness filter post-merge, pre-return
         let stale_filter = StaleFilter::new(self.staleness_config.clone());
         let filtered_results = if self.staleness_config.enabled {
             // Look up embeddings for supersession detection (fail-open)
             let embeddings = self.vector_handler.as_ref().map(|vh| {
                 let doc_ids: Vec<String> =
-                    result.results.iter().map(|r| r.doc_id.clone()).collect();
+                    enriched_results.iter().map(|r| r.doc_id.clone()).collect();
                 vh.get_embeddings_for_doc_ids(&doc_ids)
             });
-            stale_filter.apply_with_supersession(result.results, embeddings.as_ref())
+            stale_filter.apply_with_supersession(enriched_results, embeddings.as_ref())
         } else {
-            result.results
+            enriched_results
         };
+
+        // Apply combined ranking (salience + usage decay) after stale filter
+        let ranking_config = RankingConfig::default();
+        let ranked_results = apply_combined_ranking(filtered_results, &ranking_config);
 
         let total_time_ms = start.elapsed().as_millis() as u64;
 
         // Convert results to proto
-        let results: Vec<ProtoResult> = filtered_results
+        let results: Vec<ProtoResult> = ranked_results
             .iter()
             .take(limit)
             .map(|r| ProtoResult {
@@ -605,6 +613,41 @@ impl LayerExecutor for SimpleLayerExecutor {
             CrateLayer::Agentic => true, // Always available
         }
     }
+}
+
+/// Enrich search results with salience and usage data from Storage lookups.
+///
+/// For each result, looks up the TocNode or Grip by doc_id and injects
+/// `salience_score`, `memory_kind`, and `access_count` into the metadata.
+/// These fields are used by `apply_combined_ranking` downstream.
+///
+/// Lookups that fail are silently ignored (fail-open).
+fn enrich_with_salience(storage: &Storage, mut results: Vec<SearchResult>) -> Vec<SearchResult> {
+    for result in &mut results {
+        // Try to look up as TocNode first (most common), then as Grip
+        if let Ok(Some(node)) = storage.get_toc_node(&result.doc_id) {
+            result.metadata.insert(
+                "salience_score".to_string(),
+                node.salience_score.to_string(),
+            );
+            result
+                .metadata
+                .insert("memory_kind".to_string(), node.memory_kind.to_string());
+            result
+                .metadata
+                .insert("access_count".to_string(), node.access_count.to_string());
+        } else if let Ok(Some(grip)) = storage.get_grip(&result.doc_id) {
+            result.metadata.insert(
+                "salience_score".to_string(),
+                grip.salience_score.to_string(),
+            );
+            result
+                .metadata
+                .insert("memory_kind".to_string(), grip.memory_kind.to_string());
+            // Grips don't have access_count — default to 0
+        }
+    }
+    results
 }
 
 /// Build metadata map for SearchResult enrichment.

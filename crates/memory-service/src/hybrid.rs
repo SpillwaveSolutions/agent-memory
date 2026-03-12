@@ -10,6 +10,8 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::{debug, info};
 
+use memory_search::{SearchOptions, TeleportSearcher};
+
 use crate::pb::{
     HybridMode, HybridSearchRequest, HybridSearchResponse, VectorMatch, VectorTeleportRequest,
 };
@@ -21,19 +23,24 @@ const RRF_K: f32 = 60.0;
 /// Handler for hybrid search operations.
 pub struct HybridSearchHandler {
     vector_handler: Arc<VectorTeleportHandler>,
-    // BM25 integration will be added when Phase 11 is complete
+    searcher: Option<Arc<TeleportSearcher>>,
 }
 
 impl HybridSearchHandler {
     /// Create a new hybrid search handler.
-    pub fn new(vector_handler: Arc<VectorTeleportHandler>) -> Self {
-        Self { vector_handler }
+    pub fn new(
+        vector_handler: Arc<VectorTeleportHandler>,
+        searcher: Option<Arc<TeleportSearcher>>,
+    ) -> Self {
+        Self {
+            vector_handler,
+            searcher,
+        }
     }
 
     /// Check if BM25 search is available.
     pub fn bm25_available(&self) -> bool {
-        // TODO: Will be true when Phase 11 is integrated
-        false
+        self.searcher.is_some()
     }
 
     /// Check if vector search is available.
@@ -126,9 +133,26 @@ impl HybridSearchHandler {
     }
 
     /// Perform BM25-only search.
-    async fn bm25_search(&self, _query: &str, _top_k: usize) -> Result<Vec<VectorMatch>, Status> {
-        // TODO: Integrate with Phase 11 BM25 when complete
-        Ok(vec![])
+    async fn bm25_search(&self, query: &str, top_k: usize) -> Result<Vec<VectorMatch>, Status> {
+        let Some(searcher) = &self.searcher else {
+            return Ok(vec![]);
+        };
+
+        let results = searcher
+            .search(query, SearchOptions::new().with_limit(top_k))
+            .map_err(|e| Status::internal(format!("BM25 search error: {e}")))?;
+
+        Ok(results
+            .into_iter()
+            .map(|r| VectorMatch {
+                doc_id: r.doc_id,
+                doc_type: r.doc_type.as_str().to_string(),
+                score: r.score,
+                text_preview: r.keywords.unwrap_or_default(),
+                timestamp_ms: r.timestamp_ms.unwrap_or(0),
+                agent: r.agent,
+            })
+            .collect())
     }
 
     /// Fuse results using Reciprocal Rank Fusion.

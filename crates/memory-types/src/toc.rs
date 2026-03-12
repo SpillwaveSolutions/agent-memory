@@ -166,6 +166,17 @@ pub struct TocNode {
     /// Default: empty Vec for pre-phase-18 nodes.
     #[serde(default)]
     pub contributing_agents: Vec<String>,
+
+    // === Phase 40: Usage Tracking ===
+    /// Number of times this node was accessed in retrieval.
+    /// Default: 0 for backward compatibility.
+    #[serde(default)]
+    pub access_count: u32,
+
+    /// Last access timestamp in milliseconds.
+    /// Default: None for backward compatibility.
+    #[serde(default)]
+    pub last_accessed_ms: Option<i64>,
 }
 
 impl TocNode {
@@ -194,6 +205,9 @@ impl TocNode {
             is_pinned: false,
             // Phase 18: Multi-agent tracking
             contributing_agents: Vec::new(),
+            // Phase 40: Usage tracking
+            access_count: 0,
+            last_accessed_ms: None,
         }
     }
 

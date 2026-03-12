@@ -154,7 +154,10 @@ async fn test_stale_results_downranked_relative_to_newer() {
         .into_inner();
 
     assert!(resp_on.has_results, "RouteQuery should have results");
-    assert!(resp_off.has_results, "Baseline RouteQuery should have results");
+    assert!(
+        resp_off.has_results,
+        "Baseline RouteQuery should have results"
+    );
 
     // Build score maps: doc_id -> score for each run
     let scores_off: HashMap<String, f32> = resp_off
@@ -268,10 +271,7 @@ async fn test_kind_exemption_constraint_not_penalized() {
             source_layer: RetrievalLayer::BM25,
             metadata: {
                 let mut m = HashMap::new();
-                m.insert(
-                    "timestamp_ms".to_string(),
-                    (now - 42 * DAY_MS).to_string(),
-                );
+                m.insert("timestamp_ms".to_string(), (now - 42 * DAY_MS).to_string());
                 m.insert("memory_kind".to_string(), "constraint".to_string());
                 m
             },
@@ -284,10 +284,7 @@ async fn test_kind_exemption_constraint_not_penalized() {
             source_layer: RetrievalLayer::BM25,
             metadata: {
                 let mut m = HashMap::new();
-                m.insert(
-                    "timestamp_ms".to_string(),
-                    (now - 42 * DAY_MS).to_string(),
-                );
+                m.insert("timestamp_ms".to_string(), (now - 42 * DAY_MS).to_string());
                 m.insert("memory_kind".to_string(), "observation".to_string());
                 m
             },
@@ -359,10 +356,7 @@ async fn test_kind_exemption_constraint_not_penalized() {
                 source_layer: RetrievalLayer::BM25,
                 metadata: {
                     let mut m = HashMap::new();
-                    m.insert(
-                        "timestamp_ms".to_string(),
-                        (now - 42 * DAY_MS).to_string(),
-                    );
+                    m.insert("timestamp_ms".to_string(), (now - 42 * DAY_MS).to_string());
                     m.insert("memory_kind".to_string(), kind.to_string());
                     m
                 },

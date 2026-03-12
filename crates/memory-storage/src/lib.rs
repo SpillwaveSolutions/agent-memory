@@ -10,13 +10,14 @@
 
 pub mod column_families;
 pub mod db;
+pub mod episodes;
 pub mod error;
 pub mod keys;
 pub mod usage;
 
 pub use column_families::{
-    CF_CHECKPOINTS, CF_EVENTS, CF_GRIPS, CF_OUTBOX, CF_TOC_LATEST, CF_TOC_NODES, CF_TOPICS,
-    CF_TOPIC_LINKS, CF_TOPIC_RELS, CF_USAGE_COUNTERS,
+    CF_CHECKPOINTS, CF_EPISODES, CF_EVENTS, CF_GRIPS, CF_OUTBOX, CF_TOC_LATEST, CF_TOC_NODES,
+    CF_TOPICS, CF_TOPIC_LINKS, CF_TOPIC_RELS, CF_USAGE_COUNTERS,
 };
 pub use db::{Storage, StorageStats};
 pub use error::StorageError;

@@ -168,8 +168,9 @@ async fn register_indexing_job(
 async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Result<()> {
     use memory_embeddings::EmbeddingModel;
     use memory_scheduler::{
-        register_bm25_prune_job, register_vector_prune_job, Bm25PruneJob, Bm25PruneJobConfig,
-        VectorPruneJob, VectorPruneJobConfig,
+        register_bm25_prune_job, register_bm25_rebuild_job, register_vector_prune_job,
+        Bm25PruneJob, Bm25PruneJobConfig, Bm25RebuildJob, Bm25RebuildJobConfig, VectorPruneJob,
+        VectorPruneJobConfig,
     };
     use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
     use memory_vector::{
@@ -180,7 +181,7 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
     let search_dir = db_path.join("search");
     let vector_dir = db_path.join("vector");
 
-    // Register BM25 prune job if search index exists
+    // Register BM25 prune and rebuild jobs if search index exists
     if search_dir.exists() {
         let search_config = SearchIndexConfig::new(&search_dir);
         match SearchIndex::open_or_create(search_config) {
@@ -190,10 +191,11 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
                         let indexer = Arc::new(indexer);
 
                         // Create prune job with callback
+                        let indexer_for_prune = Arc::clone(&indexer);
                         let bm25_job = Bm25PruneJob::with_prune_fn(
                             Bm25PruneJobConfig::default(),
                             move |age_days, level, dry_run| {
-                                let idx = Arc::clone(&indexer);
+                                let idx = Arc::clone(&indexer_for_prune);
                                 async move {
                                     idx.prune_and_commit(age_days, level.as_deref(), dry_run)
                                         .map_err(|e| e.to_string())
@@ -206,6 +208,25 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
                             .context("Failed to register BM25 prune job")?;
 
                         info!("BM25 prune job registered");
+
+                        // Register BM25 rebuild job (for lifecycle level-filtering)
+                        let indexer_for_rebuild = Arc::clone(&indexer);
+                        let rebuild_job = Bm25RebuildJob::with_rebuild_fn(
+                            Bm25RebuildJobConfig::default(),
+                            move |min_level| {
+                                let idx = Arc::clone(&indexer_for_rebuild);
+                                async move {
+                                    idx.rebuild_with_filter(&min_level)
+                                        .map_err(|e| e.to_string())
+                                }
+                            },
+                        );
+
+                        register_bm25_rebuild_job(scheduler, rebuild_job)
+                            .await
+                            .context("Failed to register BM25 rebuild job")?;
+
+                        info!("BM25 rebuild job registered");
                     }
                     Err(e) => {
                         warn!(error = %e, "Failed to create search indexer for BM25 prune job");
@@ -497,7 +518,9 @@ pub async fn start_daemon(
 
     info!(
         "  Staleness filter: enabled={}, half_life={}d, max_penalty={}",
-        settings.staleness.enabled, settings.staleness.half_life_days, settings.staleness.max_penalty
+        settings.staleness.enabled,
+        settings.staleness.half_life_days,
+        settings.staleness.max_penalty
     );
 
     // Start server with scheduler
@@ -568,6 +591,83 @@ pub fn show_status() -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// Show verbose status by querying the running daemon for detailed metrics.
+///
+/// Calls GetDedupStatus, GetRankingStatus, and GetVectorIndexStatus RPCs
+/// to display dedup, ranking, vector, and lifecycle health information.
+pub async fn show_verbose_status(endpoint: &str) -> Result<()> {
+    let mut client = MemoryClient::connect(endpoint)
+        .await
+        .context("Failed to connect to daemon for verbose status")?;
+
+    println!();
+    println!("Detailed Status");
+    println!("================");
+
+    // Dedup status
+    match client.get_dedup_status().await {
+        Ok(dedup) => {
+            let hit_rate = if dedup.events_checked > 0 {
+                (dedup.events_deduplicated as f64 / dedup.events_checked as f64) * 100.0
+            } else {
+                0.0
+            };
+            println!(
+                "Dedup:    enabled={}, buffer_size={}/{}, hit_rate={:.1}%, events_skipped={}",
+                dedup.enabled,
+                dedup.buffer_size,
+                dedup.buffer_capacity,
+                hit_rate,
+                dedup.events_skipped,
+            );
+        }
+        Err(e) => println!("Dedup:    error - {}", e),
+    }
+
+    // Ranking status
+    match client.get_ranking_status().await {
+        Ok(ranking) => {
+            println!(
+                "Ranking:  avg_salience={:.2}, high_salience_nodes={}, avg_usage_decay={:.2}",
+                ranking.avg_salience_score, ranking.high_salience_count, ranking.avg_usage_decay,
+            );
+            println!(
+                "Novelty:  enabled={}, checked={}, rejected={}",
+                ranking.novelty_enabled,
+                ranking.novelty_checked_total,
+                ranking.novelty_rejected_total,
+            );
+            println!(
+                "Lifecycle: vector={}, bm25={}",
+                if ranking.vector_lifecycle_enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+                if ranking.bm25_lifecycle_enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+            );
+        }
+        Err(e) => println!("Ranking:  error - {}", e),
+    }
+
+    // Vector index status
+    match client.get_vector_index_status().await {
+        Ok(vector) => {
+            println!(
+                "Vector:   vectors={}, available={}",
+                vector.vector_count, vector.available,
+            );
+        }
+        Err(e) => println!("Vector:   error - {}", e),
+    }
+
+    Ok(())
 }
 
 /// Handle query commands.
@@ -1052,7 +1152,185 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
         } => {
             handle_clear_index(&index, force, search_path, vector_path, &expanded_path)?;
         }
+
+        AdminCommands::PruneVectors {
+            age_days,
+            vector_path,
+            dry_run,
+        } => {
+            handle_prune_vectors(&expanded_path, age_days, vector_path, dry_run)?;
+        }
+
+        AdminCommands::RebuildBm25 {
+            min_level,
+            search_path,
+        } => {
+            handle_rebuild_bm25(&expanded_path, &min_level, search_path)?;
+        }
     }
+
+    Ok(())
+}
+
+/// Handle the prune-vectors command.
+///
+/// Prunes old vectors from the HNSW index based on age.
+fn handle_prune_vectors(
+    db_path: &str,
+    age_days: u32,
+    vector_path: Option<String>,
+    dry_run: bool,
+) -> Result<()> {
+    use memory_embeddings::EmbeddingModel;
+    use memory_vector::{
+        HnswConfig, HnswIndex, PipelineConfig as VectorPipelineConfig, VectorIndexPipeline,
+        VectorMetadata,
+    };
+
+    let vector_dir = vector_path
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(db_path).join("vector"));
+
+    if !vector_dir.exists() {
+        anyhow::bail!("Vector index directory not found at {:?}", vector_dir);
+    }
+
+    println!("Vector Index Pruning");
+    println!("====================");
+    println!("Vector path: {:?}", vector_dir);
+    println!("Age threshold: {} days", age_days);
+    println!("Dry run: {}", dry_run);
+    println!();
+
+    // Load embedder
+    let embedder = memory_embeddings::CandleEmbedder::load_default()
+        .context("Failed to load embedding model")?;
+    let embedder = Arc::new(embedder);
+    let hnsw_config = HnswConfig::new(embedder.info().dimension, &vector_dir);
+
+    let hnsw_index = HnswIndex::open_or_create(hnsw_config).context("Failed to open HNSW index")?;
+    let hnsw_index = Arc::new(std::sync::RwLock::new(hnsw_index));
+
+    let metadata_path = vector_dir.join("metadata");
+    if !metadata_path.exists() {
+        anyhow::bail!("Vector metadata directory not found at {:?}", metadata_path);
+    }
+
+    let metadata =
+        VectorMetadata::open(&metadata_path).context("Failed to open vector metadata")?;
+    let metadata = Arc::new(metadata);
+
+    let pipeline = VectorIndexPipeline::new(
+        embedder,
+        hnsw_index,
+        metadata,
+        VectorPipelineConfig::default(),
+    );
+
+    // Prune each non-protected level
+    let levels = ["segment", "grip", "day", "week"];
+    let mut total_pruned = 0usize;
+
+    for level in &levels {
+        if dry_run {
+            println!(
+                "  [DRY RUN] Would prune '{}' vectors older than {} days",
+                level, age_days
+            );
+        } else {
+            match pipeline.prune_level(age_days as u64, Some(level)) {
+                Ok(count) => {
+                    println!(
+                        "  Pruned {} '{}' vectors older than {} days",
+                        count, level, age_days
+                    );
+                    total_pruned += count;
+                }
+                Err(e) => {
+                    warn!(level, error = %e, "Failed to prune level");
+                    println!("  ERROR pruning '{}': {}", level, e);
+                }
+            }
+        }
+    }
+
+    println!();
+    if dry_run {
+        println!("Dry run complete. No vectors were removed.");
+    } else {
+        println!("Pruning complete. Total vectors removed: {}", total_pruned);
+    }
+
+    Ok(())
+}
+
+/// Handle the rebuild-bm25 command.
+///
+/// Rebuilds the BM25 index keeping only documents at or above the specified level.
+fn handle_rebuild_bm25(db_path: &str, min_level: &str, search_path: Option<String>) -> Result<()> {
+    use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
+
+    let search_dir = search_path
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(db_path).join("search"));
+
+    if !search_dir.exists() {
+        anyhow::bail!("Search index directory not found at {:?}", search_dir);
+    }
+
+    // Validate min_level
+    let valid_levels = ["segment", "grip", "day", "week", "month", "year"];
+    if !valid_levels.contains(&min_level) {
+        anyhow::bail!(
+            "Invalid min_level '{}'. Must be one of: {}",
+            min_level,
+            valid_levels.join(", ")
+        );
+    }
+
+    println!("BM25 Index Rebuild");
+    println!("==================");
+    println!("Search path: {:?}", search_dir);
+    println!("Min level: {} (excluding docs below this level)", min_level);
+    println!();
+
+    let search_config = SearchIndexConfig::new(&search_dir);
+    let search_index =
+        SearchIndex::open_or_create(search_config).context("Failed to open search index")?;
+    let indexer = SearchIndexer::new(&search_index).context("Failed to create search indexer")?;
+
+    // Prune documents below min_level by filtering each level below the threshold
+    let level_order = ["segment", "grip", "day", "week", "month", "year"];
+    let min_idx = level_order
+        .iter()
+        .position(|l| *l == min_level)
+        .unwrap_or(0);
+
+    let mut total_pruned: u32 = 0;
+    for level in &level_order[..min_idx] {
+        // Prune all docs at this level (age_days=0 would prune everything,
+        // but we use a very large age to catch all docs at this level regardless of age)
+        match indexer.prune(0, Some(level), false) {
+            Ok(stats) => {
+                let count = stats.total();
+                println!("  Removed {} '{}' documents", count, level);
+                total_pruned += count;
+            }
+            Err(e) => {
+                println!("  ERROR removing '{}' documents: {}", level, e);
+            }
+        }
+    }
+
+    if total_pruned > 0 {
+        indexer.commit().context("Failed to commit BM25 changes")?;
+    }
+
+    println!();
+    println!(
+        "Rebuild complete. Removed {} documents below '{}' level.",
+        total_pruned, min_level
+    );
 
     Ok(())
 }

@@ -325,6 +325,9 @@ fn domain_to_proto_node(node: DomainTocNode) -> ProtoTocNode {
         salience_score: 0.5,
         memory_kind: ProtoMemoryKind::Observation as i32,
         is_pinned: false,
+        // Phase 40: Usage tracking
+        access_count: node.access_count,
+        last_accessed_ms: node.last_accessed_ms.unwrap_or(0),
     }
 }
 

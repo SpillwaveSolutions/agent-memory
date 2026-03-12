@@ -7,12 +7,13 @@ use tracing::{debug, info};
 
 use memory_service::pb::{
     memory_service_client::MemoryServiceClient, BrowseTocRequest, Event as ProtoEvent,
-    EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest, GetEventsRequest,
-    GetNodeRequest, GetRelatedTopicsRequest, GetTocRootRequest, GetTopTopicsRequest,
-    GetTopicGraphStatusRequest, GetTopicsByQueryRequest, GetVectorIndexStatusRequest,
-    Grip as ProtoGrip, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
-    TeleportSearchRequest, TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic,
-    VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
+    EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
+    GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest, GetNodeRequest,
+    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest, GetTocRootRequest,
+    GetTopTopicsRequest, GetTopicGraphStatusRequest, GetTopicsByQueryRequest,
+    GetVectorIndexStatusRequest, Grip as ProtoGrip, HybridSearchRequest, HybridSearchResponse,
+    IngestEventRequest, TeleportSearchRequest, TeleportSearchResponse, TocNode as ProtoTocNode,
+    Topic as ProtoTopic, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use memory_types::{Event, EventRole, EventType};
 
@@ -289,6 +290,24 @@ impl MemoryClient {
         debug!("GetVectorIndexStatus request");
         let request = tonic::Request::new(GetVectorIndexStatusRequest {});
         let response = self.inner.get_vector_index_status(request).await?;
+        Ok(response.into_inner())
+    }
+
+    // ===== Observability Methods (Phase 42) =====
+
+    /// Get dedup gate status and metrics.
+    pub async fn get_dedup_status(&mut self) -> Result<GetDedupStatusResponse, ClientError> {
+        debug!("GetDedupStatus request");
+        let request = tonic::Request::new(GetDedupStatusRequest {});
+        let response = self.inner.get_dedup_status(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Get ranking status and metrics (salience, usage, novelty, lifecycle).
+    pub async fn get_ranking_status(&mut self) -> Result<GetRankingStatusResponse, ClientError> {
+        debug!("GetRankingStatus request");
+        let request = tonic::Request::new(GetRankingStatusRequest {});
+        let response = self.inner.get_ranking_status(request).await?;
         Ok(response.into_inner())
     }
 
