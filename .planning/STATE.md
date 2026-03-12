@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.6
 milestone_name: Retrieval Quality, Lifecycle & Episodic Memory
-status: planned
-stopped_at: All 6 phases planned (13 plans total), ready to execute
-last_updated: "2026-03-11T14:00:00.000Z"
-last_activity: 2026-03-11 — All v2.6 phases planned (13 plans across 6 phases)
+status: executing
+stopped_at: Completed 43-01 Episode Schema, Storage, and Column Family
+last_updated: "2026-03-11T20:00:00.000Z"
+last_activity: 2026-03-11 — Completed Phase 43 Plan 01 (episodic types, CF, storage, config)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 13
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 8
 ---
 
 # Project State
@@ -25,16 +25,22 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 
 ## Current Position
 
-Phase: 39 of 44 (BM25 Hybrid Wiring)
-Plan: All phases planned — ready to execute
-Status: All 6 phases planned (13 plans), ready to execute Phase 39
-Last activity: 2026-03-11 — All v2.6 phases planned
+Phase: 43 of 44 (Episodic Schema & Storage) -- 43-01 COMPLETE
+Plan: 43-01 Episode Schema, Storage, and Column Family -- DONE
+Status: Executing v2.6 milestone
+Last activity: 2026-03-11 — Completed 43-01 (episodic types, CF_EPISODES, storage ops, config)
 
-Progress: [░░░░░░░░░░] 0% (0/0 plans)
+Progress: [█░░░░░░░░░] 8% (1/13 plans)
 
 ## Decisions
 
 (Inherited from v2.5 — see MILESTONES.md for full history)
+
+- ActionResult uses tagged enum (status+detail) for JSON clarity
+- Storage.db made pub(crate) for cross-module CF access within memory-storage
+- Value scoring uses midpoint-distance formula: (1.0 - |outcome - midpoint|).max(0.0)
+- EpisodicConfig disabled by default (explicit opt-in like dedup)
+- list_episodes uses reverse ULID iteration for newest-first ordering
 
 ## Blockers
 
@@ -72,5 +78,5 @@ See: .planning/MILESTONES.md for complete history
 ## Session Continuity
 
 **Last Session:** 2026-03-11
-**Stopped At:** All phases planned — ready to execute
-**Resume File:** N/A — continue with `/gsd:execute-phase 39` (or parallel: 39+43)
+**Stopped At:** Completed 43-01 Episode Schema, Storage, and Column Family
+**Resume File:** Continue with Phase 44 (Episodic gRPC & Retrieval) or Phase 39 (BM25 Hybrid)

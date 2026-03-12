@@ -41,6 +41,10 @@ pub const CF_TOPIC_RELS: &str = "topic_rels";
 /// Per Phase 16 Plan 02: Track access patterns WITHOUT mutating immutable nodes.
 pub const CF_USAGE_COUNTERS: &str = "usage_counters";
 
+/// Column family for episodic memory records (Phase 43).
+/// Stores complete task execution episodes with actions, outcomes, and lessons.
+pub const CF_EPISODES: &str = "episodes";
+
 /// All column family names
 pub const ALL_CF_NAMES: &[&str] = &[
     CF_EVENTS,
@@ -53,6 +57,7 @@ pub const ALL_CF_NAMES: &[&str] = &[
     CF_TOPIC_LINKS,
     CF_TOPIC_RELS,
     CF_USAGE_COUNTERS,
+    CF_EPISODES,
 ];
 
 /// Create column family options for events (append-only, compressed)
@@ -86,5 +91,6 @@ pub fn build_cf_descriptors() -> Vec<ColumnFamilyDescriptor> {
         ColumnFamilyDescriptor::new(CF_TOPIC_LINKS, Options::default()),
         ColumnFamilyDescriptor::new(CF_TOPIC_RELS, Options::default()),
         ColumnFamilyDescriptor::new(CF_USAGE_COUNTERS, Options::default()),
+        ColumnFamilyDescriptor::new(CF_EPISODES, Options::default()),
     ]
 }
