@@ -11,6 +11,7 @@
 //! - Reflection endpoint for debugging (GRPC-04)
 
 pub mod agents;
+pub mod episodes;
 pub mod hybrid;
 pub mod ingest;
 pub mod novelty;
@@ -30,6 +31,7 @@ pub mod pb {
 }
 
 pub use agents::AgentDiscoveryHandler;
+pub use episodes::EpisodeHandler;
 pub use hybrid::HybridSearchHandler;
 pub use ingest::MemoryServiceImpl;
 pub use novelty::{

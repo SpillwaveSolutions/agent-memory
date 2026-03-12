@@ -115,6 +115,20 @@ service MemoryService {
 
     // Get dedup gate status and metrics
     rpc GetDedupStatus(GetDedupStatusRequest) returns (GetDedupStatusResponse);
+
+    // ===== Episodic Memory RPCs (Phase 44) =====
+
+    // Start a new episode for tracking a task execution
+    rpc StartEpisode(StartEpisodeRequest) returns (StartEpisodeResponse);
+
+    // Record an action taken during an in-progress episode
+    rpc RecordAction(RecordActionRequest) returns (RecordActionResponse);
+
+    // Complete an episode with outcome score and lessons
+    rpc CompleteEpisode(CompleteEpisodeRequest) returns (CompleteEpisodeResponse);
+
+    // Find episodes similar to a query (brute-force cosine similarity)
+    rpc GetSimilarEpisodes(GetSimilarEpisodesRequest) returns (GetSimilarEpisodesResponse);
 }
 
 // Role of the message author
@@ -1063,4 +1077,136 @@ message GetDedupStatusResponse {
     uint32 buffer_size = 6;
     // Maximum buffer capacity
     uint32 buffer_capacity = 7;
+}
+
+// ===== Episodic Memory Messages (Phase 44) =====
+
+// Status of an episode
+enum EpisodeStatusProto {
+    EPISODE_STATUS_UNSPECIFIED = 0;
+    EPISODE_STATUS_IN_PROGRESS = 1;
+    EPISODE_STATUS_COMPLETED = 2;
+    EPISODE_STATUS_FAILED = 3;
+}
+
+// Result status of an action within an episode
+enum ActionResultStatus {
+    ACTION_RESULT_UNSPECIFIED = 0;
+    ACTION_RESULT_SUCCESS = 1;
+    ACTION_RESULT_FAILURE = 2;
+    ACTION_RESULT_PENDING = 3;
+}
+
+// A single action taken during an episode
+message EpisodeAction {
+    // Type of action performed (e.g., "tool_call", "api_request", "file_edit")
+    string action_type = 1;
+    // Input or parameters for the action
+    string input = 2;
+    // Result status
+    ActionResultStatus result_status = 3;
+    // Result detail (output text or error message)
+    string result_detail = 4;
+    // When the action was performed (ms since epoch)
+    int64 timestamp_ms = 5;
+}
+
+// Request to start a new episode
+message StartEpisodeRequest {
+    // The task or goal being executed
+    string task = 1;
+    // Planned steps for the task (optional)
+    repeated string plan = 2;
+    // Agent executing the episode (optional)
+    optional string agent = 3;
+}
+
+// Response from starting an episode
+message StartEpisodeResponse {
+    // Unique episode ID (ULID)
+    string episode_id = 1;
+    // Whether the episode was created
+    bool created = 2;
+}
+
+// Request to record an action in an episode
+message RecordActionRequest {
+    // Episode ID to add the action to
+    string episode_id = 1;
+    // The action to record
+    EpisodeAction action = 2;
+}
+
+// Response from recording an action
+message RecordActionResponse {
+    // Whether the action was recorded
+    bool recorded = 1;
+    // Total actions in the episode after recording
+    uint32 action_count = 2;
+}
+
+// Request to complete an episode
+message CompleteEpisodeRequest {
+    // Episode ID to complete
+    string episode_id = 1;
+    // Outcome score (0.0 = total failure, 1.0 = perfect success)
+    float outcome_score = 2;
+    // Whether the episode failed (true = failed, false = completed)
+    bool failed = 3;
+    // Lessons learned from the episode
+    repeated string lessons_learned = 4;
+    // Failure modes encountered
+    repeated string failure_modes = 5;
+}
+
+// Response from completing an episode
+message CompleteEpisodeResponse {
+    // Whether the episode was completed
+    bool completed = 1;
+    // Computed value score for retrieval prioritization
+    float value_score = 2;
+    // Number of episodes pruned due to max_episodes limit
+    uint32 episodes_pruned = 3;
+}
+
+// Request to find similar episodes
+message GetSimilarEpisodesRequest {
+    // Query text to find similar episodes
+    string query = 1;
+    // Maximum results to return (default: 5)
+    uint32 top_k = 2;
+    // Minimum similarity score 0.0-1.0 (default: 0.0)
+    float min_score = 3;
+}
+
+// Summary of an episode for search results
+message EpisodeSummary {
+    // Episode ID
+    string episode_id = 1;
+    // The task or goal
+    string task = 2;
+    // Episode status
+    EpisodeStatusProto status = 3;
+    // Outcome score (if completed)
+    float outcome_score = 4;
+    // Value score for prioritization
+    float value_score = 5;
+    // Similarity score to the query
+    float similarity_score = 6;
+    // Lessons learned
+    repeated string lessons_learned = 7;
+    // Failure modes
+    repeated string failure_modes = 8;
+    // Number of actions taken
+    uint32 action_count = 9;
+    // When the episode was created (ms since epoch)
+    int64 created_at_ms = 10;
+    // Agent that executed the episode
+    optional string agent = 11;
+}
+
+// Response with similar episodes
+message GetSimilarEpisodesResponse {
+    // Similar episodes ranked by similarity
+    repeated EpisodeSummary episodes = 1;
 }
