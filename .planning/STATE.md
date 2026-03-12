@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.6
 milestone_name: Retrieval Quality, Lifecycle & Episodic Memory
-status: executing
-stopped_at: Completed 43-01 Episode Schema, Storage, and Column Family
-last_updated: "2026-03-11T20:00:00.000Z"
-last_activity: 2026-03-11 — Completed Phase 43 Plan 01 (episodic types, CF, storage, config)
+status: complete
+stopped_at: All 6 phases complete, ready for PR to main
+last_updated: "2026-03-11T22:00:00.000Z"
+last_activity: 2026-03-11 — All v2.6 phases complete (13/13 plans)
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 6
   total_plans: 13
-  completed_plans: 1
-  percent: 8
+  completed_plans: 13
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 
 ## Current Position
 
-Phase: 43 of 44 (Episodic Schema & Storage) -- 43-01 COMPLETE
-Plan: 43-01 Episode Schema, Storage, and Column Family -- DONE
-Status: Executing v2.6 milestone
-Last activity: 2026-03-11 — Completed 43-01 (episodic types, CF_EPISODES, storage ops, config)
+Phase: 44 of 44 — ALL PHASES COMPLETE
+Plan: All 13 plans across 6 phases executed
+Status: v2.6 milestone complete — ready for PR to main
+Last activity: 2026-03-11 — Phase 44 episodic gRPC complete
 
-Progress: [█░░░░░░░░░] 8% (1/13 plans)
+Progress: [██████████] 100% (13/13 plans)
 
 ## Decisions
 
@@ -41,6 +41,9 @@ Progress: [█░░░░░░░░░] 8% (1/13 plans)
 - Value scoring uses midpoint-distance formula: (1.0 - |outcome - midpoint|).max(0.0)
 - EpisodicConfig disabled by default (explicit opt-in like dedup)
 - list_episodes uses reverse ULID iteration for newest-first ordering
+- Salience enrichment via enrich_with_salience() bridges Storage→ranking metadata
+- Usage decay OFF by default in RankingConfig (validated by E2E tests)
+- Lifecycle: vector pruning enabled by default, BM25 rebuild opt-in
 
 ## Blockers
 
@@ -48,9 +51,8 @@ Progress: [█░░░░░░░░░] 8% (1/13 plans)
 
 ## Research Flags
 
-- Phase 40: Ranking formula weights (salience/usage/stale) are initial guesses — validate against E2E test queries
-- Phase 40: Inspect hybrid.rs to confirm BM25 routing wiring state before planning
-- Phase 41: VectorPruneJob copy-on-write HNSW rebuild — verify usearch atomic rename behavior
+- Phase 40: Ranking formula weights validated via E2E tests — working as designed
+- Phase 41: VectorPruneJob and BM25 rebuild implemented with config controls
 
 ## Reference Projects
 
@@ -70,13 +72,13 @@ See: .planning/MILESTONES.md for complete history
 
 ## Cumulative Stats
 
-- 48,282 LOC Rust across 14 crates
+- ~50,000+ LOC Rust across 14 crates
 - 5 adapter plugins (Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI)
-- 39 E2E tests + 144 bats CLI tests across 5 CLIs
-- 38 phases, 122 plans across 7 milestones
+- 45+ E2E tests + 144 bats CLI tests across 5 CLIs
+- 44 phases, 135 plans across 8 milestones
 
 ## Session Continuity
 
 **Last Session:** 2026-03-11
-**Stopped At:** Completed 43-01 Episode Schema, Storage, and Column Family
-**Resume File:** Continue with Phase 44 (Episodic gRPC & Retrieval) or Phase 39 (BM25 Hybrid)
+**Stopped At:** All phases complete — ready to create PR to main
+**Resume File:** N/A — all v2.6 work complete on feature/phase-44-episodic-grpc-retrieval
