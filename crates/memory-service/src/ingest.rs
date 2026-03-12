@@ -20,26 +20,29 @@ use memory_types::{
 };
 
 use crate::agents::AgentDiscoveryHandler;
+use crate::episodes::EpisodeHandler;
 use crate::hybrid::HybridSearchHandler;
 use crate::novelty::NoveltyChecker;
 use crate::pb::{
     memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
-    ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, Event as ProtoEvent,
-    EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
-    ExpandGripResponse, GetAgentActivityRequest, GetAgentActivityResponse, GetDedupStatusRequest,
-    GetDedupStatusResponse, GetEventsRequest, GetEventsResponse, GetNodeRequest, GetNodeResponse,
-    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
-    GetRelatedTopicsResponse, GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse,
-    GetSchedulerStatusRequest, GetSchedulerStatusResponse, GetTocRootRequest, GetTocRootResponse,
-    GetTopTopicsRequest, GetTopTopicsResponse, GetTopicGraphStatusRequest,
-    GetTopicGraphStatusResponse, GetTopicsByQueryRequest, GetTopicsByQueryResponse,
-    GetVectorIndexStatusRequest, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
-    IngestEventResponse, ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
-    PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
-    PruneVectorIndexResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
+    ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, CompleteEpisodeRequest,
+    CompleteEpisodeResponse, Event as ProtoEvent, EventRole as ProtoEventRole,
+    EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, GetAgentActivityRequest,
+    GetAgentActivityResponse, GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest,
+    GetEventsResponse, GetNodeRequest, GetNodeResponse, GetRankingStatusRequest,
+    GetRankingStatusResponse, GetRelatedTopicsRequest, GetRelatedTopicsResponse,
+    GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse, GetSchedulerStatusRequest,
+    GetSchedulerStatusResponse, GetSimilarEpisodesRequest, GetSimilarEpisodesResponse,
+    GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest, GetTopTopicsResponse,
+    GetTopicGraphStatusRequest, GetTopicGraphStatusResponse, GetTopicsByQueryRequest,
+    GetTopicsByQueryResponse, GetVectorIndexStatusRequest, HybridSearchRequest,
+    HybridSearchResponse, IngestEventRequest, IngestEventResponse, ListAgentsRequest,
+    ListAgentsResponse, PauseJobRequest, PauseJobResponse, PruneBm25IndexRequest,
+    PruneBm25IndexResponse, PruneVectorIndexRequest, PruneVectorIndexResponse, RecordActionRequest,
+    RecordActionResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
     RouteQueryResponse, SearchChildrenRequest, SearchChildrenResponse, SearchNodeRequest,
-    SearchNodeResponse, TeleportSearchRequest, TeleportSearchResponse, VectorIndexStatus,
-    VectorTeleportRequest, VectorTeleportResponse,
+    SearchNodeResponse, StartEpisodeRequest, StartEpisodeResponse, TeleportSearchRequest,
+    TeleportSearchResponse, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use crate::query;
 use crate::retrieval::RetrievalHandler;
@@ -60,6 +63,7 @@ pub struct MemoryServiceImpl {
     retrieval_service: Option<Arc<RetrievalHandler>>,
     agent_service: Arc<AgentDiscoveryHandler>,
     novelty_checker: Option<Arc<NoveltyChecker>>,
+    episode_handler: Option<Arc<EpisodeHandler>>,
 }
 
 impl MemoryServiceImpl {
@@ -77,6 +81,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -107,6 +112,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -137,6 +143,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -164,6 +171,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -194,6 +202,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -223,6 +232,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -256,6 +266,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -290,6 +301,7 @@ impl MemoryServiceImpl {
             retrieval_service: Some(retrieval),
             agent_service: agent_svc,
             novelty_checker: None,
+            episode_handler: None,
         }
     }
 
@@ -299,6 +311,14 @@ impl MemoryServiceImpl {
     /// When set, ingest_event will check events for duplicates.
     pub fn set_novelty_checker(&mut self, checker: Arc<NoveltyChecker>) {
         self.novelty_checker = Some(checker);
+    }
+
+    /// Set the episode handler for episodic memory RPCs.
+    ///
+    /// Called during daemon startup after construction.
+    /// When set, episodic memory RPCs will be functional.
+    pub fn set_episode_handler(&mut self, handler: Arc<EpisodeHandler>) {
+        self.episode_handler = Some(handler);
     }
 
     /// Convert proto EventRole to domain EventRole
@@ -1130,6 +1150,66 @@ impl MemoryService for MemoryServiceImpl {
             }
         };
         Ok(Response::new(response))
+    }
+
+    /// Start a new episode for tracking a task execution.
+    ///
+    /// Per Phase 44: Episodic memory lifecycle.
+    async fn start_episode(
+        &self,
+        request: Request<StartEpisodeRequest>,
+    ) -> Result<Response<StartEpisodeResponse>, Status> {
+        match &self.episode_handler {
+            Some(handler) => handler.start_episode(request).await,
+            None => Err(Status::failed_precondition(
+                "Episodic memory is not enabled",
+            )),
+        }
+    }
+
+    /// Record an action taken during an in-progress episode.
+    ///
+    /// Per Phase 44: Episodic memory action tracking.
+    async fn record_action(
+        &self,
+        request: Request<RecordActionRequest>,
+    ) -> Result<Response<RecordActionResponse>, Status> {
+        match &self.episode_handler {
+            Some(handler) => handler.record_action(request).await,
+            None => Err(Status::failed_precondition(
+                "Episodic memory is not enabled",
+            )),
+        }
+    }
+
+    /// Complete an episode with outcome score and lessons.
+    ///
+    /// Per Phase 44: Episodic memory completion and value scoring.
+    async fn complete_episode(
+        &self,
+        request: Request<CompleteEpisodeRequest>,
+    ) -> Result<Response<CompleteEpisodeResponse>, Status> {
+        match &self.episode_handler {
+            Some(handler) => handler.complete_episode(request).await,
+            None => Err(Status::failed_precondition(
+                "Episodic memory is not enabled",
+            )),
+        }
+    }
+
+    /// Find episodes similar to a query.
+    ///
+    /// Per Phase 44: Episodic memory similarity search.
+    async fn get_similar_episodes(
+        &self,
+        request: Request<GetSimilarEpisodesRequest>,
+    ) -> Result<Response<GetSimilarEpisodesResponse>, Status> {
+        match &self.episode_handler {
+            Some(handler) => handler.get_similar_episodes(request).await,
+            None => Err(Status::failed_precondition(
+                "Episodic memory is not enabled",
+            )),
+        }
     }
 }
 
