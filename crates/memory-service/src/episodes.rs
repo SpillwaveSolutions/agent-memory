@@ -6,7 +6,7 @@
 //! - CompleteEpisode: Finish an episode with outcome and lessons
 //! - GetSimilarEpisodes: Find similar episodes via cosine similarity
 //!
-//! Follows the AgentDiscoveryHandler/TopicGraphHandler pattern with Arc<Storage>.
+//! Follows the AgentDiscoveryHandler/TopicGraphHandler pattern with `Arc<Storage>`.
 
 use std::sync::Arc;
 
