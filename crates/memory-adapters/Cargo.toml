@@ -1,6 +1,6 @@
 [package]
 name = "memory-adapters"
-version = "2.6.0"
+version = "2.6.1"
 edition = "2021"
 description = "Agent adapter SDK for multi-agent memory integration"
 license = "MIT"
