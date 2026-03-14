@@ -116,8 +116,8 @@ hf-hub = "0.3"
 # Directory utilities
 dirs = "5"
 
-# Vector search
-usearch = "2"
+# Vector search (pinned: 2.24 has MSVC MAP_FAILED bug and aarch64 cross-compile regression)
+usearch = { version = ">=2, <2.24", default-features = true }
 
 # Clustering
 hdbscan = "0.12"

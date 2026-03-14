@@ -77,22 +77,16 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          # MSVC cannot compile SimSIMD's AVX-512 FP16 intrinsics (_mm512_reduce_add_ph).
-          # Set LIBCLANG_PATH for bindgen/rocksdb and configure cargo to disable
-          # simsimd feature for usearch via .cargo/config.toml override.
           echo "LIBCLANG_PATH=C:\\Program Files\\LLVM\\lib" >> $GITHUB_ENV
-          mkdir -p .cargo
-          cat >> .cargo/config.toml << 'TOML'
-          [target.x86_64-pc-windows-msvc]
-          rustflags = []
-          TOML
 
-      - name: Patch usearch for Windows (disable simsimd)
-        if: runner.os == 'Windows'
+      - name: Disable usearch simsimd for cross-compile targets
+        if: matrix.cross || runner.os == 'Windows'
         shell: bash
         run: |
-          # Replace usearch default features to exclude simsimd which fails on MSVC
-          sed -i 's/^usearch = "2"/usearch = { version = "2", default-features = false, features = ["fp16lib"] }/' Cargo.toml
+          # SimSIMD fails on: MSVC (missing MAP_FAILED, AVX-512 FP16), aarch64 cross
+          # (missing arm_sve.h, bfloat16). Disable it and regenerate lockfile.
+          sed -i.bak 's/^usearch = .*/usearch = { version = ">=2, <2.24", default-features = false, features = ["fp16lib"] }/' Cargo.toml
+          cargo generate-lockfile
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
