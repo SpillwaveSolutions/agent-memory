@@ -73,6 +73,27 @@ jobs:
         run: |
           choco install protoc llvm -y
 
+      - name: Configure Windows build environment
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # MSVC cannot compile SimSIMD's AVX-512 FP16 intrinsics (_mm512_reduce_add_ph).
+          # Set LIBCLANG_PATH for bindgen/rocksdb and configure cargo to disable
+          # simsimd feature for usearch via .cargo/config.toml override.
+          echo "LIBCLANG_PATH=C:\\Program Files\\LLVM\\lib" >> $GITHUB_ENV
+          mkdir -p .cargo
+          cat >> .cargo/config.toml << 'TOML'
+          [target.x86_64-pc-windows-msvc]
+          rustflags = []
+          TOML
+
+      - name: Patch usearch for Windows (disable simsimd)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # Replace usearch default features to exclude simsimd which fails on MSVC
+          sed -i 's/^usearch = "2"/usearch = { version = "2", default-features = false, features = ["fp16lib"] }/' Cargo.toml
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -93,6 +114,10 @@ jobs:
 
       - name: Build (cross)
         if: matrix.cross
+        env:
+          PKG_CONFIG_ALLOW_CROSS: "1"
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /
         run: cross build --release --target ${{ matrix.target }}
 
       - name: Create archive directory
