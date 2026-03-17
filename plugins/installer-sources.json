@@ -1,0 +1,14 @@
+{
+  "version": "1",
+  "description": "Canonical plugin source directories for memory-installer. The installer parser walks each source directory, reading .claude-plugin/marketplace.json for asset discovery.",
+  "sources": [
+    {
+      "path": "./memory-query-plugin",
+      "description": "Query commands, memory-navigator agent, and retrieval skills"
+    },
+    {
+      "path": "./memory-setup-plugin",
+      "description": "Setup commands, setup-troubleshooter agent, and configuration skills"
+    }
+  ]
+}
