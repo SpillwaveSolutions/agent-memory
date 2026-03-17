@@ -1,431 +1,220 @@
-# Feature Landscape: v2.6 Episodic Memory, Ranking Quality, Lifecycle & Observability
+# Feature Research
 
-**Domain:** Agent Memory System - Cognitive Architecture with Retrieval Quality & Experience Learning
-**Researched:** 2026-03-11
-**Scope:** Episodic memory, salience scoring, usage-based decay, lifecycle automation, observability RPCs, hybrid search integration
+**Domain:** Multi-runtime plugin installer (agent-memory v2.7)
+**Researched:** 2026-03-16
+**Confidence:** HIGH (based on GSD installer source analysis + v2.7 implementation plan)
 
----
+## Context
 
-## Table Stakes
+This research focuses exclusively on the installer itself — not the plugin content being installed. The installer reads a canonical Claude plugin source tree and converts it into runtime-specific installations for Claude, OpenCode, Gemini, Codex, Copilot, and generic skill runtimes.
 
-Features users expect given the existing 6-layer cognitive stack. Missing these = system feels incomplete or untrustworthy.
+Reference: GSD installer at `/Users/richardhightower/src/get-shit-done/bin/install.js` (1600+ LOC Node.js) is the closest real-world reference for this exact problem. Key observations from source analysis:
 
-| Feature | Why Expected | Complexity | Category | Notes |
-|---------|--------------|-----------|----------|-------|
-| **Hybrid Search (BM25 + Vector)** | Lexical + semantic search is industry standard for RAG; existing BM25/vector layers must interoperate | Medium | Retrieval | Currently hardcoded routing logic; needed to complete Layer 3/4 wiring |
-| **Salience Scoring at Write Time** | High-value/structural events (Definitions, Constraints) must rank higher; already in design (Layer 6) | Low | Ranking | Write-time scoring avoids expensive retrieval-time computation; enables kind-based exemptions |
-| **Usage-Based Decay in Ranking** | Frequently accessed memories fade; rarely touched memories strengthen — mimics human forgetting (Ebbinghaus) | Medium | Ranking | Requires access_count tracking on reads; integrates with existing StaleFilter (14-day half-life) |
-| **Vector Index Pruning** | Memory grows unbounded; stale/low-value vectors waste storage and retrieval speed | Low | Lifecycle | Part of background scheduler; removes old/low-salience vectors periodically |
-| **BM25 Index Maintenance** | Lexical index needs periodic rebuild/compaction; low-entropy shards waste search time | Low | Lifecycle | Level-filtered rebuild (only rebuild bottom N levels of TOC tree) |
-| **Admin Observability RPCs** | Operators need visibility into dedup/ranking health; required for production troubleshooting | Low | Observability | GetDedupMetrics, GetRankingStatus RPCs; expose buffer_size, events_skipped, salience distribution |
-| **Episodic Memory Storage & Schema** | Record task outcomes, search similar past episodes — enables learning from experience | Medium | Episodic | CF_EPISODES column family; Episode proto with start_time, actions, outcome, value_score |
-
----
-
-## Differentiators
-
-Features that set the system apart from naive implementations. Not expected, but highly valued by power users.
-
-| Feature | Value Proposition | Complexity | Category | Notes |
-|---------|-------------------|-----------|----------|-------|
-| **Value-Based Episode Retention** | Delete low-value episodes, retain "Goldilocks zone" (medium utility); learn from successful experiences without storage bloat | High | Episodic | Prevents pathological retention (too high = dedup everything; too low = no learning); requires outcome scoring percentile analysis |
-| **Retrieval Integration for Similar Episodes** | When answering a query, optionally search past episodes (GetSimilarEpisodes); surface "we solved this before and it worked" | High | Episodic | Bridges episodic → semantic; depends on episode embedding + vector search; powerful for repeated task patterns |
-| **Adaptive Lifecycle Policies** | Retention thresholds adjust based on storage pressure, salience distribution, usage patterns | High | Lifecycle | Not essential v2.6; deferred for v2.7 adaptive optimization phase |
-| **Multi-Layer Decay Coordination** | Stale filter + usage decay + episode retention all tune together (no conflicting signals) | Medium | Ranking | Requires tuning framework; candidates: weighted sum, per-layer thresholds, Bayesian composition |
-| **Observability Dashboard Integration** | Admin RPC metrics feed into operator dashboards (Prometheus, CloudWatch, DataDog) | Low | Observability | External tool integration only; requires stable RPC interface + consistent metric names |
-| **Cross-Episode Learning Patterns** | Identify repeated task types, success/failure patterns across episodes | Very High | Episodic | Requires NLP/clustering on episode summaries; deferred for v2.7+ self-improvement |
+- GSD uses `--claude|--opencode|--gemini|--codex|--copilot|--antigravity|--all` flags for runtime selection
+- GSD uses `--global|-g` and `--local|-l` for scope selection
+- GSD uses `--uninstall|-u` for removal
+- GSD uses managed-section markers (e.g. `# GSD Agent Configuration — managed by get-shit-done installer`) to safely inject into shared config files (Codex `config.toml`, Copilot instructions)
+- GSD handles three-case config merging: (1) new file, (2) existing with markers, (3) existing without markers
+- GSD performs per-runtime frontmatter conversion, tool name mapping, path rewriting, and content attribution
+- GSD does NOT have `--dry-run` — identified as a gap
+- GSD does NOT have `--output json` — identified as a gap
+- GSD handles XDG base directory compliance for OpenCode via 4-priority env var chain
+- GSD handles WSL + Windows-native Node detection; Rust handles this naturally via `std::path::Path`
 
 ---
 
-## Anti-Features
+## Feature Landscape
 
-Features to explicitly NOT build.
+### Table Stakes (Users Expect These)
 
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| **Automatic Memory Forgetting Without User Choice** | Agent should never silently delete memories; violates append-only principle and causality debugging | Lifecycle jobs are delete-by-policy (configurable); admins set thresholds; users can override |
-| **Real-Time Outcome Feedback Loop (Agent Self-Correcting)** | Too complex for v2.6; requires agent control flow that's outside memory's scope | Record episode outcomes (human validation); v2.7 can add reward signaling to retrieval policy |
-| **Graph-Based Episode Dependencies** | Tempting but overengineered; TOC tree + timestamps sufficient for temporal navigation | Use TOC + episode timestamps; cross-reference via event_id links; avoid graph DB complexity |
-| **LLM-Based Episode Summarization** | High latency, API dependency, hallucination risk; hard to troubleshoot | Use salience scores + existing grip-based summaries (already in TOC); optionally add human review |
-| **Per-Agent Lifecycle Scoping** | Multi-agent mode can defer this; would require partition keys in every pruning job | Lifecycle policies are global; agents filter on retrieval (agent-filtered queries already work) |
-| **Continuous Outcome Recording** | If users must label every action, adoption suffers | Make outcome recording opt-in; batch via CompleteEpisode RPC with single outcome score |
-| **Real-Time Index Rebuilds** | Blocking user queries during index maintenance kills UX | Schedule pruning jobs during off-hours; implement dry-run reporting for production safety |
+Features users assume exist. Missing these = product feels incomplete.
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Runtime selection (`--agent <runtime>`) | Every installer lets you choose what to install | LOW | `claude\|opencode\|gemini\|codex\|copilot\|skills`; already in v2.7 plan |
+| Scope selection (`--project\|--global`) | Users need per-project vs system-wide control | LOW | Maps to different target dirs per runtime; already in v2.7 plan |
+| Custom target dir (`--dir <path>`) | Power users and non-standard setups need override | LOW | `--config-dir` in GSD; needed for generic `skills` runtime and non-default setups |
+| Tool name mapping per runtime | Core conversion — PascalCase Claude → snake_case Gemini etc. | MEDIUM | 5 separate static mapping tables; already defined in v2.7 plan `tool_maps.rs` |
+| Frontmatter format conversion | Each runtime uses different YAML/TOML schemas | MEDIUM | YAML→TOML for Gemini; `allowed-tools` array → `tools` object for OpenCode; strip `color:` for Gemini |
+| Path rewriting in all installed content | `~/.claude/` must become runtime-appropriate path | MEDIUM | GSD handles 4 regex patterns per runtime (`~/.claude/`, `$HOME/.claude/`, `./.claude/`, runtime-specific prefix); forward-slash enforcement for cross-platform |
+| Idempotent re-install (upgrade) | Running installer twice should not break things | MEDIUM | GSD deletes then recreates managed dirs; merges managed sections in config files with markers; stale commands removed automatically |
+| Uninstall (`--uninstall`) | Users need a clean removal path | MEDIUM | Requires managed-section markers written during install to safely identify what to remove |
+| `--dry-run` mode | Preview what would be installed without writing files | LOW | GSD does NOT have this — identified gap; implement via write-interceptor on `ConvertedFile` output; high value, low cost |
+| Help text (`--help`) | Every CLI tool needs this | LOW | Implicit in clap CLI; but needs good runtime/scope examples |
+| Install-all shortcut (`--all`) | Install for every runtime at once | LOW | GSD supports `--all` flag; maps to running each converter in sequence |
+| Env var config dir override | Runtimes use `CODEX_HOME`, `OPENCODE_CONFIG_DIR`, `XDG_CONFIG_HOME`, etc. | LOW | GSD implements 4-5 priority resolution per runtime; needed for non-default setups |
+| Clean orphan removal | Reinstalling after removing a command must delete stale files | MEDIUM | GSD deletes managed subdirs before fresh copy; prevents stale `skill-name/` dirs from old versions |
+
+### Differentiators (Competitive Advantage)
+
+Features that set the product apart. Not required, but valuable.
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Managed-section merging for shared config files | Installer must inject into `config.toml`, `settings.json`, `opencode.json` without destroying user content | HIGH | GSD implements three-case logic: (1) new file, (2) existing with markers, (3) existing without markers. Critical for Codex `config.toml` and Gemini `settings.json` |
+| Marker-based owned-section tracking | Lets installer safely upgrade its sections without touching user config above/below markers | MEDIUM | GSD markers: `# GSD Agent Configuration — managed by...`. Enables safe uninstall. Markers must be decided before first release — format is a compatibility contract |
+| Per-runtime hook format conversion | Hooks are the most runtime-specific artifact — Claude YAML vs Gemini JSON vs OpenCode TypeScript plugin | HIGH | GSD installs JS hook files with path templating; agent-memory needs shell script hooks. This is a key differentiator since most installers skip hooks entirely |
+| Cross-reference rewriting in body text | `/memory:search` → `/memory-search` for runtimes without namespace syntax | LOW | GSD rewrites `/gsd:` → `/gsd-` for Copilot/Codex. Same pattern needed for memory commands |
+| Codex skill adapter header injection | Codex lacks slash-commands; skills need an adapter header explaining `$skill-name` invocation pattern and tool translation | MEDIUM | GSD injects a `<codex_skill_adapter>` block translating AskUserQuestion → request_user_input, Task → spawn_agent. Memory installer needs equivalent memory-specific adapter guidance |
+| Codex `config.toml` agent registration | Codex requires explicit `[agents.name]` entries with `sandbox_mode` and `config_file` | MEDIUM | GSD generates per-agent `.toml` files + writes `[agents.name]` config entries; sandbox mode from lookup table (`workspace-write` vs `read-only`) |
+| XDG base directory compliance for OpenCode | OpenCode follows XDG spec — installer must respect `OPENCODE_CONFIG_DIR`, `OPENCODE_CONFIG`, `XDG_CONFIG_HOME` env var priority chain | LOW | GSD implements 4-priority resolution. Missing this breaks OpenCode on Linux where XDG_CONFIG_HOME is non-default |
+| Attribution/metadata stripping per runtime | Some runtimes reject fields others require (e.g., `color:` crashes Gemini validation, `name:` is redundant in OpenCode) | LOW | GSD strips `color:` for Gemini, `name:` for OpenCode (uses filename), adds `metadata.short-description` for Codex description truncation |
+
+### Anti-Features (Commonly Requested, Often Problematic)
+
+Features that seem good but create problems.
+
+| Feature | Why Requested | Why Problematic | Alternative |
+|---------|---------------|-----------------|-------------|
+| Backup/restore of user customizations | "Don't overwrite my changes" | Installer cannot distinguish user content vs managed content without markers; backup files pile up and are never restored | Use managed-section markers so installer only owns its section; user content above/below is never touched |
+| Interactive prompts for runtime/scope when no flags given | GSD shows interactive readline prompts when run with no flags | Unusable in CI, scripts, agent-driven workflows; adds readline/terminal dependency | Require `--agent` and `--project\|--global` flags; add optional interactive mode in v1.x post-MVP as a convenience layer on top of the same flag-driven core |
+| Version tracking file | "Write a `.memory-installer-version` file" | Cross-platform path fragility; users delete it; file becomes stale | Installer regenerates from canonical source on every run — idempotent by design means version tracking is not needed |
+| Separate plugin validation subcommand | "Validate canonical source before installing" | High complexity; different runtimes accept different schemas | Phase 46 `parser.rs` naturally catches malformed frontmatter during parse; surface errors then, not as a separate validate step |
+| Rollback on partial failure | "Undo if Gemini install fails after Claude succeeds" | Each runtime is independent; partial success is still useful | Atomic per-runtime install (delete then write); if one runtime fails, report error and continue others; user can re-run for failed runtime |
+| GUI or TUI wizard mode | "Add interactive installation wizard" | Significant complexity for marginal gain; agent-driven users use CLI flags | Clear `--help` output and `--dry-run` preview covers the use case without the complexity |
+| Checksum verification of installed files | "Verify installed files match canonical source" | Files are intentionally transformed so hash of source != hash of installed | Idempotent reinstall IS the verification mechanism — re-run and compare output |
 
 ---
 
 ## Feature Dependencies
 
-Dependency graph for implementation order.
-
 ```
-Hybrid Search (BM25 Router)
-  ↓ (requires Layer 3/4 operational, unblocks routing logic)
-Salience Scoring at Write Time
-  ↓ (requires write-time scoring populated in TOC/Grips)
-Usage-Based Decay in Ranking
-  ↓ (requires access_count tracking + ranking pipeline)
-Admin Observability RPCs
-  ├─ (exposes dedup + ranking metrics)
-  ↓
-Vector/BM25 Index Lifecycle Jobs
-  ├─ (scheduler jobs, can run parallel with above)
-  ↓
-Episodic Memory Storage & RPCs
-  ├─ (depends on Event storage, independent of indexes)
-  ├─ (can start parallel with lifecycle work)
-  ↓
-Value-Based Episode Retention
-  ├─ (depends on outcome scoring; runs after retention policy jobs)
-  ↓
-Similar Episode Retrieval (Optional)
-  └─ (depends on CompositeVectorIndex; runs post-episodic-memory)
-```
+[Runtime Selection (--agent)]
+    └──requires──> [Tool map for that runtime]   (tool_maps.rs)
+                       └──requires──> [Frontmatter Parser]   (parser.rs)
+                                          └──requires──> [Directory Walker]   (walkdir)
 
-**Critical Path (must do in order):**
-1. Hybrid Search wiring (unblocks ranking)
-2. Salience + Usage Decay (ranking works end-to-end)
-3. Admin RPCs (observability for production)
-4. Episodic Memory storage (independent, parallel-safe)
-5. Value-based retention (completion feature, can defer 1 sprint)
+[Uninstall (--uninstall)]
+    └──requires──> [Managed-section markers]   (written during install; must exist first)
 
-**Parallel-Safe Work:**
-- Index lifecycle jobs (no dependency on episodic memory)
-- Admin RPC metrics gathering (can stub metrics early, populate later)
+[Managed-section merging for shared config files]
+    └──requires──> [Marker strategy decided before v2.7 ships]
 
----
+[Codex config.toml registration]
+    └──requires──> [Agent TOML generator]
+                       └──requires──> [Sandbox mode lookup table]
 
-## Implementation Patterns
+[Hook conversion pipeline]
+    └──requires──> [Per-runtime hook format knowledge]
+    └──enhances──> [Managed-section merging]   (settings.json / hooks config injection)
 
-### Hybrid Search (BM25 + Vector Fusion)
+[--dry-run mode]
+    └──enhances──> [All converters]   (converters produce ConvertedFile structs; dry-run prints instead of writes)
 
-**What it does:** Route queries to both BM25 and vector indexes; combine rankings via Reciprocal Rank Fusion (RRF) or weighted average.
+[--all flag]
+    └──requires──> [Each individual runtime converter]
 
-**How it works (industry standard):**
-1. **Parallel execution:** Run BM25 query + Vector query concurrently
-2. **Score normalization:** Bring both to [0, 1] scale (RRF or linear mapping)
-3. **Fusion:** Combine via RRF (no tuning) or weighted blend (tunable weights)
-4. **Routing heuristic:**
-   - Keyword-heavy query (identifiers, class names) → weight BM25 higher (0.6 BM25, 0.4 Vector)
-   - Semantic query ("find discussions about X") → weight Vector higher (0.4 BM25, 0.6 Vector)
-   - Default → equal weights (0.5 BM25, 0.5 Vector)
-
-**Integration with existing retrieval policy:**
-- Already has intent classification (Explore/Answer/Locate/TimeBoxed)
-- Layer 3/4 searches are independent; hybrid merges at ranking stage
-- Retrieval policy's tier detection and fallback chains already in place
-
-**Complexity:** MEDIUM — RRF is simple math; requires coordinating two async searches.
-
-**Expected behavior (validation):**
-- Keyword queries (e.g., "JWT token") retrieve via BM25 without latency spike
-- Semantic queries (e.g., "how did we handle auth?") use vector similarity
-- Graceful fallback: if BM25 fails, vector search results are returned (and vice versa)
-
----
-
-### Salience Scoring at Write Time
-
-**What it does:** Assign importance scores (0.0-1.0) at ingest time based on event kind.
-
-**How it works:**
-- Already in Layer 6 design; KIND classification determines salience
-- High-salience kinds: `constraint`, `definition`, `procedure`, `tool_result_error` (0.9-1.0)
-- Medium-salience: `user_message`, `assistant_stop` (0.5-0.7)
-- Low-salience: `session_start`, `session_end` (0.1-0.3)
-
-**Integration point:**
-- TocNode and Grip protos already have `salience_score` field (v2.5+)
-- Populate at ingest time via `SalienceScorer::score_event(kind)` (static lookup)
-- Used in Layer 6 ranking as multiplicative factor
-
-**Complexity:** LOW — scoring rules are static lookup table; no ML required.
-
-**Expected behavior:**
-- Constraints/definitions never decay (exempted from StaleFilter)
-- Session markers have low salience (deprioritized in ranking)
-- Ranking score = base_score × salience_factor × (1 - stale_penalty) × (1 - usage_decay)
-
----
-
-### Usage-Based Decay in Ranking
-
-**What it does:** Reduce ranking score for frequently-accessed items (inverse recency); strengthen rarely-touched items.
-
-**How it works:**
-- Track `access_count` per TOC node / Grip (incremented on read)
-- At retrieval ranking time: apply decay factor = 1.0 / log(access_count + 1) or exp(-access_count / K)
-- Decay is multiplicative: `final_score = base_score × salience_factor × (1 - decay_factor) × (1 - stale_penalty)`
-
-**Rationale:** Mimics human memory — rehearsed facts fade from conscious retrieval; novel facts stay sharp (Ebbinghaus forgetting curve validated in cognitive psychology).
-
-**Tuning considerations:**
-- Decay floor: never drop score below 20% (prevent collapse)
-- Decay half-life: decay factor = 0.5 at access_count = 100 (tunable via config)
-- Exempt structural events: high-salience kinds don't decay (same as StaleFilter)
-
-**Complexity:** MEDIUM — requires tracking + lookup at ranking time; no external service.
-
-**Expected behavior:**
-- Recent queries with low access_count rank higher (novel information)
-- Popular results (high access_count) gradually fade unless repeatedly accessed
-- Salience exemptions prevent "boring but important" facts from disappearing
-
----
-
-### Index Lifecycle Automation via Scheduler
-
-**Vector Index Pruning:**
-- **When:** Weekly or when storage threshold exceeded
-- **What:** Remove vectors for events marked `skip_vector` or older than 90 days + low-salience
-- **How:** HNSW index is rebuildable from TOC tree; deletion is safe
-- **Job:** `VectorPruneJob` in background scheduler (framework exists since v1.0)
-- **Dry-run:** Log what WOULD be deleted; allow admin override
-
-**BM25 Index Maintenance:**
-- **When:** Weekly or when search latency exceeds SLA
-- **What:** Rebuild BM25 index for bottom N levels of TOC (recent events prioritized)
-- **How:** Tantivy segment merge + compaction; can be online (dual indexes)
-- **Job:** `Bm25RebuildJob` with level filtering
-- **Dry-run:** Report segment stats before rebuild
-
-**Complexity:** LOW — scheduler framework exists; jobs are independent.
-
-**Expected behavior:**
-- Vector index size decreases over time (no unbounded growth)
-- BM25 latency stays consistent (no slowdown from segment bloat)
-- Operators can monitor pruning effectiveness via metrics RPCs
-
----
-
-### Admin Observability RPCs
-
-**What users need to see:**
-
-| Metric | RPC Field | Why | Example Value |
-|--------|-----------|-----|-------|
-| **Dedup Buffer Size** | `infl_buffer_size` | Is dedup gate backed up? | 128 / 256 entries |
-| **Events Deduplicated (Session)** | `events_skipped_session` | How many duplicates caught? | 47 events |
-| **Events Deduplicated (Cross-Session)** | `events_skipped_cross_session` | Long-term dedup working? | 312 events |
-| **Salience Distribution** | `salience_histogram[0.0-0.2]`, etc. | Is content balanced? | {0.0-0.2: 100, 0.2-0.4: 50, ...} |
-| **Usage Decay Distribution** | `access_count_p50`, `p99` | Are hot/cold patterns healthy? | p50=3, p99=157 |
-| **Vector Index Size** | `vector_index_entries` | Storage used by vectors? | 18,432 entries |
-| **BM25 Index Size** | `bm25_index_bytes` | Storage used by BM25? | 2.4 MB |
-| **Last Pruning Timestamp** | `last_vector_prune_time` | When did cleanup last run? | 2026-03-09T14:30:00Z |
-
-**Exposed via:**
-- `GetRankingStatus` RPC (already stubbed v2.2)
-- `GetDedupMetrics` RPC (new in v2.6)
-- Both return structured proto with histogram buckets
-
-**Complexity:** LOW — reading metrics from existing data structures; no computation.
-
-**Expected behavior:**
-- Metrics RPCs respond in <100ms (cached, no expensive scans)
-- Salience histogram shows multimodal distribution (not flat)
-- Usage decay p50 < p99 by 50x+ (confirming hot/cold pattern)
-
----
-
-### Episodic Memory Storage & RPCs
-
-**What it does:** Record sequences of actions + outcomes from tasks, enabling "we solved this before" retrieval.
-
-**Proto Schema:**
-```protobuf
-message Episode {
-  string episode_id = 1;           // UUID
-  int64 start_time_us = 2;         // micros since epoch
-  int64 end_time_us = 3;           // 0 if incomplete
-  string task_description = 4;     // "debug JWT token leak"
-  repeated EpisodeAction actions = 5;  // sequence of steps
-  EpisodeOutcome outcome = 6;      // success/partial/failure + value_score
-  float value_score = 7;           // 0.0-1.0, outcome importance
-  repeated string tags = 8;        // ["auth", "jwt"] for retrieval filtering
-  string contributing_agent = 9;   // agent_id, reuses existing field
-}
-
-message EpisodeAction {
-  int64 timestamp_us = 1;
-  string action_type = 2;          // "query_memory", "tool_call", "decision"
-  string description = 3;
-  map<string, string> metadata = 4;
-}
-
-message EpisodeOutcome {
-  string status = 1;               // "success" | "partial" | "failure"
-  float outcome_value = 2;         // 0.0-1.0, how well did we do?
-  string summary = 3;              // "JWT token rotation fixed in 3 steps"
-  int64 duration_ms = 4;           // total task duration
-}
+[Clean orphan removal]
+    └──requires──> [Converter knows its output dir prefix]
 ```
 
-**Storage:** RocksDB column family `CF_EPISODES`; keyed by episode_id; queryable by start_time range.
+### Dependency Notes
 
-**RPCs:**
-```protobuf
-service EpisodeService {
-  rpc StartEpisode(StartEpisodeRequest) returns (StartEpisodeResponse);
-  rpc RecordAction(RecordActionRequest) returns (RecordActionResponse);
-  rpc CompleteEpisode(CompleteEpisodeRequest) returns (CompleteEpisodeResponse);
-  rpc GetSimilarEpisodes(GetSimilarEpisodesRequest) returns (GetSimilarEpisodesResponse);
-  rpc ListEpisodes(ListEpisodesRequest) returns (ListEpisodesResponse);
-}
-```
-
-**Complexity:** MEDIUM — new storage layer; RPCs are straightforward; outcome_value is user-provided (not computed).
-
-**Expected behavior:**
-- StartEpisode returns unique episode_id
-- RecordAction appends to episode's action sequence
-- CompleteEpisode commits outcome (idempotent)
-- GetSimilarEpisodes returns episodes with similar task_description + tags
-- Episodes survive crash recovery (like TOC nodes)
+- **Managed-section markers must be decided before first release:** Once markers are in the wild, changing the format breaks uninstall for existing users. Decide marker strings in Phase 46 before any production installs.
+- **Frontmatter parser is foundational:** Every converter depends on it. Invest in robustness here — multiline values, quoted strings, YAML arrays vs inline, serde_yaml is better than regex.
+- **Dry-run via write-interceptor:** Implement as a flag on the converter output stage, not per-converter. Each converter returns `Vec<ConvertedFile>`; dry-run mode prints path + content summary instead of writing.
+- **Uninstall requires markers:** Without managed-section markers in shared config files (Codex `config.toml`, Gemini `settings.json`), uninstall cannot safely remove injected sections without corrupting user config.
+- **Hook conversion depends on per-runtime format knowledge:** Claude YAML, Gemini JSON settings merge, OpenCode TypeScript plugin, Copilot JSON hooks, Codex script-based. All 5 formats must be understood before Phase 49.
 
 ---
 
-### Value-Based Episode Retention
+## MVP Definition
 
-**What it does:** Auto-delete low-value episodes; keep high-value ones; sweet-spot detection prevents pathological retention.
+### Launch With (v1 — Phases 45-50 as planned)
 
-**Problem:** If all episodes are retained, system degrades (storage + retrieval latency). If auto-delete is too aggressive, learning is lost.
+Minimum viable product for v2.7 milestone.
 
-**Solution (industry pattern):** Retention threshold based on outcome score distribution.
+- [ ] Runtime selection (`--agent claude|opencode|gemini|codex|copilot|skills`) — core value
+- [ ] Scope selection (`--project|--global`) with correct target dirs per runtime
+- [ ] Tool name mapping for all 5 runtimes (static maps from v2.7 plan)
+- [ ] Frontmatter conversion per runtime (YAML→TOML for Gemini, `allowed-tools`→`tools` for OpenCode, strip `color:` for Gemini)
+- [ ] Path rewriting in all installed content (Claude paths → runtime-appropriate)
+- [ ] Clean orphan removal (delete managed dirs before fresh copy)
+- [ ] Idempotent re-install (running twice leaves same result)
+- [ ] `--dry-run` flag (print planned writes without executing) — low complexity, high value, GSD gap
+- [ ] `--all` flag (install for every runtime in sequence)
+- [ ] Managed-section markers in shared config files (Codex `config.toml`, Gemini `settings.json`)
+- [ ] Uninstall (`--uninstall`) using managed-section markers
+- [ ] Hook conversion per runtime (Phase 49)
+- [ ] Codex skill adapter header injection
+- [ ] Codex `config.toml` agent registration with sandbox mode
 
-**Algorithm:**
-1. **Analyze distribution:** Compute p25, p50, p75 of value_score across recent episodes
-2. **Sweet spot:** Retain episodes in range [p50, p75] or [p50, 1.0] depending on storage pressure
-3. **Culling policy:** Delete episodes with value_score < p25 OR older than 180 days
-4. **Tuning lever:** Config parameter `retention_percentile` (default 50)
+### Add After Validation (v1.x)
 
-**Rationale:**
-- p25 (low-value): routine tasks, minimal learning value → delete early
-- p50-p75 (sweet spot): moderately complex, high learning value → retain long-term
-- p75+ (high-value): critical issues, precedent-setting → never auto-delete
+Features to add once core converters are working.
 
-**Complexity:** HIGH — requires statistical analysis + configurable tuning; deferred to v2.6.2.
+- [ ] Interactive mode (when no flags provided, prompt for runtime and scope) — add after CLI is stable; don't block v2.7
+- [ ] `--config-dir` override for all runtimes (XDG compliance for OpenCode, `CODEX_HOME` for Codex, etc.) — needed by power users; straightforward to add
+- [ ] Cross-reference rewriting (`/memory:search` → `/memory-search` for non-namespace runtimes) — add when testing per-runtime CLI output
 
-**Expected behavior:**
-- Retention job runs weekly without blocking writes
-- Episodes with value_score < p25 are removed
-- Operators can view retention policy metrics (deletion count, space reclaimed)
+### Future Consideration (v2+)
 
----
+Features to defer until product-market fit is established.
 
-## MVP Recommendation
-
-**Phase 1 (Weeks 1-2): Hybrid Search Wiring**
-- Unblock Layer 3/4 routing logic
-- Enables salience + usage-based ranking to have effect
-- Complexity: MED, high impact
-
-**Phase 2 (Weeks 2-3): Salience Scoring at Write Time**
-- Low complexity, enables kind-based exemptions in decay
-- Integrates naturally with existing TOC/Grip protos
-- Complexity: LOW
-
-**Phase 3 (Weeks 3-4): Usage-Based Decay in Retrieval Ranking**
-- Multiplicative with StaleFilter; tunable floor
-- Requires access_count tracking (add to TocNode/Grip)
-- Complexity: MED
-
-**Phase 4 (Weeks 4-5): Admin Observability RPCs**
-- Expose metrics for production troubleshooting
-- Low complexity, high operational value
-- Complexity: LOW
-
-**Phase 5 (Weeks 5-6): Vector Index Pruning + BM25 Lifecycle**
-- Scheduler jobs; independent implementation
-- Prevent unbounded index growth
-- Complexity: LOW
-
-**Phase 6 (Weeks 7-8, if time allows): Episodic Memory Storage & RPCs**
-- Independent of ranking; can be built in parallel
-- Complexity: MED, moderate impact
-
-**Defer (v2.6.1 or v2.7):**
-- **Value-Based Episode Retention** (v2.6.2) — Requires outcome scoring model; HIGH complexity
-- **Similar Episode Retrieval** (v2.7) — Nice-to-have; HIGH complexity
-- **Adaptive Lifecycle Policies** (v2.7) — Not essential; HIGH complexity
+- [ ] Plugin validation subcommand (`memory-installer validate`) — useful but not blocking launch
+- [ ] JSON output mode (`--output json`) for machine-readable install report — add if agents need to parse installer output programmatically
+- [ ] Multi-plugin support (install multiple canonical sources) — defer until a second plugin exists
 
 ---
 
-## Success Criteria
+## Feature Prioritization Matrix
 
-**v2.6 Feature Completeness:**
-- [ ] Hybrid search queries route correctly (E2E test hitting both BM25 + Vector)
-- [ ] Salience scores populated at write time (inspect TOC nodes/grips in RocksDB)
-- [ ] Usage decay reduces scores predictably (access_count increments, ranking penalizes correctly)
-- [ ] Admin metrics RPCs return non-zero values (GetRankingStatus, GetDedupMetrics)
-- [ ] Index pruning jobs complete without errors (scheduler logs show cleanup)
-- [ ] Episodic memory RPCs accept/return well-formed protos (round-trip test)
-- [ ] 10+ E2E tests cover new features (hybrid routing, decay behavior, lifecycle jobs, observability)
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Runtime + scope selection | HIGH | LOW | P1 |
+| Tool name mapping (all 5 runtimes) | HIGH | MEDIUM | P1 |
+| Frontmatter conversion per runtime | HIGH | MEDIUM | P1 |
+| Path rewriting in content | HIGH | LOW | P1 |
+| Clean orphan removal | HIGH | LOW | P1 |
+| Idempotent re-install | HIGH | MEDIUM | P1 |
+| Dry-run mode | HIGH | LOW | P1 |
+| Managed-section markers + merging | HIGH | MEDIUM | P1 |
+| Uninstall | HIGH | MEDIUM | P1 |
+| Hook conversion pipeline | HIGH | HIGH | P1 |
+| Codex skill adapter injection | MEDIUM | MEDIUM | P1 |
+| Codex config.toml registration | MEDIUM | MEDIUM | P1 |
+| `--all` flag | MEDIUM | LOW | P1 |
+| Env var config dir override | MEDIUM | LOW | P2 |
+| `--config-dir` explicit override | MEDIUM | LOW | P2 |
+| Cross-reference rewriting | LOW | LOW | P2 |
+| Interactive mode (no-flag fallback) | MEDIUM | MEDIUM | P2 |
+| JSON output mode | LOW | LOW | P3 |
+| Plugin validation subcommand | LOW | MEDIUM | P3 |
 
-**Regression Prevention:**
-- [ ] All v2.5 tests still pass (dedup, stale filter, multi-agent)
-- [ ] No new performance regressions (latency within 5% of v2.5 baseline)
-- [ ] Graceful degradation holds (hybrid search falls back if BM25 fails, etc.)
-
----
-
-## Integration with Existing Architecture
-
-**Layers Affected:**
-
-| Layer | Change | Impact |
-|-------|--------|--------|
-| Layer 0 (Events) | Add access_count tracking to event retrieval path | Minimal — new field, write-only during reads |
-| Layer 1 (TOC) | Add salience_score, access_count to TocNode | Minimal — already has versioning for append-safe updates |
-| Layer 2 (TOC Search) | None | None |
-| Layer 3 (BM25) | Wire into hybrid routing; add pruning job | Medium — coordination with Layer 4 ranking |
-| Layer 4 (Vector) | Wire into hybrid routing; add pruning job | Medium — coordination with Layer 3 ranking |
-| Layer 5 (Topic Graph) | None | None |
-| Layer 6 (Ranking) | Add salience factor, usage decay factor | Medium — multiplicative composition of factors |
-| Control (Retrieval Policy) | Wire hybrid search router; tune fallback chains | Medium — new routing decision point |
-| Scheduler | Add VectorPruneJob, Bm25RebuildJob | Low — framework already exists |
-| Storage (RocksDB) | Add CF_EPISODES column family | Low — isolated new column family |
-
-**No breaking changes** to existing gRPC contracts; new RPCs/fields added via proto `oneof` or new message types.
+**Priority key:**
+- P1: Must have for v2.7 launch
+- P2: Should have, add when possible
+- P3: Nice to have, future consideration
 
 ---
 
-## Risk Mitigation
+## Competitor Feature Analysis
 
-| Risk | Likelihood | Mitigation |
-|------|------------|-----------|
-| **Hybrid search combines incompatible scores** | MED | Normalize both indexes to [0, 1] before fusion; test with known-good queries |
-| **Usage decay creates retrieval bias** | MED | Log all decay factors in traces; audit queries with low access_count but high relevance |
-| **Index pruning deletes needed content** | LOW | Dry-run mode with reporting; never auto-delete structural events; admin confirmation |
-| **Episode value_score inflation** | MED | Cap at 1.0; require outcome_value validation in RPC; monitor distribution metrics |
-| **Episodic memory storage bloat** | MED | Implement retention policy early; set aggressive TTL during v2.6 pilot |
-| **Observability metrics cause latency** | LOW | Metrics are computed on-demand or cached; profile before/after RPC calls |
+| Feature | GSD installer (JS reference) | Our approach (Rust) |
+|---------|-------------------------------|---------------------|
+| Dry-run | NOT IMPLEMENTED — gap | Implement via `ConvertedFile` write-interceptor; print path + content preview |
+| Uninstall | `--uninstall` with marker-based section removal | Same pattern, markers embedded in generated config sections |
+| Managed-section merging | Three-case logic per shared config file | Same logic in Rust with `std::fs` + string matching |
+| Tool name mapping | Hardcoded JS maps per runtime | `tool_maps.rs` with static `HashMap` or `match`; same approach |
+| Frontmatter parsing | Regex-based (fragile for multiline values) | `serde_yaml` for robust parsing — improvement over GSD |
+| Path rewriting | 4 regex replacements per runtime | Same regex strategy; compile patterns once |
+| Hook conversion | JS hook files copied with path templating | Shell scripts + per-runtime config injection (YAML/JSON/settings.json) |
+| Codex adapter header | `<codex_skill_adapter>` injected into every SKILL.md | Same pattern with memory-specific translation guidance |
+| Codex config.toml | Per-agent TOML files + `[agents.name]` registration | Same approach |
+| XDG compliance for OpenCode | 4-priority env var resolution | Same logic; Rust has no XDG library needed — simple env var checks |
+| WSL detection | Explicit WSL + Windows-native Node detection + exit 1 | Not needed; Rust `std::path::Path` cross-platform handles this; forward-slash enforcement for hook script paths |
+| Attribution processing | Per-runtime `Co-Authored-By` strip/replace | Not needed for agent-memory; no commit attribution in plugin content |
+| `--all` flag | Supported | Supported |
+| Interactive mode | Readline prompts when no flags given | Post-MVP; v2.7 requires explicit flags |
 
 ---
 
 ## Sources
 
-- [Designing Memory Architectures for Production-Grade GenAI Systems | Avijit Swain | March 2026](https://medium.com/@avijitswain11/designing-memory-architectures-for-production-grade-genai-systems-2c20f71f9a45)
-- [Memory Patterns for AI Agents: Short-term, Long-term, and Episodic | DEV Community](https://dev.to/gantz/memory-patterns-for-ai-agents-short-term-long-term-and-episodic-5ff1)
-- [From Storage to Experience: A Survey on the Evolution of LLM Agent Memory Mechanisms | Preprints.org](https://www.preprints.org/manuscript/202601.0618)
-- [Implementing Cognitive Memory for Autonomous Robots: Hebbian Learning, Decay, and Consolidation in Production | Varun Sharma | Medium](https://medium.com/@29.varun/implementing-cognitive-memory-for-autonomous-robots-hebbian-learning-decay-and-consolidation-in-faea53b3973a)
-- [A Comprehensive Hybrid Search Guide | Elastic](https://www.elastic.co/what-is/hybrid-search)
-- [About hybrid search | Vertex AI | Google Cloud Documentation](https://docs.cloud.google.com/vertex-ai/docs/vector-search/about-hybrid-search)
-- [Full-text search for RAG apps: BM25 & hybrid search | Redis](https://redis.io/blog/full-text-search-for-rag-the-precision-layer/)
-- [7 Hybrid Search Recipes: BM25 + Vectors Without Lag | Hash Block | Medium](https://medium.com/@connect.hashblock/7-hybrid-search-recipes-bm25-vectors-without-lag-467189542bf0)
-- [Hybrid Search: Combining BM25 and Semantic Search for Better Results with Langchain | Akash A Desai | Medium](https://medium.com/etoai/hybrid-search-combining-bm25-and-semantic-search-for-better-results-with-lan-1358038fe7e6)
-- [Hybrid Search RAG in the Real World: Graphs, BM25, and the End of Black-Box Retrieval | NetApp Community](https://community.netapp.com/t5/Tech-ONTAP-Blogs/Hybrid-RAG-in-the-Real-World-Graphs-BM25-and-the-End-of-Black-Box-Retrieval/ba-p/464834)
-- [Index lifecycle management (ILM) in Elasticsearch | Elastic Docs](https://www.elastic.co/docs/manage-data/lifecycle/index-lifecycle-management)
-- [What is agent observability? Tracing tool calls, memory, and multi-step reasoning | Braintrust](https://www.braintrust.dev/articles/agent-observability-tracing-tool-calls-memory)
-- [Observability for AI Workloads: A New Paradigm for a New Era | Dotan Horovits | Medium | January 2026](https://horovits.medium.com/observability-for-ai-workloads-a-new-paradigm-for-a-new-era-b8972ba1b6ba)
-- [AI Agent Memory Security Requires More Observability | Valdez Ladd | Medium | December 2025](https://medium.com/@oracle_43885/ai-agent-memory-security-requires-more-observability-b12053e39ff0)
-- [Building Self-Improving AI Agents: Techniques in Reinforcement Learning and Continual Learning | Technology.org | March 2026](https://www.technology.org/2026/03/02/self-improving-ai-agents-reinforcement-continual-learning/)
-- [Process vs. Outcome Reward: Which is Better for Agentic RAG Reinforcement Learning | OpenReview](https://openreview.net/forum?id=h3LlJ6Bh4S)
-- [Experiential Reinforcement Learning | Microsoft Research](https://www.microsoft.com/en-us/research/articles/experiential-reinforcement-learning/)
-- [A Survey on the Memory Mechanism of Large Language Model-based Agents | ACM Transactions on Information Systems](https://dl.acm.org/doi/10.1145/3748302)
-- [Evaluating Memory in LLM Agents via Incremental Multi-Turn Interactions | ICLR 2026 | GitHub](https://github.com/HUST-AI-HYZ/MemoryAgentBench)
-- [Cache Replacement Policies Explained for System Performance | Aerospike](https://aerospike.com/blog/cache-replacement-policies/)
-- [How to Configure LRU and LFU Eviction in Redis | OneUptime | January 2026](https://oneuptime.com/blog/post/2026-01-25-redis-lru-lfu-eviction/view)
+- GSD installer source: `/Users/richardhightower/src/get-shit-done/bin/install.js` — direct source analysis (HIGH confidence)
+- v2.7 implementation plan: `docs/plans/v2.7-multi-runtime-portability-plan.md` — project-owned (HIGH confidence)
+- Project context: `.planning/PROJECT.md` — project-owned (HIGH confidence)
 
 ---
-
-**Last Updated:** 2026-03-11
-**For Milestone:** v2.6 Retrieval Quality, Lifecycle & Episodic Memory
+*Feature research for: multi-runtime plugin installer (agent-memory v2.7)*
+*Researched: 2026-03-16*
