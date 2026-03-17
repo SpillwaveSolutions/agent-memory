@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: Multi-Runtime Portability
-status: defining_requirements
+status: roadmap_complete
 stopped_at: null
 last_updated: "2026-03-16T00:00:00.000Z"
-last_activity: 2026-03-16 — Milestone v2.7 started
+last_activity: 2026-03-16 — v2.7 roadmap created (6 phases, 45-50)
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 13
+  total_plans: 0
   completed_plans: 0
   percent: 0
 ---
@@ -21,26 +21,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.7 Multi-Runtime Portability
+**Current focus:** v2.7 Multi-Runtime Portability — Phase 45 ready to plan
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-16 — Milestone v2.7 started
+Phase: 45 of 50 (Canonical Source Consolidation)
+Plan: Ready to plan
+Status: Roadmap complete, ready to plan Phase 45
+Last activity: 2026-03-16 — v2.7 roadmap created
 
-Progress: [░░░░░░░░░░] 0% (0/13 plans)
+Progress: [░░░░░░░░░░] 0% (0/6 phases)
 
 ## Decisions
 
 - Installer written in Rust (new workspace crate `memory-installer`)
-- Canonical source format is Claude plugin format
+- Canonical source format is Claude plugin format (YAML frontmatter Markdown)
 - Merge query+setup plugins into single `plugins/memory-plugin/` tree
-- Converter trait pattern — one impl per runtime
-- Tool name mapping tables modeled after GSD's approach
+- Converter trait pattern — one impl per runtime (6 converters)
+- Tool name mapping tables centralized in `tool_maps.rs` (11 tools x 6 runtimes)
 - Runtime-neutral storage at `~/.config/agent-memory/`
-- Old manual adapters archived and replaced by installer output
+- Old manual adapters archived (not deleted) and replaced by installer output
+- `gray_matter` 0.3.2 for frontmatter parsing (serde_yaml deprecated)
+- `walkdir` 2.5 for directory traversal
+- Managed-section markers for safe merge/upgrade/uninstall of shared config files
+- `--dry-run` implemented as write-interceptor on output stage (not per-converter)
 
 ## Blockers
 
@@ -48,15 +52,14 @@ Progress: [░░░░░░░░░░] 0% (0/13 plans)
 
 ## Accumulated Context
 
-(Carried from v2.6)
-
-- ActionResult uses tagged enum (status+detail) for JSON clarity
-- Storage.db made pub(crate) for cross-module CF access
-- Value scoring uses midpoint-distance formula
-- EpisodicConfig disabled by default (explicit opt-in)
-- Salience enrichment via enrich_with_salience() bridges Storage→ranking metadata
-- usearch pinned <2.24 (upstream MSVC + aarch64 bugs)
-- Release workflow: protoc v25.1 for aarch64 cross-compile, /MD CRT for Windows
+- Phases 47 and 48 are independent after Phase 46 (parallelizable)
+- Phase 49 requires both 47 and 48 (SkillsConverter extracts patterns from all converters)
+- Pitfall: Gemini settings.json and OpenCode opencode.json must be merged not overwritten
+- Pitfall: Unmapped tools must warn not silently drop
+- Pitfall: Hook event name divergence (PascalCase vs camelCase) causes silent capture failure
+- Pitfall: Archive adapters, do not delete (retire in v2.8 after one release cycle)
+- OpenCode hook API shape needs verification before Phase 49
+- Windows hook script strategy (WSL vs .bat/.ps1) must be decided before Phase 49
 
 ## Milestone History
 
@@ -81,5 +84,5 @@ See: .planning/MILESTONES.md for complete history
 ## Session Continuity
 
 **Last Session:** 2026-03-16
-**Stopped At:** Milestone v2.7 initialized — defining requirements
+**Stopped At:** v2.7 roadmap created — Phase 45 ready to plan
 **Resume File:** N/A
