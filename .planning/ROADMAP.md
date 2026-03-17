@@ -152,7 +152,7 @@ Plans:
 **Goal**: A new `memory-installer` crate exists in the workspace with a working CLI, plugin parser, converter trait, tool mapping tables, and managed-section marker policy — providing the foundation all converters depend on
 **Depends on**: Phase 45
 **Requirements**: INST-01, INST-02, INST-03, INST-04, INST-05, INST-06, INST-07
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 46-01-PLAN.md — Crate scaffolding, types, CLI skeleton, RuntimeConverter trait, and 6 converter stubs
@@ -225,7 +225,7 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 35-38 | v2.5 | 11/11 | Complete | 2026-03-10 |
 | 39-44 | v2.6 | 13/13 | Complete | 2026-03-16 |
 | 45. Canonical Source Consolidation | 1/1 | Complete    | 2026-03-17 | - |
-| 46. Installer Crate Foundation | v2.7 | 0/3 | Not started | - |
+| 46. Installer Crate Foundation | 1/3 | In Progress|  | - |
 | 47. Claude & OpenCode Converters | v2.7 | 0/TBD | Not started | - |
 | 48. Gemini & Codex Converters | v2.7 | 0/TBD | Not started | - |
 | 49. Copilot, Generic Skills & Hook Porting | v2.7 | 0/TBD | Not started | - |
