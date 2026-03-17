@@ -29,11 +29,7 @@ pub trait RuntimeConverter {
     fn convert_hook(&self, hook: &HookDefinition, cfg: &InstallConfig) -> Option<ConvertedFile>;
 
     /// Generate any runtime-specific guidance or configuration files.
-    fn generate_guidance(
-        &self,
-        bundle: &PluginBundle,
-        cfg: &InstallConfig,
-    ) -> Vec<ConvertedFile>;
+    fn generate_guidance(&self, bundle: &PluginBundle, cfg: &InstallConfig) -> Vec<ConvertedFile>;
 }
 
 #[cfg(test)]

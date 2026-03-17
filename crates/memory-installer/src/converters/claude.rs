@@ -43,11 +43,7 @@ impl RuntimeConverter for ClaudeConverter {
         None
     }
 
-    fn generate_guidance(
-        &self,
-        bundle: &PluginBundle,
-        cfg: &InstallConfig,
-    ) -> Vec<ConvertedFile> {
+    fn generate_guidance(&self, bundle: &PluginBundle, cfg: &InstallConfig) -> Vec<ConvertedFile> {
         Vec::new()
     }
 }
