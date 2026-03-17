@@ -152,13 +152,18 @@ Plans:
 **Goal**: A new `memory-installer` crate exists in the workspace with a working CLI, plugin parser, converter trait, tool mapping tables, and managed-section marker policy — providing the foundation all converters depend on
 **Depends on**: Phase 45
 **Requirements**: INST-01, INST-02, INST-03, INST-04, INST-05, INST-06, INST-07
+**Plans:** 3 plans
+
+Plans:
+- [ ] 46-01-PLAN.md — Crate scaffolding, types, CLI skeleton, RuntimeConverter trait, and 6 converter stubs
+- [ ] 46-02-PLAN.md — Plugin parser with gray_matter frontmatter extraction and corpus tests
+- [ ] 46-03-PLAN.md — Tool mapping tables, file writer with dry-run and managed-section markers, main.rs pipeline wiring
 **Success Criteria** (what must be TRUE):
   1. Running `memory-installer install --agent claude --dry-run` parses the canonical source directory and prints what files would be written without modifying the filesystem
   2. The plugin parser correctly extracts all commands, agents, skills, and hooks from the canonical source with their YAML frontmatter and markdown bodies (verified by a corpus round-trip test)
   3. The `RuntimeConverter` trait is defined with `convert_command`, `convert_agent`, `convert_skill`, `convert_hook`, `generate_guidance`, and `target_dir` methods
   4. Tool mapping tables cover all 11 tool names across 6 runtimes, and unmapped tool names produce warnings (not silent drops)
   5. Managed-section marker format is defined and documented as a compatibility contract for safe merge, upgrade, and uninstall of shared config files
-**Plans**: TBD
 
 ### Phase 47: Claude & OpenCode Converters
 **Goal**: Users can install the memory plugin for Claude (pass-through copy) and OpenCode (flat naming, tools object, permissions) via the installer CLI
@@ -220,7 +225,7 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 35-38 | v2.5 | 11/11 | Complete | 2026-03-10 |
 | 39-44 | v2.6 | 13/13 | Complete | 2026-03-16 |
 | 45. Canonical Source Consolidation | 1/1 | Complete    | 2026-03-17 | - |
-| 46. Installer Crate Foundation | v2.7 | 0/TBD | Not started | - |
+| 46. Installer Crate Foundation | v2.7 | 0/3 | Not started | - |
 | 47. Claude & OpenCode Converters | v2.7 | 0/TBD | Not started | - |
 | 48. Gemini & Codex Converters | v2.7 | 0/TBD | Not started | - |
 | 49. Copilot, Generic Skills & Hook Porting | v2.7 | 0/TBD | Not started | - |
@@ -228,4 +233,4 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 
 ---
 
-*Updated: 2026-03-16 after Phase 45 planning complete*
+*Updated: 2026-03-17 after Phase 46 planning complete*
