@@ -16,7 +16,7 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 ### Installer Infrastructure (INST)
 
 - [x] **INST-01**: Standalone `memory-installer` binary with clap CLI accepting `--agent <runtime>`, `--project`/`--global`, `--dir <path>`, `--dry-run`
-- [ ] **INST-02**: Plugin parser extracts commands, agents, skills with YAML frontmatter from canonical source directory
+- [x] **INST-02**: Plugin parser extracts commands, agents, skills with YAML frontmatter from canonical source directory
 - [x] **INST-03**: `RuntimeConverter` trait with `convert_command`, `convert_agent`, `convert_skill`, `convert_hook`, `generate_guidance`, `target_dir` methods
 - [ ] **INST-04**: Centralized tool mapping tables in `tool_maps.rs` covering all 11 tool names across 6 runtimes
 - [ ] **INST-05**: Managed-section markers in shared config files enabling safe merge, upgrade, and uninstall
@@ -104,7 +104,7 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 | CANON-02 | Phase 49 | Pending |
 | CANON-03 | Phase 45 | Complete |
 | INST-01 | Phase 46 | Complete |
-| INST-02 | Phase 46 | Pending |
+| INST-02 | Phase 46 | Complete |
 | INST-03 | Phase 46 | Complete |
 | INST-04 | Phase 46 | Pending |
 | INST-05 | Phase 46 | Pending |
