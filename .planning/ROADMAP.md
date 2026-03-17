@@ -126,7 +126,7 @@ See: `.planning/milestones/v2.6-ROADMAP.md`
 
 **Milestone Goal:** Build a Rust-based installer that converts the canonical Claude plugin source into runtime-specific installations for Claude, OpenCode, Gemini, Codex, Copilot, and generic skill runtimes — replacing five manually-maintained adapter directories with a single conversion pipeline.
 
-- [ ] **Phase 45: Canonical Source Consolidation** - Prepare both plugin dirs as canonical source with installer discovery manifest
+- [x] **Phase 45: Canonical Source Consolidation** - Prepare both plugin dirs as canonical source with installer discovery manifest (completed 2026-03-17)
 - [ ] **Phase 46: Installer Crate Foundation** - New memory-installer crate with CLI, plugin parser, converter trait, and tool mapping tables
 - [ ] **Phase 47: Claude & OpenCode Converters** - Pass-through Claude converter and OpenCode flat-naming converter with dry-run support
 - [ ] **Phase 48: Gemini & Codex Converters** - Gemini TOML converter with settings.json merge and Codex skills converter with AGENTS.md generation
@@ -139,7 +139,7 @@ See: `.planning/milestones/v2.6-ROADMAP.md`
 **Goal**: Both existing plugin directories (`memory-query-plugin/` and `memory-setup-plugin/`) are confirmed as the canonical source for the installer, with a discovery manifest and documented requirement reinterpretations
 **Depends on**: v2.6 (shipped)
 **Requirements**: CANON-01, CANON-02, CANON-03
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 45-01-PLAN.md — Create installer discovery manifest and update requirement docs
@@ -219,7 +219,7 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 30-34 | v2.4 | 15/15 | Complete | 2026-03-05 |
 | 35-38 | v2.5 | 11/11 | Complete | 2026-03-10 |
 | 39-44 | v2.6 | 13/13 | Complete | 2026-03-16 |
-| 45. Canonical Source Consolidation | v2.7 | 0/1 | Planning complete | - |
+| 45. Canonical Source Consolidation | 1/1 | Complete   | 2026-03-17 | - |
 | 46. Installer Crate Foundation | v2.7 | 0/TBD | Not started | - |
 | 47. Claude & OpenCode Converters | v2.7 | 0/TBD | Not started | - |
 | 48. Gemini & Codex Converters | v2.7 | 0/TBD | Not started | - |

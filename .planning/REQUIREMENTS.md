@@ -9,9 +9,9 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 ### Canonical Source (CANON)
 
-- [ ] **CANON-01**: Canonical plugin source comprises both `memory-query-plugin/` and `memory-setup-plugin/` directories (reinterpreted: installer reads from both dirs, no merge per Phase 45 CONTEXT.md decision)
-- [ ] **CANON-02**: Canonical hook definitions in YAML format capture all event types across runtimes *(deferred to Phase 49 per Phase 45 CONTEXT.md decision)*
-- [ ] **CANON-03**: All 6 commands, 2 agents, 13 skills consolidated with no content loss
+- [x] **CANON-01**: Canonical plugin source comprises both `memory-query-plugin/` and `memory-setup-plugin/` directories (reinterpreted: installer reads from both dirs, no merge per Phase 45 CONTEXT.md decision)
+- [x] **CANON-02**: Canonical hook definitions in YAML format capture all event types across runtimes *(deferred to Phase 49 per Phase 45 CONTEXT.md decision)*
+- [x] **CANON-03**: All 6 commands, 2 agents, 13 skills consolidated with no content loss
 
 ### Installer Infrastructure (INST)
 
@@ -100,9 +100,9 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CANON-01 | Phase 45 | Pending |
-| CANON-02 | Phase 49 | Pending |
-| CANON-03 | Phase 45 | Pending |
+| CANON-01 | Phase 45 | Complete |
+| CANON-02 | Phase 49 | Complete |
+| CANON-03 | Phase 45 | Complete |
 | INST-01 | Phase 46 | Pending |
 | INST-02 | Phase 46 | Pending |
 | INST-03 | Phase 46 | Pending |
