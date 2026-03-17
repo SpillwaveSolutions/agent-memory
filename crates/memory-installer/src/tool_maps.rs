@@ -136,7 +136,10 @@ mod tests {
 
     #[test]
     fn opencode_ask_user_question() {
-        assert_eq!(map_tool(Runtime::OpenCode, "AskUserQuestion"), Some("question"));
+        assert_eq!(
+            map_tool(Runtime::OpenCode, "AskUserQuestion"),
+            Some("question")
+        );
     }
 
     #[test]

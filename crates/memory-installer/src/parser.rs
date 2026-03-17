@@ -65,8 +65,8 @@ struct MarketplacePlugin {
 /// If the file has no frontmatter (no `---` delimiters), returns an empty
 /// `Value::Object` and the full file content as the body.
 pub fn parse_md_file(path: &Path) -> Result<(Value, String)> {
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let content =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
 
     let matter = gray_matter::Matter::<gray_matter::engine::YAML>::new();
     let parsed = matter
@@ -202,8 +202,7 @@ fn name_from_path(path: &Path) -> String {
 fn collect_additional_files(skill_dir: &Path) -> Result<Vec<SkillFile>> {
     let mut files = Vec::new();
     for entry in WalkDir::new(skill_dir).follow_links(false) {
-        let entry =
-            entry.with_context(|| format!("walking skill dir {}", skill_dir.display()))?;
+        let entry = entry.with_context(|| format!("walking skill dir {}", skill_dir.display()))?;
         if !entry.file_type().is_file() {
             continue;
         }
