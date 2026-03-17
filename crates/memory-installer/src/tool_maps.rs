@@ -99,7 +99,10 @@ pub fn map_tool(runtime: Runtime, claude_name: &str) -> Option<&'static str> {
         (Runtime::Copilot, "Task") => Some("agent"),
 
         // Unknown tool name for any runtime
-        _ => None,
+        _ => {
+            tracing::warn!("unmapped tool '{}' for {:?} — skipping", claude_name, runtime);
+            None
+        }
     }
 }
 
