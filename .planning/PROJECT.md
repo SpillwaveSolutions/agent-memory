@@ -2,21 +2,27 @@
 
 ## Current State
 
-**Version:** v2.6 (In Progress)
-**Status:** Building retrieval quality, lifecycle automation, and episodic memory
+**Version:** v2.7 (In Progress)
+**Status:** Building multi-runtime installer for cross-platform plugin portability
 
-## Current Milestone: v2.6 Retrieval Quality, Lifecycle & Episodic Memory
+## Current Milestone: v2.7 Multi-Runtime Portability
 
-**Goal:** Complete hybrid search, add ranking intelligence, automate index lifecycle, expose operational metrics, and enable the system to learn from past task outcomes.
+**Goal:** Build a Rust-based installer that converts the canonical Claude plugin source into runtime-specific installations for Claude, OpenCode, Gemini, Codex, and generic skill runtimes — replacing manually-maintained adapter directories.
 
 **Target features:**
-- Complete BM25 hybrid search wiring (currently hardcoded `false`)
-- Salience scoring at write time + usage-based decay in retrieval ranking
-- Automated vector pruning and BM25 lifecycle policies via scheduler
-- Admin observability RPCs for dedup/ranking metrics
-- Episodic memory — record task outcomes, search similar past episodes, value-based retention
+- Consolidated canonical plugin source tree (merge query+setup plugins)
+- Rust `memory-installer` crate with CLI, plugin parser, converter trait
+- Claude pass-through converter
+- OpenCode converter (flat naming, tools object, permissions)
+- Gemini converter (TOML format, tool mapping, settings.json hooks)
+- Codex converter (commands→skills, AGENTS.md generation)
+- Generic skill-runtime target (`--agent skills --dir <path>`)
+- Hook conversion pipeline (per-runtime hook formats)
+- Retire manually-maintained adapters
 
-**Previous version:** v2.5 (Shipped 2026-03-10) — semantic dedup, stale filtering, 5-CLI E2E test harness
+**Previous version:** v2.6 (Shipped 2026-03-16) — BM25 hybrid wiring, salience/usage decay, lifecycle automation, observability RPCs, episodic memory
+
+**Plan reference:** `docs/plans/v2.7-multi-runtime-portability-plan.md`
 
 The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, and comprehensive testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)

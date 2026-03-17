@@ -1,62 +1,62 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.6
-milestone_name: Retrieval Quality, Lifecycle & Episodic Memory
-status: complete
-stopped_at: All 6 phases complete, ready for PR to main
-last_updated: "2026-03-11T22:00:00.000Z"
-last_activity: 2026-03-11 — All v2.6 phases complete (13/13 plans)
+milestone: v2.7
+milestone_name: Multi-Runtime Portability
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-16T00:00:00.000Z"
+last_activity: 2026-03-16 — Milestone v2.7 started
 progress:
   total_phases: 6
-  completed_phases: 6
+  completed_phases: 0
   total_plans: 13
-  completed_plans: 13
-  percent: 100
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-10)
+See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.6 Retrieval Quality, Lifecycle & Episodic Memory
+**Current focus:** v2.7 Multi-Runtime Portability
 
 ## Current Position
 
-Phase: 44 of 44 — ALL PHASES COMPLETE
-Plan: All 13 plans across 6 phases executed
-Status: v2.6 milestone complete — ready for PR to main
-Last activity: 2026-03-11 — Phase 44 episodic gRPC complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-16 — Milestone v2.7 started
 
-Progress: [██████████] 100% (13/13 plans)
+Progress: [░░░░░░░░░░] 0% (0/13 plans)
 
 ## Decisions
 
-(Inherited from v2.5 — see MILESTONES.md for full history)
-
-- ActionResult uses tagged enum (status+detail) for JSON clarity
-- Storage.db made pub(crate) for cross-module CF access within memory-storage
-- Value scoring uses midpoint-distance formula: (1.0 - |outcome - midpoint|).max(0.0)
-- EpisodicConfig disabled by default (explicit opt-in like dedup)
-- list_episodes uses reverse ULID iteration for newest-first ordering
-- Salience enrichment via enrich_with_salience() bridges Storage→ranking metadata
-- Usage decay OFF by default in RankingConfig (validated by E2E tests)
-- Lifecycle: vector pruning enabled by default, BM25 rebuild opt-in
+- Installer written in Rust (new workspace crate `memory-installer`)
+- Canonical source format is Claude plugin format
+- Merge query+setup plugins into single `plugins/memory-plugin/` tree
+- Converter trait pattern — one impl per runtime
+- Tool name mapping tables modeled after GSD's approach
+- Runtime-neutral storage at `~/.config/agent-memory/`
+- Old manual adapters archived and replaced by installer output
 
 ## Blockers
 
 - None
 
-## Research Flags
+## Accumulated Context
 
-- Phase 40: Ranking formula weights validated via E2E tests — working as designed
-- Phase 41: VectorPruneJob and BM25 rebuild implemented with config controls
+(Carried from v2.6)
 
-## Reference Projects
-
-- `/Users/richardhightower/clients/spillwave/src/rulez_plugin` — hook implementation reference
+- ActionResult uses tagged enum (status+detail) for JSON clarity
+- Storage.db made pub(crate) for cross-module CF access
+- Value scoring uses midpoint-distance formula
+- EpisodicConfig disabled by default (explicit opt-in)
+- Salience enrichment via enrich_with_salience() bridges Storage→ranking metadata
+- usearch pinned <2.24 (upstream MSVC + aarch64 bugs)
+- Release workflow: protoc v25.1 for aarch64 cross-compile, /MD CRT for Windows
 
 ## Milestone History
 
@@ -69,6 +69,7 @@ See: .planning/MILESTONES.md for complete history
 - v2.3 Install & Setup Experience: Shipped 2026-02-12 (2 phases, 2 plans)
 - v2.4 Headless CLI Testing: Shipped 2026-03-05 (5 phases, 15 plans)
 - v2.5 Semantic Dedup & Retrieval Quality: Shipped 2026-03-10 (4 phases, 11 plans)
+- v2.6 Cognitive Retrieval: Shipped 2026-03-16 (6 phases, 13 plans)
 
 ## Cumulative Stats
 
@@ -79,6 +80,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-11
-**Stopped At:** All phases complete — ready to create PR to main
-**Resume File:** N/A — all v2.6 work complete on feature/phase-44-episodic-grpc-retrieval
+**Last Session:** 2026-03-16
+**Stopped At:** Milestone v2.7 initialized — defining requirements
+**Resume File:** N/A
