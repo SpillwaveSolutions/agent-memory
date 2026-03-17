@@ -126,7 +126,7 @@ See: `.planning/milestones/v2.6-ROADMAP.md`
 
 **Milestone Goal:** Build a Rust-based installer that converts the canonical Claude plugin source into runtime-specific installations for Claude, OpenCode, Gemini, Codex, Copilot, and generic skill runtimes — replacing five manually-maintained adapter directories with a single conversion pipeline.
 
-- [ ] **Phase 45: Canonical Source Consolidation** - Merge query+setup plugins into single canonical source tree with hook definitions
+- [ ] **Phase 45: Canonical Source Consolidation** - Prepare both plugin dirs as canonical source with installer discovery manifest
 - [ ] **Phase 46: Installer Crate Foundation** - New memory-installer crate with CLI, plugin parser, converter trait, and tool mapping tables
 - [ ] **Phase 47: Claude & OpenCode Converters** - Pass-through Claude converter and OpenCode flat-naming converter with dry-run support
 - [ ] **Phase 48: Gemini & Codex Converters** - Gemini TOML converter with settings.json merge and Codex skills converter with AGENTS.md generation
@@ -136,14 +136,17 @@ See: `.planning/milestones/v2.6-ROADMAP.md`
 ## Phase Details
 
 ### Phase 45: Canonical Source Consolidation
-**Goal**: A single unified plugin source tree exists that the installer can read, containing all commands, agents, skills, and hook definitions from the previously separate query and setup plugins
+**Goal**: Both existing plugin directories (`memory-query-plugin/` and `memory-setup-plugin/`) are confirmed as the canonical source for the installer, with a discovery manifest and documented requirement reinterpretations
 **Depends on**: v2.6 (shipped)
 **Requirements**: CANON-01, CANON-02, CANON-03
+**Plans:** 1 plan
+
+Plans:
+- [ ] 45-01-PLAN.md — Create installer discovery manifest and update requirement docs
 **Success Criteria** (what must be TRUE):
-  1. A single `plugins/memory-plugin/` directory contains all 6 commands, 2 agents, and 13 skills from the previously separate query and setup plugins with no content loss
-  2. Canonical hook definitions exist in YAML format that describe all event types captured across runtimes (session start, user message, tool result, assistant stop, subagent start/stop, session end)
-  3. The old `memory-query-plugin/` and `memory-setup-plugin/` directories are archived with README stubs pointing to the new consolidated source
-**Plans**: TBD
+  1. Both `memory-query-plugin/` and `memory-setup-plugin/` directories contain all 6 commands, 2 agents, and 13 skills with consistent YAML frontmatter (no content loss)
+  2. An `installer-sources.json` manifest exists listing both plugin source directories for Phase 46 parser discovery
+  3. REQUIREMENTS.md documents CANON-01 reinterpretation (both dirs = canonical source) and CANON-02 deferral (hooks deferred to Phase 49)
 
 ### Phase 46: Installer Crate Foundation
 **Goal**: A new `memory-installer` crate exists in the workspace with a working CLI, plugin parser, converter trait, tool mapping tables, and managed-section marker policy — providing the foundation all converters depend on
@@ -216,7 +219,7 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 30-34 | v2.4 | 15/15 | Complete | 2026-03-05 |
 | 35-38 | v2.5 | 11/11 | Complete | 2026-03-10 |
 | 39-44 | v2.6 | 13/13 | Complete | 2026-03-16 |
-| 45. Canonical Source Consolidation | v2.7 | 0/TBD | Not started | - |
+| 45. Canonical Source Consolidation | v2.7 | 0/1 | Planning complete | - |
 | 46. Installer Crate Foundation | v2.7 | 0/TBD | Not started | - |
 | 47. Claude & OpenCode Converters | v2.7 | 0/TBD | Not started | - |
 | 48. Gemini & Codex Converters | v2.7 | 0/TBD | Not started | - |
@@ -225,4 +228,4 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 
 ---
 
-*Updated: 2026-03-16 after v2.7 roadmap created*
+*Updated: 2026-03-16 after Phase 45 planning complete*
