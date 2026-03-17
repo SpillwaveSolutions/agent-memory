@@ -18,7 +18,11 @@
         "./skills/memory-setup",
         "./skills/memory-storage",
         "./skills/memory-llm",
-        "./skills/memory-agents"
+        "./skills/memory-agents",
+        "./skills/memory-configure",
+        "./skills/memory-install",
+        "./skills/memory-troubleshoot",
+        "./skills/memory-verify"
       ],
       "commands": [
         "./commands/memory-setup.md",
