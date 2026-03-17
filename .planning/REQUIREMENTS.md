@@ -18,10 +18,10 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 - [x] **INST-01**: Standalone `memory-installer` binary with clap CLI accepting `--agent <runtime>`, `--project`/`--global`, `--dir <path>`, `--dry-run`
 - [x] **INST-02**: Plugin parser extracts commands, agents, skills with YAML frontmatter from canonical source directory
 - [x] **INST-03**: `RuntimeConverter` trait with `convert_command`, `convert_agent`, `convert_skill`, `convert_hook`, `generate_guidance`, `target_dir` methods
-- [ ] **INST-04**: Centralized tool mapping tables in `tool_maps.rs` covering all 11 tool names across 6 runtimes
-- [ ] **INST-05**: Managed-section markers in shared config files enabling safe merge, upgrade, and uninstall
-- [ ] **INST-06**: `--dry-run` mode shows what would be installed without writing files
-- [ ] **INST-07**: Unmapped tool names produce warnings (not silent drops)
+- [x] **INST-04**: Centralized tool mapping tables in `tool_maps.rs` covering all 11 tool names across 6 runtimes
+- [x] **INST-05**: Managed-section markers in shared config files enabling safe merge, upgrade, and uninstall
+- [x] **INST-06**: `--dry-run` mode shows what would be installed without writing files
+- [x] **INST-07**: Unmapped tool names produce warnings (not silent drops)
 
 ### Claude Converter (CLAUDE)
 
@@ -106,10 +106,10 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 | INST-01 | Phase 46 | Complete |
 | INST-02 | Phase 46 | Complete |
 | INST-03 | Phase 46 | Complete |
-| INST-04 | Phase 46 | Pending |
-| INST-05 | Phase 46 | Pending |
-| INST-06 | Phase 46 | Pending |
-| INST-07 | Phase 46 | Pending |
+| INST-04 | Phase 46 | Complete |
+| INST-05 | Phase 46 | Complete |
+| INST-06 | Phase 46 | Complete |
+| INST-07 | Phase 46 | Complete |
 | CLAUDE-01 | Phase 47 | Pending |
 | CLAUDE-02 | Phase 47 | Pending |
 | OC-01 | Phase 47 | Pending |

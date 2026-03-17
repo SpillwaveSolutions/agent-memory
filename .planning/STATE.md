@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: Multi-Runtime Portability
 status: planning
-stopped_at: Completed 46-02-PLAN.md
-last_updated: "2026-03-17T20:04:05.545Z"
-last_activity: 2026-03-17 — Phase 45 canonical source consolidation complete
+stopped_at: Completed 46-03-PLAN.md
+last_updated: "2026-03-17T20:08:59Z"
+last_activity: 2026-03-17 — Phase 46 installer crate foundation complete
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 17
+  completed_plans: 4
+  percent: 33
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.7 Multi-Runtime Portability — Phase 45 complete, Phase 46 next
+**Current focus:** v2.7 Multi-Runtime Portability — Phase 46 complete, Phase 47 next
 
 ## Current Position
 
-Phase: 46 of 50 (Installer Parser)
+Phase: 47 of 50 (Claude & OpenCode Converters)
 Plan: Ready to plan
-Status: Phase 45 complete, ready to plan Phase 46
-Last activity: 2026-03-17 — Phase 45 canonical source consolidation complete
+Status: Phase 46 complete, ready to plan Phase 47
+Last activity: 2026-03-17 — Phase 46 installer crate foundation complete
 
-Progress: [██░░░░░░░░] 17% (1/6 phases)
+Progress: [███░░░░░░░] 33% (2/6 phases)
 
 ## Decisions
 
@@ -49,6 +49,9 @@ Progress: [██░░░░░░░░] 17% (1/6 phases)
 - [Phase 46]: Used owned Strings in installer types (not borrowed) for simplicity with trait objects
 - [Phase 46]: Used Box<dyn RuntimeConverter> trait objects for converter dispatch
 - [Phase 46]: Used gray_matter generic parse::<Value> for direct serde_json::Value deserialization of frontmatter
+- [Phase 46]: Used match expression for tool maps (compile-time exhaustive, zero overhead)
+- [Phase 46]: Callers handle mcp__* prefix check before calling map_tool (keeps static return type)
+- [Phase 46]: Write-interceptor pattern: all converters produce Vec<ConvertedFile>, single write_files() handles dry-run
 
 ## Blockers
 
@@ -87,6 +90,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-17T20:04:05.543Z
-**Stopped At:** Completed 46-02-PLAN.md
+**Last Session:** 2026-03-17T20:08:59Z
+**Stopped At:** Completed 46-03-PLAN.md
 **Resume File:** None
