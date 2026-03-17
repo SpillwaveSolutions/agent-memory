@@ -1,152 +1,152 @@
-# Requirements: Agent Memory v2.6
+# Requirements: Agent Memory v2.7
 
-**Defined:** 2026-03-10
+**Defined:** 2026-03-16
 **Core Value:** Agent can answer "what were we talking about last week?" without scanning everything
 
-## v2.6 Requirements
+## v2.7 Requirements
 
-Requirements for Retrieval Quality, Lifecycle & Episodic Memory milestone. Each maps to roadmap phases.
+Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap phases.
 
-### Hybrid Search
+### Canonical Source (CANON)
 
-- [ ] **HYBRID-01**: BM25 wired into HybridSearchHandler (currently hardcoded `bm25_available() = false`)
-- [ ] **HYBRID-02**: Hybrid search returns combined BM25 + vector results via RRF score fusion
-- [ ] **HYBRID-03**: BM25 fallback enabled in retrieval routing when vector index unavailable
-- [ ] **HYBRID-04**: E2E test verifies hybrid search returns results from both BM25 and vector layers
+- [ ] **CANON-01**: Canonical plugin source tree merges query+setup plugins into single `plugins/memory-plugin/` directory
+- [ ] **CANON-02**: Canonical hook definitions in YAML format capture all event types across runtimes
+- [ ] **CANON-03**: All 6 commands, 2 agents, 13 skills consolidated with no content loss
 
-### Ranking
+### Installer Infrastructure (INST)
 
-- [ ] **RANK-01**: Salience score calculated at write time on TOC nodes (length_density + kind_boost + pinned_boost)
-- [ ] **RANK-02**: Salience score calculated at write time on Grips
-- [ ] **RANK-03**: `is_pinned` field added to TocNode and Grip (default false)
-- [ ] **RANK-04**: Usage tracking: `access_count` and `last_accessed` updated on retrieval hits
-- [ ] **RANK-05**: Usage-based decay penalty applied in retrieval ranking (1.0 / (1.0 + 0.15 * access_count))
-- [ ] **RANK-06**: Combined ranking formula: similarity * salience_factor * usage_penalty
-- [ ] **RANK-07**: Ranking composites with existing StaleFilter (score floor at 50% to prevent collapse)
-- [ ] **RANK-08**: Salience and usage_decay configurable via config.toml sections
-- [ ] **RANK-09**: E2E test: pinned/high-salience items rank higher than low-salience items
-- [ ] **RANK-10**: E2E test: frequently-accessed items score lower than fresh items (usage decay)
+- [ ] **INST-01**: Standalone `memory-installer` binary with clap CLI accepting `--agent <runtime>`, `--project`/`--global`, `--dir <path>`, `--dry-run`
+- [ ] **INST-02**: Plugin parser extracts commands, agents, skills with YAML frontmatter from canonical source directory
+- [ ] **INST-03**: `RuntimeConverter` trait with `convert_command`, `convert_agent`, `convert_skill`, `convert_hook`, `generate_guidance`, `target_dir` methods
+- [ ] **INST-04**: Centralized tool mapping tables in `tool_maps.rs` covering all 11 tool names across 6 runtimes
+- [ ] **INST-05**: Managed-section markers in shared config files enabling safe merge, upgrade, and uninstall
+- [ ] **INST-06**: `--dry-run` mode shows what would be installed without writing files
+- [ ] **INST-07**: Unmapped tool names produce warnings (not silent drops)
 
-### Lifecycle
+### Claude Converter (CLAUDE)
 
-- [ ] **LIFE-01**: Vector pruning scheduler job calls existing `prune(age_days)` on configurable schedule
-- [ ] **LIFE-02**: CLI command: `memory-daemon admin prune-vectors --age-days N`
-- [ ] **LIFE-03**: Config: `[lifecycle.vector] segment_retention_days` controls pruning threshold
-- [ ] **LIFE-04**: BM25 rebuild with level filter excludes fine-grain docs after rollup
-- [ ] **LIFE-05**: CLI command: `memory-daemon admin rebuild-bm25 --min-level day`
-- [ ] **LIFE-06**: Config: `[lifecycle.bm25] min_level_after_rollup` controls BM25 retention granularity
-- [ ] **LIFE-07**: E2E test: old segments pruned from vector index after lifecycle job runs
+- [ ] **CLAUDE-01**: Claude converter copies canonical source with minimal transformation (path rewriting only)
+- [ ] **CLAUDE-02**: Storage paths rewritten to runtime-neutral `~/.config/agent-memory/`
 
-### Observability
+### OpenCode Converter (OC)
 
-- [ ] **OBS-01**: `buffer_size` exposed in GetDedupStatus (currently hardcoded 0)
-- [ ] **OBS-02**: `deduplicated` field added to IngestEventResponse (deferred proto change from v2.5)
-- [ ] **OBS-03**: Dedup threshold hit rate and events_skipped rate exposed via admin RPC
-- [ ] **OBS-04**: Ranking metrics (salience distribution, usage decay stats) queryable via admin RPC
-- [ ] **OBS-05**: CLI: `memory-daemon status --verbose` shows dedup/ranking health summary
+- [ ] **OC-01**: Commands flattened from `commands/memory-search.md` to `command/memory-search.md`
+- [ ] **OC-02**: Agent frontmatter converts `allowed-tools:` array to `tools:` object with `tool: true` entries
+- [ ] **OC-03**: Tool names converted to lowercase with special mappings (AskUserQuestion→question, etc.)
+- [ ] **OC-04**: Color names normalized to hex values
+- [ ] **OC-05**: Paths rewritten from `~/.claude/` to `~/.config/opencode/`
+- [ ] **OC-06**: Auto-configure `opencode.json` read permissions for installed skill paths
 
-### Episodic Memory
+### Gemini Converter (GEM)
 
-- [ ] **EPIS-01**: Episode struct with episode_id, task, plan, actions, outcome_score, lessons_learned, failure_modes, embedding, created_at
-- [ ] **EPIS-02**: Action struct with action_type, input, result, timestamp
-- [ ] **EPIS-03**: CF_EPISODES column family in RocksDB for episode storage
-- [ ] **EPIS-04**: StartEpisode gRPC RPC creates new episode and returns episode_id
-- [ ] **EPIS-05**: RecordAction gRPC RPC appends action to in-progress episode
-- [ ] **EPIS-06**: CompleteEpisode gRPC RPC finalizes episode with outcome_score, lessons, failure_modes
-- [ ] **EPIS-07**: GetSimilarEpisodes gRPC RPC searches by vector similarity on episode embeddings
-- [ ] **EPIS-08**: Value-based retention: episodes scored by distance from 0.65 optimal outcome
-- [ ] **EPIS-09**: Retention threshold: episodes with value_score < 0.18 eligible for pruning
-- [ ] **EPIS-10**: Configurable via `[episodic]` config section (enabled, value_threshold, max_episodes)
-- [ ] **EPIS-11**: E2E test: create episode → complete → search by similarity returns match
-- [ ] **EPIS-12**: E2E test: value-based retention correctly identifies low/high value episodes
+- [ ] **GEM-01**: Command frontmatter converted from YAML to TOML format
+- [ ] **GEM-02**: Agent `allowed-tools:` converted to `tools:` array with Gemini snake_case names
+- [ ] **GEM-03**: MCP and Task tools excluded from converted output (auto-discovered by Gemini)
+- [ ] **GEM-04**: `color:` and `skills:` fields stripped from agent frontmatter
+- [ ] **GEM-05**: Shell variable `${VAR}` escaped to `$VAR` (Gemini template engine conflict)
+- [ ] **GEM-06**: Hook definitions merged into `.gemini/settings.json` using managed-section markers
 
-## Future Requirements
+### Codex Converter (CDX)
 
-Deferred to v2.7+. Tracked but not in current roadmap.
+- [ ] **CDX-01**: Commands converted to Codex skill directories (each command becomes a SKILL.md)
+- [ ] **CDX-02**: Agents converted to orchestration skill directories
+- [ ] **CDX-03**: `AGENTS.md` generated from agent metadata for project-level Codex guidance
+- [ ] **CDX-04**: Sandbox permissions mapped per agent (workspace-write vs read-only)
 
-### Consolidation
+### Copilot Converter (COP)
 
-- **CONS-01**: Extract durable knowledge (preferences, constraints, procedures) from recent events
-- **CONS-02**: Daily consolidation scheduler job with NLP/LLM pattern extraction
-- **CONS-03**: CF_CONSOLIDATED column family for extracted knowledge atoms
+- [ ] **COP-01**: Commands converted to Copilot skill format under `.github/skills/`
+- [ ] **COP-02**: Agents converted to `.agent.md` format with Copilot tool names
+- [ ] **COP-03**: Hook definitions converted to `.github/hooks/` JSON format with shell scripts
 
-### Cross-Project
+### Generic Skills Converter (SKL)
 
-- **XPROJ-01**: Unified memory queries across multiple project stores
-- **XPROJ-02**: Cross-project dedup for shared context
+- [ ] **SKL-01**: `--agent skills --dir <path>` installs to user-specified directory
+- [ ] **SKL-02**: Commands become skill directories, agents become orchestration skills
+- [ ] **SKL-03**: No runtime-specific transforms beyond path rewriting
 
-### Agent Scoping
+### Hook Conversion (HOOK)
 
-- **SCOPE-01**: Per-agent dedup thresholds (only dedup within same agent's history)
-- **SCOPE-02**: Agent-filtered lifecycle policies
+- [ ] **HOOK-01**: Canonical YAML hook definitions converted to per-runtime formats
+- [ ] **HOOK-02**: Hook event names mapped correctly per runtime (PascalCase/camelCase differences)
+- [ ] **HOOK-03**: Hook scripts generated with fail-open behavior and background execution
 
-### Operational
+### Testing & Migration (MIG)
 
-- **OPS-01**: True daemonization (double-fork on Unix)
-- **OPS-02**: API-based summarizer wiring (OpenAI/Anthropic when key present)
-- **OPS-03**: Config example file (config.toml.example) shipped with binary
+- [ ] **MIG-01**: E2E tests verify install-to-temp-dir produces correct file structure per runtime
+- [ ] **MIG-02**: E2E tests verify frontmatter conversion correctness (tool names, format, fields)
+- [ ] **MIG-03**: Old adapter directories archived with README stubs pointing to `memory-installer`
+- [ ] **MIG-04**: Installer added to workspace CI (build, clippy, test)
+
+## Future Requirements (v2.8+)
+
+- **MIG-F01**: Delete archived adapter directories after one release cycle
+- **INST-F01**: Interactive mode with runtime selection prompts
+- **INST-F02**: `--uninstall` command to remove installed files using managed markers
+- **INST-F03**: `--all` flag to install all runtimes at once
+- **INST-F04**: Version tracking with upgrade detection
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| LLM-based episode summarization | Adds latency, hallucination risk, external dependency |
-| Automatic memory forgetting/deletion | Violates append-only invariant |
-| Real-time outcome feedback loops | Out of scope for v2.6; need agent framework integration |
-| Graph-based episode dependencies | Overengineered for initial episode support |
-| Per-agent lifecycle scoping | Defer to v2.7 when multi-agent dedup is validated |
-| Continuous outcome recording | Adoption killer — complete episodes only |
-| Real-time index rebuilds | UX killer — batch via scheduler only |
-| Cross-project memory | Requires architectural rethink of per-project isolation |
+| Interactive prompts for MVP | Breaks CI and agent-driven workflows; add post-MVP |
+| Two-way sync (runtime→canonical) | One-way conversion is simpler and matches GSD pattern |
+| Plugin marketplace integration | Claude marketplace is separate from installer |
+| Hook format unification | Each runtime's hook mechanism is too different; convert per-runtime |
+| Windows PowerShell hooks | Shell scripts with WSL sufficient for MVP; PS1 hooks deferred |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HYBRID-01 | Phase 39 | Pending |
-| HYBRID-02 | Phase 39 | Pending |
-| HYBRID-03 | Phase 39 | Pending |
-| HYBRID-04 | Phase 39 | Pending |
-| RANK-01 | Phase 40 | Pending |
-| RANK-02 | Phase 40 | Pending |
-| RANK-03 | Phase 40 | Pending |
-| RANK-04 | Phase 40 | Pending |
-| RANK-05 | Phase 40 | Pending |
-| RANK-06 | Phase 40 | Pending |
-| RANK-07 | Phase 40 | Pending |
-| RANK-08 | Phase 40 | Pending |
-| RANK-09 | Phase 40 | Pending |
-| RANK-10 | Phase 40 | Pending |
-| LIFE-01 | Phase 41 | Pending |
-| LIFE-02 | Phase 41 | Pending |
-| LIFE-03 | Phase 41 | Pending |
-| LIFE-04 | Phase 41 | Pending |
-| LIFE-05 | Phase 41 | Pending |
-| LIFE-06 | Phase 41 | Pending |
-| LIFE-07 | Phase 41 | Pending |
-| OBS-01 | Phase 42 | Pending |
-| OBS-02 | Phase 42 | Pending |
-| OBS-03 | Phase 42 | Pending |
-| OBS-04 | Phase 42 | Pending |
-| OBS-05 | Phase 42 | Pending |
-| EPIS-01 | Phase 43 | Pending |
-| EPIS-02 | Phase 43 | Pending |
-| EPIS-03 | Phase 43 | Pending |
-| EPIS-04 | Phase 44 | Pending |
-| EPIS-05 | Phase 44 | Pending |
-| EPIS-06 | Phase 44 | Pending |
-| EPIS-07 | Phase 44 | Pending |
-| EPIS-08 | Phase 44 | Pending |
-| EPIS-09 | Phase 44 | Pending |
-| EPIS-10 | Phase 44 | Pending |
-| EPIS-11 | Phase 44 | Pending |
-| EPIS-12 | Phase 44 | Pending |
+| CANON-01 | Phase 45 | Pending |
+| CANON-02 | Phase 45 | Pending |
+| CANON-03 | Phase 45 | Pending |
+| INST-01 | Phase 46 | Pending |
+| INST-02 | Phase 46 | Pending |
+| INST-03 | Phase 46 | Pending |
+| INST-04 | Phase 46 | Pending |
+| INST-05 | Phase 46 | Pending |
+| INST-06 | Phase 46 | Pending |
+| INST-07 | Phase 46 | Pending |
+| CLAUDE-01 | Phase 47 | Pending |
+| CLAUDE-02 | Phase 47 | Pending |
+| OC-01 | Phase 47 | Pending |
+| OC-02 | Phase 47 | Pending |
+| OC-03 | Phase 47 | Pending |
+| OC-04 | Phase 47 | Pending |
+| OC-05 | Phase 47 | Pending |
+| OC-06 | Phase 47 | Pending |
+| GEM-01 | Phase 48 | Pending |
+| GEM-02 | Phase 48 | Pending |
+| GEM-03 | Phase 48 | Pending |
+| GEM-04 | Phase 48 | Pending |
+| GEM-05 | Phase 48 | Pending |
+| GEM-06 | Phase 48 | Pending |
+| CDX-01 | Phase 48 | Pending |
+| CDX-02 | Phase 48 | Pending |
+| CDX-03 | Phase 48 | Pending |
+| CDX-04 | Phase 48 | Pending |
+| COP-01 | Phase 49 | Pending |
+| COP-02 | Phase 49 | Pending |
+| COP-03 | Phase 49 | Pending |
+| SKL-01 | Phase 49 | Pending |
+| SKL-02 | Phase 49 | Pending |
+| SKL-03 | Phase 49 | Pending |
+| HOOK-01 | Phase 49 | Pending |
+| HOOK-02 | Phase 49 | Pending |
+| HOOK-03 | Phase 49 | Pending |
+| MIG-01 | Phase 50 | Pending |
+| MIG-02 | Phase 50 | Pending |
+| MIG-03 | Phase 50 | Pending |
+| MIG-04 | Phase 50 | Pending |
 
 **Coverage:**
-- v2.6 requirements: 38 total
-- Mapped to phases: 38
+- v2.7 requirements: 41 total
+- Mapped to phases: 41
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after initial definition*
+*Requirements defined: 2026-03-16*
+*Last updated: 2026-03-16 after research synthesis*
