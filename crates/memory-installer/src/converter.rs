@@ -88,15 +88,12 @@ mod tests {
             source_path: PathBuf::from("test.md"),
         };
 
-        // Claude, OpenCode, Gemini, and Codex are implemented; these 2 remain stubs.
-        for runtime in [Runtime::Copilot, Runtime::Skills] {
-            let converter = select_converter(runtime);
-            assert!(
-                converter.convert_command(&cmd, &cfg).is_empty(),
-                "stub converter for {:?} should return empty Vec",
-                runtime
-            );
-        }
+        // Claude, OpenCode, Gemini, Codex, and Copilot are implemented; Skills remains a stub.
+        let converter = select_converter(Runtime::Skills);
+        assert!(
+            converter.convert_command(&cmd, &cfg).is_empty(),
+            "stub converter for Skills should return empty Vec"
+        );
     }
 
     #[test]
