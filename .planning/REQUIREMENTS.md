@@ -25,8 +25,8 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 ### Claude Converter (CLAUDE)
 
-- [ ] **CLAUDE-01**: Claude converter copies canonical source with minimal transformation (path rewriting only)
-- [ ] **CLAUDE-02**: Storage paths rewritten to runtime-neutral `~/.config/agent-memory/`
+- [x] **CLAUDE-01**: Claude converter copies canonical source with minimal transformation (path rewriting only)
+- [x] **CLAUDE-02**: Storage paths rewritten to runtime-neutral `~/.config/agent-memory/`
 
 ### OpenCode Converter (OC)
 
@@ -110,8 +110,8 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 | INST-05 | Phase 46 | Complete |
 | INST-06 | Phase 46 | Complete |
 | INST-07 | Phase 46 | Complete |
-| CLAUDE-01 | Phase 47 | Pending |
-| CLAUDE-02 | Phase 47 | Pending |
+| CLAUDE-01 | Phase 47 | Complete |
+| CLAUDE-02 | Phase 47 | Complete |
 | OC-01 | Phase 47 | Pending |
 | OC-02 | Phase 47 | Pending |
 | OC-03 | Phase 47 | Pending |
