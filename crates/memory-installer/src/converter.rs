@@ -88,13 +88,8 @@ mod tests {
             source_path: PathBuf::from("test.md"),
         };
 
-        // Claude and OpenCode are implemented; these 4 remain stubs.
-        for runtime in [
-            Runtime::Gemini,
-            Runtime::Codex,
-            Runtime::Copilot,
-            Runtime::Skills,
-        ] {
+        // Claude, OpenCode, Gemini, and Codex are implemented; these 2 remain stubs.
+        for runtime in [Runtime::Copilot, Runtime::Skills] {
             let converter = select_converter(runtime);
             assert!(
                 converter.convert_command(&cmd, &cfg).is_empty(),
