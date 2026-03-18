@@ -207,8 +207,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 48-01-PLAN.md — Gemini converter (TOML commands, agent-to-skill, settings.json hooks, shell var escaping)
-- [ ] 48-02-PLAN.md — Codex converter (command-to-skill, agent-to-skill, AGENTS.md generation, sandbox mapping)
+- [ ] 49-01-PLAN.md — CopilotConverter implementation with command-to-skill, agent-to-agent.md, and hook JSON + script generation
+- [ ] 49-02-PLAN.md — SkillsConverter implementation with pass-through skill directories and stub test cleanup
 
 ### Phase 50: Integration Testing & Migration
 **Goal**: The installer is proven correct by E2E tests, old adapter directories are safely archived, and the installer is integrated into CI
@@ -240,9 +240,9 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 46. Installer Crate Foundation | 3/3 | Complete    | 2026-03-17 | - |
 | 47. Claude & OpenCode Converters | 1/1 | Complete    | 2026-03-18 | - |
 | 48. Gemini & Codex Converters | 2/2 | Complete    | 2026-03-18 | - |
-| 49. Copilot, Generic Skills & Hook Porting | v2.7 | 0/TBD | Not started | - |
+| 49. Copilot, Generic Skills & Hook Porting | v2.7 | 0/2 | Not started | - |
 | 50. Integration Testing & Migration | v2.7 | 0/TBD | Not started | - |
 
 ---
 
-*Updated: 2026-03-17 after Phase 46 planning complete*
+*Updated: 2026-03-18 after Phase 49 planning complete*
