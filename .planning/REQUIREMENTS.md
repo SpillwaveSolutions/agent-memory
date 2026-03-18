@@ -61,9 +61,9 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 ### Generic Skills Converter (SKL)
 
-- [ ] **SKL-01**: `--agent skills --dir <path>` installs to user-specified directory
-- [ ] **SKL-02**: Commands become skill directories, agents become orchestration skills
-- [ ] **SKL-03**: No runtime-specific transforms beyond path rewriting
+- [x] **SKL-01**: `--agent skills --dir <path>` installs to user-specified directory
+- [x] **SKL-02**: Commands become skill directories, agents become orchestration skills
+- [x] **SKL-03**: No runtime-specific transforms beyond path rewriting
 
 ### Hook Conversion (HOOK)
 
@@ -131,9 +131,9 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 | COP-01 | Phase 49 | Complete |
 | COP-02 | Phase 49 | Complete |
 | COP-03 | Phase 49 | Complete |
-| SKL-01 | Phase 49 | Pending |
-| SKL-02 | Phase 49 | Pending |
-| SKL-03 | Phase 49 | Pending |
+| SKL-01 | Phase 49 | Complete |
+| SKL-02 | Phase 49 | Complete |
+| SKL-03 | Phase 49 | Complete |
 | HOOK-01 | Phase 49 | Complete |
 | HOOK-02 | Phase 49 | Complete |
 | HOOK-03 | Phase 49 | Complete |
