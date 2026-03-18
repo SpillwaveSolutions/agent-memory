@@ -55,9 +55,9 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 ### Copilot Converter (COP)
 
-- [ ] **COP-01**: Commands converted to Copilot skill format under `.github/skills/`
-- [ ] **COP-02**: Agents converted to `.agent.md` format with Copilot tool names
-- [ ] **COP-03**: Hook definitions converted to `.github/hooks/` JSON format with shell scripts
+- [x] **COP-01**: Commands converted to Copilot skill format under `.github/skills/`
+- [x] **COP-02**: Agents converted to `.agent.md` format with Copilot tool names
+- [x] **COP-03**: Hook definitions converted to `.github/hooks/` JSON format with shell scripts
 
 ### Generic Skills Converter (SKL)
 
@@ -67,9 +67,9 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 ### Hook Conversion (HOOK)
 
-- [ ] **HOOK-01**: Canonical YAML hook definitions converted to per-runtime formats
-- [ ] **HOOK-02**: Hook event names mapped correctly per runtime (PascalCase/camelCase differences)
-- [ ] **HOOK-03**: Hook scripts generated with fail-open behavior and background execution
+- [x] **HOOK-01**: Canonical YAML hook definitions converted to per-runtime formats
+- [x] **HOOK-02**: Hook event names mapped correctly per runtime (PascalCase/camelCase differences)
+- [x] **HOOK-03**: Hook scripts generated with fail-open behavior and background execution
 
 ### Testing & Migration (MIG)
 
@@ -128,15 +128,15 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 | CDX-02 | Phase 48 | Complete |
 | CDX-03 | Phase 48 | Complete |
 | CDX-04 | Phase 48 | Complete |
-| COP-01 | Phase 49 | Pending |
-| COP-02 | Phase 49 | Pending |
-| COP-03 | Phase 49 | Pending |
+| COP-01 | Phase 49 | Complete |
+| COP-02 | Phase 49 | Complete |
+| COP-03 | Phase 49 | Complete |
 | SKL-01 | Phase 49 | Pending |
 | SKL-02 | Phase 49 | Pending |
 | SKL-03 | Phase 49 | Pending |
-| HOOK-01 | Phase 49 | Pending |
-| HOOK-02 | Phase 49 | Pending |
-| HOOK-03 | Phase 49 | Pending |
+| HOOK-01 | Phase 49 | Complete |
+| HOOK-02 | Phase 49 | Complete |
+| HOOK-03 | Phase 49 | Complete |
 | MIG-01 | Phase 50 | Pending |
 | MIG-02 | Phase 50 | Pending |
 | MIG-03 | Phase 50 | Pending |

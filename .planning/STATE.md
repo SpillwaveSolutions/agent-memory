@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: Multi-Runtime Portability
 status: completed
-stopped_at: Completed 48-01-PLAN.md
-last_updated: "2026-03-18T02:47:12.049Z"
+stopped_at: Completed 49-01-PLAN.md
+last_updated: "2026-03-18T05:05:49.714Z"
 last_activity: 2026-03-18 — Phase 48 Plan 01 Gemini converter complete
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
   percent: 50
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.7 Multi-Runtime Portability — Phase 48 complete (Gemini + Codex converters)
+**Current focus:** v2.7 Multi-Runtime Portability — Phase 49 Plan 01 complete (Copilot converter + hooks)
 
 ## Current Position
 
-Phase: 48 of 50 (Gemini & Codex Converters)
-Plan: 2 of 2 complete
-Status: Phase 48 complete -- both Gemini and Codex converters implemented
-Last activity: 2026-03-18 — Phase 48 Plan 01 Gemini converter complete
+Phase: 49 of 50 (Copilot, Skills & Hooks)
+Plan: 1 of 2 complete
+Status: Copilot converter and hook generation implemented
+Last activity: 2026-03-18 — Phase 49 Plan 01 Copilot converter complete
 
-Progress: [█████░░░░░] 50% (4/6 phases)
+Progress: [█████████░] 89% (8/9 plans)
 
 ## Decisions
 
@@ -60,6 +60,8 @@ Progress: [█████░░░░░] 50% (4/6 phases)
 - [Phase 48]: Agents become skill directories with SKILL.md (Gemini has no separate agent format)
 - [Phase 48]: Shell variable escaping: ${VAR} to $VAR for Gemini template compatibility
 - [Phase 48]: settings.json uses _comment array and __managed_by marker for safe merge
+- [Phase 49]: target_dir uses .github/ (not .github/copilot/) matching Copilot CLI discovery
+- [Phase 49]: Hook script embedded via include_str! from canonical adapter; camelCase events with bash/timeoutSec/comment fields
 
 ## Blockers
 
@@ -98,6 +100,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-18T02:44:04.290Z
-**Stopped At:** Completed 48-01-PLAN.md
+**Last Session:** 2026-03-18T05:05:49.711Z
+**Stopped At:** Completed 49-01-PLAN.md
 **Resume File:** None
