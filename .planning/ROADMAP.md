@@ -239,7 +239,7 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 45. Canonical Source Consolidation | 1/1 | Complete    | 2026-03-17 | - |
 | 46. Installer Crate Foundation | 3/3 | Complete    | 2026-03-17 | - |
 | 47. Claude & OpenCode Converters | 1/1 | Complete    | 2026-03-18 | - |
-| 48. Gemini & Codex Converters | 2/2 | Complete   | 2026-03-18 | - |
+| 48. Gemini & Codex Converters | 2/2 | Complete    | 2026-03-18 | - |
 | 49. Copilot, Generic Skills & Hook Porting | v2.7 | 0/TBD | Not started | - |
 | 50. Integration Testing & Migration | v2.7 | 0/TBD | Not started | - |
 
