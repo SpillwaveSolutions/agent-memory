@@ -129,7 +129,7 @@ See: `.planning/milestones/v2.6-ROADMAP.md`
 - [x] **Phase 45: Canonical Source Consolidation** - Prepare both plugin dirs as canonical source with installer discovery manifest (completed 2026-03-17)
 - [x] **Phase 46: Installer Crate Foundation** - New memory-installer crate with CLI, plugin parser, converter trait, and tool mapping tables (completed 2026-03-17)
 - [x] **Phase 47: Claude & OpenCode Converters** - Pass-through Claude converter and OpenCode flat-naming converter with dry-run support (completed 2026-03-18)
-- [ ] **Phase 48: Gemini & Codex Converters** - Gemini TOML converter with settings.json merge and Codex skills converter with AGENTS.md generation
+- [x] **Phase 48: Gemini & Codex Converters** - Gemini TOML converter with settings.json merge and Codex skills converter with AGENTS.md generation (completed 2026-03-18)
 - [ ] **Phase 49: Copilot, Generic Skills & Hook Porting** - Copilot converter, generic skills target, and cross-runtime hook conversion pipeline
 - [ ] **Phase 50: Integration Testing & Migration** - E2E install tests, adapter archival, and CI integration
 
@@ -239,7 +239,7 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 45. Canonical Source Consolidation | 1/1 | Complete    | 2026-03-17 | - |
 | 46. Installer Crate Foundation | 3/3 | Complete    | 2026-03-17 | - |
 | 47. Claude & OpenCode Converters | 1/1 | Complete    | 2026-03-18 | - |
-| 48. Gemini & Codex Converters | 1/2 | In Progress|  | - |
+| 48. Gemini & Codex Converters | 2/2 | Complete   | 2026-03-18 | - |
 | 49. Copilot, Generic Skills & Hook Porting | v2.7 | 0/TBD | Not started | - |
 | 50. Integration Testing & Migration | v2.7 | 0/TBD | Not started | - |
 

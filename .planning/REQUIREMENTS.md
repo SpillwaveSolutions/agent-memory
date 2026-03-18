@@ -39,12 +39,12 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 ### Gemini Converter (GEM)
 
-- [ ] **GEM-01**: Command frontmatter converted from YAML to TOML format
-- [ ] **GEM-02**: Agent `allowed-tools:` converted to `tools:` array with Gemini snake_case names
-- [ ] **GEM-03**: MCP and Task tools excluded from converted output (auto-discovered by Gemini)
-- [ ] **GEM-04**: `color:` and `skills:` fields stripped from agent frontmatter
-- [ ] **GEM-05**: Shell variable `${VAR}` escaped to `$VAR` (Gemini template engine conflict)
-- [ ] **GEM-06**: Hook definitions merged into `.gemini/settings.json` using managed-section markers
+- [x] **GEM-01**: Command frontmatter converted from YAML to TOML format
+- [x] **GEM-02**: Agent `allowed-tools:` converted to `tools:` array with Gemini snake_case names
+- [x] **GEM-03**: MCP and Task tools excluded from converted output (auto-discovered by Gemini)
+- [x] **GEM-04**: `color:` and `skills:` fields stripped from agent frontmatter
+- [x] **GEM-05**: Shell variable `${VAR}` escaped to `$VAR` (Gemini template engine conflict)
+- [x] **GEM-06**: Hook definitions merged into `.gemini/settings.json` using managed-section markers
 
 ### Codex Converter (CDX)
 
@@ -118,12 +118,12 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 | OC-04 | Phase 47 | Pending |
 | OC-05 | Phase 47 | Pending |
 | OC-06 | Phase 47 | Pending |
-| GEM-01 | Phase 48 | Pending |
-| GEM-02 | Phase 48 | Pending |
-| GEM-03 | Phase 48 | Pending |
-| GEM-04 | Phase 48 | Pending |
-| GEM-05 | Phase 48 | Pending |
-| GEM-06 | Phase 48 | Pending |
+| GEM-01 | Phase 48 | Complete |
+| GEM-02 | Phase 48 | Complete |
+| GEM-03 | Phase 48 | Complete |
+| GEM-04 | Phase 48 | Complete |
+| GEM-05 | Phase 48 | Complete |
+| GEM-06 | Phase 48 | Complete |
 | CDX-01 | Phase 48 | Complete |
 | CDX-02 | Phase 48 | Complete |
 | CDX-03 | Phase 48 | Complete |
