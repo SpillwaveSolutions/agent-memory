@@ -132,6 +132,35 @@ fn write_yaml_inline(out: &mut String, key: &str, val: &serde_json::Value) {
     }
 }
 
+/// Escape shell variables from `${VAR}` to `$VAR` for Gemini compatibility.
+///
+/// Gemini CLI uses `${...}` for template substitution, so shell-style
+/// `${HOME}` would conflict. Does NOT touch `{{...}}` (Gemini template
+/// syntax) or bare `$VAR` (already correct).
+pub fn escape_shell_vars(content: &str) -> String {
+    let mut result = String::with_capacity(content.len());
+    let bytes = content.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'$' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
+            // Emit $VAR without braces
+            result.push('$');
+            i += 2; // skip ${
+            while i < bytes.len() && bytes[i] != b'}' {
+                result.push(bytes[i] as char);
+                i += 1;
+            }
+            if i < bytes.len() {
+                i += 1; // skip }
+            }
+        } else {
+            result.push(bytes[i] as char);
+            i += 1;
+        }
+    }
+    result
+}
+
 /// Check if a YAML string value needs quoting.
 fn needs_quoting(s: &str) -> bool {
     if s.is_empty() {
@@ -279,5 +308,33 @@ mod tests {
         let content = "No paths here";
         let result = rewrite_paths(content, "~/.claude/", "~/.config/agent-memory/");
         assert_eq!(result, "No paths here");
+    }
+
+    #[test]
+    fn escape_shell_vars_basic() {
+        assert_eq!(escape_shell_vars("${HOME}/path"), "$HOME/path");
+    }
+
+    #[test]
+    fn escape_shell_vars_no_vars() {
+        assert_eq!(escape_shell_vars("no vars here"), "no vars here");
+    }
+
+    #[test]
+    fn escape_shell_vars_multiple() {
+        assert_eq!(
+            escape_shell_vars("${HOME} and ${USER}"),
+            "$HOME and $USER"
+        );
+    }
+
+    #[test]
+    fn escape_shell_vars_double_braces_untouched() {
+        assert_eq!(escape_shell_vars("{{args}} stays"), "{{args}} stays");
+    }
+
+    #[test]
+    fn escape_shell_vars_bare_dollar_untouched() {
+        assert_eq!(escape_shell_vars("$PLAIN stays"), "$PLAIN stays");
     }
 }
