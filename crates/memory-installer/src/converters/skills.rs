@@ -70,7 +70,11 @@ impl RuntimeConverter for SkillsConverter {
 
         // Collect tools using canonical Claude names (no remapping for generic skills)
         let mut tools: Vec<String> = Vec::new();
-        if let Some(allowed) = agent.frontmatter.get("allowed-tools").and_then(|v| v.as_array()) {
+        if let Some(allowed) = agent
+            .frontmatter
+            .get("allowed-tools")
+            .and_then(|v| v.as_array())
+        {
             for tool_val in allowed {
                 if let Some(tool_name) = tool_val.as_str() {
                     // Skip MCP tools
@@ -123,11 +127,7 @@ impl RuntimeConverter for SkillsConverter {
         files
     }
 
-    fn convert_hook(
-        &self,
-        _hook: &HookDefinition,
-        _cfg: &InstallConfig,
-    ) -> Option<ConvertedFile> {
+    fn convert_hook(&self, _hook: &HookDefinition, _cfg: &InstallConfig) -> Option<ConvertedFile> {
         // Generic skills have no hook system
         None
     }

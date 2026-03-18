@@ -82,7 +82,11 @@ impl RuntimeConverter for CodexConverter {
 
         // Map tools from allowed-tools frontmatter
         let mut tools: Vec<String> = Vec::new();
-        if let Some(allowed) = agent.frontmatter.get("allowed-tools").and_then(|v| v.as_array()) {
+        if let Some(allowed) = agent
+            .frontmatter
+            .get("allowed-tools")
+            .and_then(|v| v.as_array())
+        {
             for tool_val in allowed {
                 if let Some(tool_name) = tool_val.as_str() {
                     // Skip MCP tools
@@ -109,7 +113,9 @@ impl RuntimeConverter for CodexConverter {
                 full_body.push_str(&format!("- {tool}\n"));
             }
         }
-        full_body.push_str(&format!("\n## Sandbox\n\n**Recommended sandbox:** `{sandbox}`\n"));
+        full_body.push_str(&format!(
+            "\n## Sandbox\n\n**Recommended sandbox:** `{sandbox}`\n"
+        ));
 
         let content = reconstruct_md(&serde_json::Value::Object(fm), &full_body);
 
@@ -142,20 +148,12 @@ impl RuntimeConverter for CodexConverter {
         files
     }
 
-    fn convert_hook(
-        &self,
-        _hook: &HookDefinition,
-        _cfg: &InstallConfig,
-    ) -> Option<ConvertedFile> {
+    fn convert_hook(&self, _hook: &HookDefinition, _cfg: &InstallConfig) -> Option<ConvertedFile> {
         // Hooks deferred to Phase 49
         None
     }
 
-    fn generate_guidance(
-        &self,
-        bundle: &PluginBundle,
-        cfg: &InstallConfig,
-    ) -> Vec<ConvertedFile> {
+    fn generate_guidance(&self, bundle: &PluginBundle, cfg: &InstallConfig) -> Vec<ConvertedFile> {
         let target = self.target_dir(&cfg.scope);
         let mut md = String::new();
 
@@ -225,7 +223,9 @@ mod tests {
         );
         // Verify YAML frontmatter contains name and description
         assert!(files[0].content.contains("name: memory-search"));
-        assert!(files[0].content.contains("description: Search past conversations"));
+        assert!(files[0]
+            .content
+            .contains("description: Search past conversations"));
         // Verify path rewriting
         assert!(files[0].content.contains("~/.config/agent-memory/data"));
         assert!(!files[0].content.contains("~/.claude/data"));
@@ -261,7 +261,9 @@ mod tests {
         assert!(!files[0].content.contains("mcp__"));
         // Verify sandbox section
         assert!(files[0].content.contains("## Sandbox"));
-        assert!(files[0].content.contains("**Recommended sandbox:** `read-only`"));
+        assert!(files[0]
+            .content
+            .contains("**Recommended sandbox:** `read-only`"));
         // Verify path rewriting
         assert!(files[0].content.contains("~/.config/agent-memory/skills"));
     }

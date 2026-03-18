@@ -75,7 +75,7 @@ mod tests {
     }
 
     #[test]
-    fn unimplemented_converters_return_empty_results() {
+    fn implemented_converters_produce_nonempty_command_output() {
         let cfg = InstallConfig {
             scope: InstallScope::Project(PathBuf::from("/tmp/test")),
             dry_run: false,
@@ -83,17 +83,28 @@ mod tests {
         };
         let cmd = PluginCommand {
             name: "test-cmd".to_string(),
-            frontmatter: serde_json::Value::Null,
-            body: String::new(),
+            frontmatter: serde_json::json!({"description": "test"}),
+            body: "test body".to_string(),
             source_path: PathBuf::from("test.md"),
         };
 
-        // Claude, OpenCode, Gemini, Codex, and Copilot are implemented; Skills remains a stub.
-        let converter = select_converter(Runtime::Skills);
-        assert!(
-            converter.convert_command(&cmd, &cfg).is_empty(),
-            "stub converter for Skills should return empty Vec"
-        );
+        // All implemented converters produce at least one ConvertedFile.
+        // OpenCode is still a stub (Phase 47 scope) -- excluded here.
+        for runtime in [
+            Runtime::Claude,
+            Runtime::Gemini,
+            Runtime::Codex,
+            Runtime::Copilot,
+            Runtime::Skills,
+        ] {
+            let converter = select_converter(runtime);
+            let files = converter.convert_command(&cmd, &cfg);
+            assert!(
+                !files.is_empty(),
+                "{:?} converter should produce non-empty output for commands",
+                runtime
+            );
+        }
     }
 
     #[test]

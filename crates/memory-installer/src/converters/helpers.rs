@@ -322,10 +322,7 @@ mod tests {
 
     #[test]
     fn escape_shell_vars_multiple() {
-        assert_eq!(
-            escape_shell_vars("${HOME} and ${USER}"),
-            "$HOME and $USER"
-        );
+        assert_eq!(escape_shell_vars("${HOME} and ${USER}"), "$HOME and $USER");
     }
 
     #[test]

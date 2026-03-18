@@ -55,11 +55,12 @@ impl RuntimeConverter for GeminiConverter {
         );
         table.insert("prompt".to_string(), toml::Value::String(body));
 
-        let content =
-            toml::to_string_pretty(&toml::Value::Table(table)).unwrap_or_default();
+        let content = toml::to_string_pretty(&toml::Value::Table(table)).unwrap_or_default();
 
         vec![ConvertedFile {
-            target_path: target_dir.join("commands").join(format!("{}.toml", cmd.name)),
+            target_path: target_dir
+                .join("commands")
+                .join(format!("{}.toml", cmd.name)),
             content,
         }]
     }
@@ -130,11 +131,7 @@ impl RuntimeConverter for GeminiConverter {
         None
     }
 
-    fn generate_guidance(
-        &self,
-        _bundle: &PluginBundle,
-        cfg: &InstallConfig,
-    ) -> Vec<ConvertedFile> {
+    fn generate_guidance(&self, _bundle: &PluginBundle, cfg: &InstallConfig) -> Vec<ConvertedFile> {
         let target = self.target_dir(&cfg.scope);
 
         let cmd = "$HOME/.gemini/hooks/memory-capture.sh";

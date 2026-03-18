@@ -17,8 +17,9 @@ const COPILOT_PATH_FROM: &str = "~/.claude/";
 const COPILOT_PATH_TO: &str = "~/.config/agent-memory/";
 
 /// Embedded hook capture script from the canonical Copilot adapter.
-const HOOK_CAPTURE_SCRIPT: &str =
-    include_str!("../../../../plugins/memory-copilot-adapter/.github/hooks/scripts/memory-capture.sh");
+const HOOK_CAPTURE_SCRIPT: &str = include_str!(
+    "../../../../plugins/memory-copilot-adapter/.github/hooks/scripts/memory-capture.sh"
+);
 
 pub struct CopilotConverter;
 
@@ -76,7 +77,11 @@ impl RuntimeConverter for CopilotConverter {
 
         // Map tools from allowed-tools frontmatter
         let mut tools: Vec<String> = Vec::new();
-        if let Some(allowed) = agent.frontmatter.get("allowed-tools").and_then(|v| v.as_array()) {
+        if let Some(allowed) = agent
+            .frontmatter
+            .get("allowed-tools")
+            .and_then(|v| v.as_array())
+        {
             for tool_val in allowed {
                 if let Some(tool_name) = tool_val.as_str() {
                     // Skip MCP tools
@@ -133,20 +138,12 @@ impl RuntimeConverter for CopilotConverter {
         files
     }
 
-    fn convert_hook(
-        &self,
-        _hook: &HookDefinition,
-        _cfg: &InstallConfig,
-    ) -> Option<ConvertedFile> {
+    fn convert_hook(&self, _hook: &HookDefinition, _cfg: &InstallConfig) -> Option<ConvertedFile> {
         // Hooks are generated via generate_guidance, not per-hook conversion
         None
     }
 
-    fn generate_guidance(
-        &self,
-        _bundle: &PluginBundle,
-        cfg: &InstallConfig,
-    ) -> Vec<ConvertedFile> {
+    fn generate_guidance(&self, _bundle: &PluginBundle, cfg: &InstallConfig) -> Vec<ConvertedFile> {
         let target = self.target_dir(&cfg.scope);
         let script_path = ".github/hooks/scripts/memory-capture.sh";
 
@@ -240,7 +237,9 @@ mod tests {
         );
         // Verify YAML frontmatter contains name and description
         assert!(files[0].content.contains("name: memory-search"));
-        assert!(files[0].content.contains("description: Search past conversations"));
+        assert!(files[0]
+            .content
+            .contains("description: Search past conversations"));
         // Verify path rewriting
         assert!(files[0].content.contains("~/.config/agent-memory/data"));
         assert!(!files[0].content.contains("~/.claude/data"));
@@ -389,13 +388,16 @@ mod tests {
             entry.get("timeoutSec").is_some(),
             "must have 'timeoutSec' field"
         );
-        assert!(
-            entry.get("comment").is_some(),
-            "must have 'comment' field"
-        );
+        assert!(entry.get("comment").is_some(), "must have 'comment' field");
         // Must NOT have Gemini field names
-        assert!(entry.get("command").is_none(), "must not have 'command' field");
-        assert!(entry.get("timeout").is_none(), "must not have 'timeout' field");
+        assert!(
+            entry.get("command").is_none(),
+            "must not have 'command' field"
+        );
+        assert!(
+            entry.get("timeout").is_none(),
+            "must not have 'timeout' field"
+        );
         assert!(
             entry.get("description").is_none(),
             "must not have 'description' field"
@@ -444,9 +446,7 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&files[0].content).unwrap();
 
         // Verify bash field uses relative .github/hooks/scripts/ path
-        let bash = parsed["hooks"]["sessionStart"][0]["bash"]
-            .as_str()
-            .unwrap();
+        let bash = parsed["hooks"]["sessionStart"][0]["bash"].as_str().unwrap();
         assert!(
             bash.starts_with(".github/hooks/scripts/"),
             "bash field should use relative path, got: {bash}"
