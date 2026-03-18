@@ -214,6 +214,12 @@ Plans:
 **Goal**: The installer is proven correct by E2E tests, old adapter directories are safely archived, and the installer is integrated into CI
 **Depends on**: Phase 49
 **Requirements**: MIG-01, MIG-02, MIG-03, MIG-04
+**Plans:** 2 plans
+
+Plans:
+- [ ] 50-01-PLAN.md — E2E integration tests for all 6 converters (file structure + frontmatter)
+- [ ] 50-02-PLAN.md — Archive 3 old adapter directories with README stubs
+
 **Success Criteria** (what must be TRUE):
   1. E2E tests install to temp directories for each of the 6 runtimes and verify the produced file structure matches expected layouts (correct directories, files, naming conventions)
   2. E2E tests verify frontmatter conversion correctness including tool name mapping, format conversion (YAML to TOML for Gemini), and field transformations per runtime
