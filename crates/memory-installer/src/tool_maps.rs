@@ -100,7 +100,11 @@ pub fn map_tool(runtime: Runtime, claude_name: &str) -> Option<&'static str> {
 
         // Unknown tool name for any runtime
         _ => {
-            tracing::warn!("unmapped tool '{}' for {:?} — skipping", claude_name, runtime);
+            tracing::warn!(
+                "unmapped tool '{}' for {:?} — skipping",
+                claude_name,
+                runtime
+            );
             None
         }
     }

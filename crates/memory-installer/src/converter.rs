@@ -75,7 +75,7 @@ mod tests {
     }
 
     #[test]
-    fn all_converters_return_empty_results_for_stubs() {
+    fn unimplemented_converters_return_empty_results() {
         let cfg = InstallConfig {
             scope: InstallScope::Project(PathBuf::from("/tmp/test")),
             dry_run: false,
@@ -88,9 +88,8 @@ mod tests {
             source_path: PathBuf::from("test.md"),
         };
 
+        // Claude and OpenCode are implemented; these 4 remain stubs.
         for runtime in [
-            Runtime::Claude,
-            Runtime::OpenCode,
             Runtime::Gemini,
             Runtime::Codex,
             Runtime::Copilot,
