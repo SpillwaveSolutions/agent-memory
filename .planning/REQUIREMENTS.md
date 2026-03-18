@@ -48,10 +48,10 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 ### Codex Converter (CDX)
 
-- [ ] **CDX-01**: Commands converted to Codex skill directories (each command becomes a SKILL.md)
-- [ ] **CDX-02**: Agents converted to orchestration skill directories
-- [ ] **CDX-03**: `AGENTS.md` generated from agent metadata for project-level Codex guidance
-- [ ] **CDX-04**: Sandbox permissions mapped per agent (workspace-write vs read-only)
+- [x] **CDX-01**: Commands converted to Codex skill directories (each command becomes a SKILL.md)
+- [x] **CDX-02**: Agents converted to orchestration skill directories
+- [x] **CDX-03**: `AGENTS.md` generated from agent metadata for project-level Codex guidance
+- [x] **CDX-04**: Sandbox permissions mapped per agent (workspace-write vs read-only)
 
 ### Copilot Converter (COP)
 
@@ -124,10 +124,10 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 | GEM-04 | Phase 48 | Pending |
 | GEM-05 | Phase 48 | Pending |
 | GEM-06 | Phase 48 | Pending |
-| CDX-01 | Phase 48 | Pending |
-| CDX-02 | Phase 48 | Pending |
-| CDX-03 | Phase 48 | Pending |
-| CDX-04 | Phase 48 | Pending |
+| CDX-01 | Phase 48 | Complete |
+| CDX-02 | Phase 48 | Complete |
+| CDX-03 | Phase 48 | Complete |
+| CDX-04 | Phase 48 | Complete |
 | COP-01 | Phase 49 | Pending |
 | COP-02 | Phase 49 | Pending |
 | COP-03 | Phase 49 | Pending |

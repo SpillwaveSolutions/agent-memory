@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: Multi-Runtime Portability
 status: completed
-stopped_at: Completed 47-01-PLAN.md
-last_updated: "2026-03-18T02:15:02.275Z"
-last_activity: 2026-03-18 — Phase 47 Plan 01 Claude converter complete
+stopped_at: Completed 48-02-PLAN.md
+last_updated: "2026-03-18T02:43:51.953Z"
+last_activity: 2026-03-18 — Phase 48 Plan 02 Codex converter complete
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
-  percent: 44
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 7
+  percent: 45
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v2.7 Multi-Runtime Portability — Phase 47 Plan 01 complete, Plan 02 next
+**Current focus:** v2.7 Multi-Runtime Portability — Phase 48 Plan 02 complete (Codex converter)
 
 ## Current Position
 
-Phase: 47 of 50 (Claude & OpenCode Converters)
-Plan: 1 of 2 complete
-Status: Plan 01 (Claude converter) complete, Plan 02 (OpenCode converter) next
-Last activity: 2026-03-18 — Phase 47 Plan 01 Claude converter complete
+Phase: 48 of 50 (Gemini & Codex Converters)
+Plan: 2 of 2 complete (pending Plan 01 Gemini)
+Status: Plan 02 (Codex converter) complete
+Last activity: 2026-03-18 — Phase 48 Plan 02 Codex converter complete
 
-Progress: [████░░░░░░] 44% (3/6 phases)
+Progress: [█████░░░░░] 45% (3/6 phases)
 
 ## Decisions
 
@@ -54,6 +54,9 @@ Progress: [████░░░░░░] 44% (3/6 phases)
 - [Phase 46]: Write-interceptor pattern: all converters produce Vec<ConvertedFile>, single write_files() handles dry-run
 - [Phase 47]: format!-based YAML emitter with quoting for special chars and block scalar for multiline
 - [Phase 47]: Shared helpers in converters/helpers.rs reusable by all converters
+- [Phase 48]: Codex commands become skills/{name}/SKILL.md with YAML frontmatter
+- [Phase 48]: AGENTS.md generated with skills list, agent descriptions, and sandbox recommendations
+- [Phase 48]: Tool deduplication applied after Codex mapping (Write and Edit both map to edit)
 
 ## Blockers
 
@@ -92,6 +95,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-18T02:11:48.617Z
-**Stopped At:** Completed 47-01-PLAN.md
+**Last Session:** 2026-03-18T02:43:34.210Z
+**Stopped At:** Completed 48-02-PLAN.md
 **Resume File:** None
