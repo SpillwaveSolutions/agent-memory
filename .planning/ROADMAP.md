@@ -174,7 +174,11 @@ Plans:
   2. Running `memory-installer install --agent opencode --global` installs commands with flat naming (`command/` not `commands/`), agent frontmatter with `tools:` object format, lowercase tool names, hex color values, and correct OpenCode paths
   3. OpenCode installation auto-configures `opencode.json` with read permissions for installed skill paths
   4. The `--dry-run` flag works for both converters, printing planned writes without touching the filesystem
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 48-01-PLAN.md — Gemini converter (TOML commands, agent-to-skill, settings.json hooks, shell var escaping)
+- [ ] 48-02-PLAN.md — Codex converter (command-to-skill, agent-to-skill, AGENTS.md generation, sandbox mapping)
 
 ### Phase 48: Gemini & Codex Converters
 **Goal**: Users can install the memory plugin for Gemini (TOML format with settings.json hook merge) and Codex (commands-to-skills with AGENTS.md) via the installer CLI
@@ -185,7 +189,11 @@ Plans:
   2. Gemini hook definitions are merged into `.gemini/settings.json` using managed-section markers without clobbering existing user settings
   3. Running `memory-installer install --agent codex --project` converts commands to Codex skill directories (each with SKILL.md) and generates an `AGENTS.md` from agent metadata
   4. Codex sandbox permissions are correctly mapped per agent (workspace-write for setup agents, read-only for query agents)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 48-01-PLAN.md — Gemini converter (TOML commands, agent-to-skill, settings.json hooks, shell var escaping)
+- [ ] 48-02-PLAN.md — Codex converter (command-to-skill, agent-to-skill, AGENTS.md generation, sandbox mapping)
 
 ### Phase 49: Copilot, Generic Skills & Hook Porting
 **Goal**: Users can install the memory plugin for Copilot and any generic skill runtime, and all runtimes receive correctly formatted hook definitions for event capture
@@ -196,7 +204,11 @@ Plans:
   2. Running `memory-installer install --agent skills --dir /path/to/target` installs commands as skill directories and agents as orchestration skills with no runtime-specific transforms beyond path rewriting
   3. Hook definitions are converted correctly per runtime with proper event name mapping (PascalCase for Gemini, camelCase for Copilot, etc.) and generated hook scripts use fail-open behavior with background execution
   4. All 6 runtime targets are available via the `--agent` flag and produce valid installations
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 48-01-PLAN.md — Gemini converter (TOML commands, agent-to-skill, settings.json hooks, shell var escaping)
+- [ ] 48-02-PLAN.md — Codex converter (command-to-skill, agent-to-skill, AGENTS.md generation, sandbox mapping)
 
 ### Phase 50: Integration Testing & Migration
 **Goal**: The installer is proven correct by E2E tests, old adapter directories are safely archived, and the installer is integrated into CI
