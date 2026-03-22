@@ -222,18 +222,12 @@ mod tests {
 
     #[test]
     fn test_should_force_json_global() {
-        assert!(should_force_json(
-            &Some("json".to_string()),
-            &None
-        ));
+        assert!(should_force_json(&Some("json".to_string()), &None));
     }
 
     #[test]
     fn test_should_force_json_cmd() {
-        assert!(should_force_json(
-            &None,
-            &Some("json".to_string())
-        ));
+        assert!(should_force_json(&None, &Some("json".to_string())));
     }
 
     #[test]
@@ -243,10 +237,7 @@ mod tests {
 
     #[test]
     fn test_should_force_json_non_json() {
-        assert!(!should_force_json(
-            &Some("table".to_string()),
-            &None
-        ));
+        assert!(!should_force_json(&Some("table".to_string()), &None));
     }
 
     #[test]

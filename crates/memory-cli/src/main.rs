@@ -3,7 +3,6 @@
 mod cli;
 mod client;
 mod commands;
-#[allow(dead_code)] // Functions used by command implementations (subsequent plans)
 mod output;
 
 use clap::Parser;
