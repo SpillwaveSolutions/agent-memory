@@ -152,9 +152,7 @@ fn claude_full_bundle() {
     let guidance_count = files
         .iter()
         .filter(|f| {
-            !f.target_path
-                .to_string_lossy()
-                .contains("commands")
+            !f.target_path.to_string_lossy().contains("commands")
                 && !f.target_path.to_string_lossy().contains("agents")
                 && !f.target_path.to_string_lossy().contains("skills")
         })
@@ -499,9 +497,7 @@ fn skills_full_bundle() {
     let guidance_count = files
         .iter()
         .filter(|f| {
-            !f.target_path
-                .to_string_lossy()
-                .contains("SKILL.md")
+            !f.target_path.to_string_lossy().contains("SKILL.md")
                 && !f.target_path.to_string_lossy().contains("rules/")
         })
         .count();
