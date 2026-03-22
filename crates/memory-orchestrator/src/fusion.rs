@@ -4,7 +4,7 @@
 //! all lists, then sorting by cumulative score. Documents appearing in more
 //! lists receive a consensus boost.
 
-use memory_retrieval::{RetrievalLayer, SearchResult};
+use memory_retrieval::SearchResult;
 use std::collections::HashMap;
 
 /// A search result after RRF fusion with its cumulative RRF score.
@@ -57,6 +57,7 @@ pub fn rrf_fuse(lists: Vec<Vec<SearchResult>>, k: f64) -> Vec<FusedResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use memory_retrieval::RetrievalLayer;
 
     fn make_result(id: &str, score: f32, layer: RetrievalLayer) -> SearchResult {
         SearchResult {
