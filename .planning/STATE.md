@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Competitive Parity & Benchmarks
 status: unknown
-stopped_at: Completed 52-02-PLAN.md
+stopped_at: Completed 52-03-PLAN.md (phase 52 complete)
 last_updated: "2026-03-22T05:02:27.035Z"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 52 (simple-cli-api) — EXECUTING
-Plan: 3 of 3
+Phase: 52 (simple-cli-api) — COMPLETE
+Plan: 3 of 3 (all complete)
 
 ## Performance Metrics
 
@@ -52,6 +52,9 @@ See .planning/MILESTONES.md
 - [Phase 51]: MemoryOrchestrator accepts Box<dyn Reranker> via with_reranker() for test injection
 - [Phase 52]: All CLI commands route through gRPC (no direct RocksDB access)
 - [Phase 52]: JsonEnvelope output pattern: ok/error/context_ok constructors, TTY detection via IsTerminal
+- [Phase 52]: CLI events use EventRole::User with ULID session IDs prefixed cli-
+- [Phase 52]: Timeline entity filter is client-side (daemon get_events lacks entity parameter)
+- [Phase 52]: Summary browses one TOC level deep from overlapping root nodes
 - [Phase 52]: RetrievalLayer mapped by proto i32 values (topics=1, hybrid=2, vector=3, bm25=4, agentic=5)
 - [Phase 52]: Context key_entities uses doc_id+doc_type pairs; recall rerank flag is informational-only
 
@@ -88,6 +91,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-22T05:14:44Z
-**Stopped At:** Completed 52-02-PLAN.md
+**Last Session:** 2026-03-22T05:19:33Z
+**Stopped At:** Completed 52-03-PLAN.md (phase 52 complete)
 **Resume File:** None

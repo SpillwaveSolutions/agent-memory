@@ -142,7 +142,7 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 **Milestone Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
 
 - [x] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor (completed 2026-03-22)
-- [ ] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands
+- [x] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands (completed 2026-03-22)
 - [ ] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring
 
 ## Phase Details
