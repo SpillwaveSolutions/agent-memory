@@ -174,11 +174,12 @@ Plans:
   3. Running `memory add "note"` writes an event via gRPC; exits non-zero with a clear error when the daemon is not running
   4. Output is human-readable in a terminal and JSON when piped (TTY detection), and all commands exit 0 on success / non-zero on hard failure
   5. Running `memory context` returns structured context suitable for prompt injection, including `meta.tokens_estimated` in the JSON envelope
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 52-01: TBD
-- [ ] 52-02: TBD
+- [ ] 52-01-PLAN.md — Scaffold crate, CLI structs, JsonEnvelope, client helper, route_query RPC
+- [ ] 52-02-PLAN.md — Search, context, and recall commands (read path via gRPC)
+- [ ] 52-03-PLAN.md — Add, timeline, summary commands and full QA verification
 
 ### Phase 53: Benchmark Suite
 **Goal**: Users can measure and compare Agent Memory retrieval quality with reproducible benchmarks and a publishable LOCOMO score
@@ -212,8 +213,8 @@ Phases execute in numeric order: 51 -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 | 0/TBD | In progress | - |
+| v3.0 Competitive Parity | 51-53 | 3/TBD | In progress | - |
 
 ---
 
-*Updated: 2026-03-22 after Phase 51 planning*
+*Updated: 2026-03-22 after Phase 52 planning*
