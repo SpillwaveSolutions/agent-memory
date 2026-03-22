@@ -1,0 +1,32 @@
+[package]
+name = "memory-installer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Install memory-agent plugins for various AI runtimes"
+
+[[bin]]
+name = "memory-installer"
+path = "src/main.rs"
+
+[lib]
+name = "memory_installer"
+path = "src/lib.rs"
+
+[dependencies]
+gray_matter = { workspace = true }
+walkdir = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+directories = { workspace = true }
+shellexpand = "3.1"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

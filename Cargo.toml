@@ -17,6 +17,7 @@ members = [
     "crates/memory-topics",
     "crates/memory-types",
     "crates/memory-vector",
+    "crates/memory-installer",
 ]
 
 [workspace.package]
@@ -127,3 +128,9 @@ toml = "0.8"
 
 # Futures utilities
 futures = "0.3"
+
+# Frontmatter parsing
+gray_matter = { version = "0.3", features = ["yaml"] }
+
+# Directory traversal
+walkdir = "2.5"

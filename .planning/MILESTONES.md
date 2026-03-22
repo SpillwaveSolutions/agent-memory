@@ -1,5 +1,33 @@
 # Project Milestones: Agent Memory
 
+## v2.7 Multi-Runtime Portability (Shipped: 2026-03-22)
+
+**Delivered:** Rust-based multi-runtime installer that converts canonical Claude plugin source into runtime-specific installations for 6 targets, replacing 5 manually-maintained adapter directories with a single conversion pipeline.
+
+**Phases completed:** 45-50 (6 phases, 11 plans)
+
+**Key accomplishments:**
+
+- `memory-installer` crate with `RuntimeConverter` trait and 6 runtime converters (Claude, Gemini, Codex, Copilot, Skills, OpenCode stub)
+- Plugin parser with 2-level discovery (installer-sources.json → marketplace.json) and gray_matter frontmatter extraction
+- Centralized tool mapping tables: 11 Claude tool names mapped across 6 runtimes with compile-time exhaustive match expressions
+- format!-based YAML/TOML emitters with proper quoting, block scalars, and path rewriting helpers
+- 7 E2E integration tests proving full convert-and-write pipeline for all runtimes
+- 3 old adapter directories archived with README stubs (51 files, 12K+ lines removed)
+
+**Known Gaps:**
+
+- OC-01–06: OpenCode converter is a stub (deferred — OpenCode runtime format still evolving)
+
+**Stats:**
+
+- ~56,400 total LOC Rust across 15 crates
+- 3,700 LOC in memory-installer crate
+- 111 cargo tests (104 unit + 7 integration)
+- Timeline: 2026-03-17 → 2026-03-22 (5 days)
+
+---
+
 ## v2.5 Semantic Dedup & Retrieval Quality (Shipped: 2026-03-10)
 
 **Delivered:** Ingest-time semantic dedup via vector similarity gate with configurable threshold, query-time stale filtering with time-decay and supersession detection, and 10 E2E tests proving the complete pipeline.
@@ -169,7 +197,7 @@
 **Phases completed:** 34 phases, 113 plans, 49 tasks
 
 **Key accomplishments:**
+
 - (none recorded)
 
 ---
-
