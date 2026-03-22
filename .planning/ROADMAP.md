@@ -214,7 +214,7 @@ Plans:
 **Goal**: The installer is proven correct by E2E tests, old adapter directories are safely archived, and the installer is integrated into CI
 **Depends on**: Phase 49
 **Requirements**: MIG-01, MIG-02, MIG-03, MIG-04
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 50-01-PLAN.md — E2E integration tests for all 6 converters (file structure + frontmatter)
@@ -247,7 +247,7 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 47. Claude & OpenCode Converters | 1/1 | Complete    | 2026-03-18 | - |
 | 48. Gemini & Codex Converters | 2/2 | Complete    | 2026-03-18 | - |
 | 49. Copilot, Generic Skills & Hook Porting | 2/2 | Complete    | 2026-03-18 | - |
-| 50. Integration Testing & Migration | v2.7 | 0/TBD | Not started | - |
+| 50. Integration Testing & Migration | 1/2 | In Progress|  | - |
 
 ---
 
