@@ -125,10 +125,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cross_encoder_falls_back_to_heuristic() {
-        let results = vec![
-            make_fused("a", 0.9),
-            make_fused("b", 0.5),
-        ];
+        let results = vec![make_fused("a", 0.9), make_fused("b", 0.5)];
 
         let reranker = CrossEncoderReranker::default();
         let reranked = reranker.rerank("test query", results).await.unwrap();
