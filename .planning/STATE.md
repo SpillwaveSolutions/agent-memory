@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Competitive Parity & Benchmarks
 status: unknown
-stopped_at: Completed 52-01-PLAN.md
+stopped_at: Completed 52-02-PLAN.md
 last_updated: "2026-03-22T05:02:27.035Z"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 52 (simple-cli-api) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -52,6 +52,8 @@ See .planning/MILESTONES.md
 - [Phase 51]: MemoryOrchestrator accepts Box<dyn Reranker> via with_reranker() for test injection
 - [Phase 52]: All CLI commands route through gRPC (no direct RocksDB access)
 - [Phase 52]: JsonEnvelope output pattern: ok/error/context_ok constructors, TTY detection via IsTerminal
+- [Phase 52]: RetrievalLayer mapped by proto i32 values (topics=1, hybrid=2, vector=3, bm25=4, agentic=5)
+- [Phase 52]: Context key_entities uses doc_id+doc_type pairs; recall rerank flag is informational-only
 
 ## Blockers
 
@@ -86,6 +88,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-22T05:09:04Z
-**Stopped At:** Completed 52-01-PLAN.md
+**Last Session:** 2026-03-22T05:14:44Z
+**Stopped At:** Completed 52-02-PLAN.md
 **Resume File:** None
