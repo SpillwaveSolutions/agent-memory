@@ -3,6 +3,7 @@
 mod cli;
 mod client;
 mod commands;
+#[allow(dead_code)] // Functions used by command implementations (subsequent plans)
 mod output;
 
 use clap::Parser;
@@ -32,20 +33,8 @@ async fn main() {
     };
 
     if let Err(err) = result {
-        let envelope = JsonEnvelope {
-            status: "error".to_string(),
-            query: None,
-            results: None,
-            context: None,
-            error: Some(format!("{err:#}")),
-            meta: output::Meta::default(),
-        };
-        // Always print errors as JSON to stderr for programmatic consumption
-        if let Ok(json) = serde_json::to_string(&envelope) {
-            eprintln!("{json}");
-        } else {
-            eprintln!("Error: {err:#}");
-        }
+        let envelope = JsonEnvelope::error(&format!("{err:#}"));
+        eprintln!("{}", envelope.to_json_string());
         process::exit(1);
     }
 }
