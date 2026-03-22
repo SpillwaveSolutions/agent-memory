@@ -2,29 +2,12 @@
 
 ## Current State
 
-**Version:** v2.7 (In Progress)
-**Status:** Building multi-runtime installer for cross-platform plugin portability
-
-## Current Milestone: v2.7 Multi-Runtime Portability
-
-**Goal:** Build a Rust-based installer that converts the canonical Claude plugin source into runtime-specific installations for Claude, OpenCode, Gemini, Codex, and generic skill runtimes — replacing manually-maintained adapter directories.
-
-**Target features:**
-- Consolidated canonical plugin source tree (merge query+setup plugins)
-- Rust `memory-installer` crate with CLI, plugin parser, converter trait
-- Claude pass-through converter
-- OpenCode converter (flat naming, tools object, permissions)
-- Gemini converter (TOML format, tool mapping, settings.json hooks)
-- Codex converter (commands→skills, AGENTS.md generation)
-- Generic skill-runtime target (`--agent skills --dir <path>`)
-- Hook conversion pipeline (per-runtime hook formats)
-- Retire manually-maintained adapters
+**Version:** v2.7 (Shipped 2026-03-22)
+**Status:** Planning v3.0
 
 **Previous version:** v2.6 (Shipped 2026-03-16) — BM25 hybrid wiring, salience/usage decay, lifecycle automation, observability RPCs, episodic memory
 
-**Plan reference:** `docs/plans/v2.7-multi-runtime-portability-plan.md`
-
-The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, and comprehensive testing:
+The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, multi-runtime installer, and comprehensive testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)
 - Layer 1: TOC Hierarchy (time-based navigation) — contributing_agents tracking
 - Layer 2: Agentic TOC Search (index-free, always works)
@@ -34,14 +17,15 @@ The system implements a complete 6-layer cognitive stack with control plane, mul
 - Layer 6: Ranking Policy (salience, usage, novelty, lifecycle) + StaleFilter (time-decay, supersession)
 - Control: Retrieval Policy (intent routing, tier detection, fallbacks)
 - Dedup: InFlightBuffer + HNSW composite gate, configurable threshold, fail-open
-- Adapters: Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI
+- Installer: memory-installer crate with RuntimeConverter trait, 6 converters, tool mapping tables
+- Adapters: Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI (via installer)
 - Discovery: ListAgents, GetAgentActivity, agent-filtered topics
-- Testing: 39 cargo E2E tests + 144 bats CLI tests across 5 CLIs
+- Testing: 46 cargo E2E tests + 144 bats CLI tests across 5 CLIs
 - CI/CD: Dedicated E2E job + CLI matrix report in GitHub Actions
 - Setup: Quickstart, full guide, agent setup docs + 4 wizard-style setup skills
 - Benchmarks: perf_bench harness with baseline metrics across all retrieval layers
 
-48,282 LOC Rust across 14 crates. 5 adapters (4 plugins + 1 adapter). 4 setup skills. 39 E2E tests + 144 bats tests. Cross-CLI matrix report.
+~56,400 LOC Rust across 15 crates. memory-installer with 6 runtime converters. 46 E2E tests + 144 bats tests. Cross-CLI matrix report.
 
 ## What This Is
 
@@ -228,29 +212,40 @@ Agent Memory implements a layered cognitive architecture:
 - [x] Configurable staleness parameters via config.toml — v2.5
 - [x] 10 E2E tests proving dedup, stale filtering, and fail-open — v2.5
 
-### Active (v2.6)
+### Validated (v2.6 - Shipped 2026-03-16)
 
-**Hybrid Search**
-- [ ] BM25 wired into hybrid search handler and retrieval routing
+**Cognitive Retrieval (v2.6)**
+- [x] BM25 wired into hybrid search handler and retrieval routing — v2.6
+- [x] Salience scoring at write time (TOC nodes, Grips) — v2.6
+- [x] Usage-based decay in retrieval ranking (access_count tracking) — v2.6
+- [x] Vector index pruning via scheduler job — v2.6
+- [x] BM25 lifecycle policy with level-filtered rebuild — v2.6
+- [x] Admin RPCs for dedup metrics (buffer_size, events skipped) — v2.6
+- [x] Ranking metrics exposure (salience distribution, usage stats) — v2.6
+- [x] `deduplicated` field in IngestEventResponse — v2.6
+- [x] Episode schema and RocksDB storage (CF_EPISODES) — v2.6
+- [x] gRPC RPCs (StartEpisode, RecordAction, CompleteEpisode, GetSimilarEpisodes) — v2.6
+- [x] Value-based retention (outcome score sweet spot) — v2.6
+- [x] Retrieval integration for similar episode search — v2.6
 
-**Ranking Quality**
-- [ ] Salience scoring at write time (TOC nodes, Grips)
-- [ ] Usage-based decay in retrieval ranking (access_count tracking)
+### Validated (v2.7 - Shipped 2026-03-22)
 
-**Lifecycle Automation**
-- [ ] Vector index pruning via scheduler job
-- [ ] BM25 lifecycle policy with level-filtered rebuild
+**Multi-Runtime Portability (v2.7)**
+- [x] Canonical plugin source from both `memory-query-plugin/` and `memory-setup-plugin/` directories — v2.7
+- [x] `memory-installer` crate with CLI, plugin parser, RuntimeConverter trait — v2.7
+- [x] Centralized tool mapping tables (11 tools × 6 runtimes) — v2.7
+- [x] Claude converter (pass-through with path rewriting) — v2.7
+- [x] Gemini converter (TOML format, tool mapping, settings.json hook merge) — v2.7
+- [x] Codex converter (commands→skills, AGENTS.md generation) — v2.7
+- [x] Copilot converter (skill format, .agent.md, hook scripts) — v2.7
+- [x] Generic skills converter (runtime-agnostic, user-specified directory) — v2.7
+- [x] Hook conversion with per-runtime formats and fail-open scripts — v2.7
+- [x] 7 E2E integration tests for full converter pipeline — v2.7
+- [x] Old adapter directories archived with README stubs — v2.7
 
-**Observability**
-- [ ] Admin RPCs for dedup metrics (buffer_size, events skipped)
-- [ ] Ranking metrics exposure (salience distribution, usage stats)
-- [ ] `deduplicated` field in IngestEventResponse
+### Known Gaps (v2.7)
 
-**Episodic Memory**
-- [ ] Episode schema and RocksDB storage (CF_EPISODES)
-- [ ] gRPC RPCs (StartEpisode, RecordAction, CompleteEpisode, GetSimilarEpisodes)
-- [ ] Value-based retention (outcome score sweet spot)
-- [ ] Retrieval integration for similar episode search
+- OC-01–06: OpenCode converter is a stub (methods return empty). Deferred to v3.0.
 
 ### Deferred / Future
 
@@ -357,5 +352,14 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | CompositeVectorIndex for cross-session dedup | Searches both HNSW and InFlightBuffer, returns highest score | ✓ Validated v2.5 |
 | std::sync::RwLock for InFlightBuffer | Operations are sub-microsecond; tokio RwLock overhead unnecessary | ✓ Validated v2.5 |
 
+| Canonical source: keep two plugin dirs | User decision; installer reads from both via discovery manifest | ✓ Validated v2.7 |
+| RuntimeConverter trait with Box<dyn> dispatch | Extensible without enum changes; each runtime is independent impl | ✓ Validated v2.7 |
+| format!-based YAML/TOML emitters | No serde_yaml dependency; full control over quoting and block scalars | ✓ Validated v2.7 |
+| Match expressions for tool maps | Compile-time exhaustive, zero overhead vs HashMap | ✓ Validated v2.7 |
+| Write-interceptor for dry-run | Single write_files() handles dry-run; converters produce data only | ✓ Validated v2.7 |
+| Hooks generated per-converter | Each runtime's hook mechanism too different for canonical YAML format | ✓ Validated v2.7 |
+| OpenCode converter as stub | Full impl deferred; OpenCode runtime format still evolving | — Deferred v2.7 |
+| Archive adapters (not delete) | One release cycle before removal; README stubs redirect to installer | ✓ Validated v2.7 |
+
 ---
-*Last updated: 2026-03-10 after v2.6 milestone start*
+*Last updated: 2026-03-22 after v2.7 milestone*
