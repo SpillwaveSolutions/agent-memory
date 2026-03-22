@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 memory-client = { path = "../memory-client" }
+memory-service = { workspace = true }
 memory-types = { workspace = true }
 clap = { workspace = true }
 tokio = { workspace = true }
