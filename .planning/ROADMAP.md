@@ -157,11 +157,12 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
   3. When LLM rerank mode is enabled, results are reordered by the configured LLM client (verified with mock)
   4. ContextBuilder produces a structured MemoryContext with summary, events, entities, and estimated token count
   5. The existing memory-retrieval crate compiles and passes all tests unchanged
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 51-01: TBD
-- [ ] 51-02: TBD
+- [ ] 51-01-PLAN.md — Scaffold crate, core types, and query expansion
+- [ ] 51-02-PLAN.md — RRF fusion, reranker trait, and context builder
+- [ ] 51-03-PLAN.md — Wire MemoryOrchestrator and full QA
 
 ### Phase 52: Simple CLI API
 **Goal**: Users can interact with Agent Memory through a single `memory` binary that provides search, context injection, recall, add, timeline, and summary — with sensible defaults and TTY-aware output
@@ -211,8 +212,8 @@ Phases execute in numeric order: 51 -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 | 0/TBD | Not started | - |
+| v3.0 Competitive Parity | 51-53 | 0/TBD | In progress | - |
 
 ---
 
-*Updated: 2026-03-21 after v3.0 roadmap creation*
+*Updated: 2026-03-22 after Phase 51 planning*
