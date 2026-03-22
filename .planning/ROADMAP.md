@@ -11,6 +11,7 @@
 - ✅ **v2.5 Semantic Dedup & Retrieval Quality** — Phases 35-38 (shipped 2026-03-10)
 - ✅ **v2.6 Cognitive Retrieval** — Phases 39-44 (shipped 2026-03-16)
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
+- **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 (in progress)
 
 ## Phases
 
@@ -136,7 +137,68 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 
 </details>
 
+### v3.0 Competitive Parity & Benchmarks (In Progress)
+
+**Milestone Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
+
+- [ ] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor
+- [ ] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands
+- [ ] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring
+
+## Phase Details
+
+### Phase 51: Retrieval Orchestrator
+**Goal**: Users get higher-quality retrieval results through multi-index fusion, query expansion, and optional LLM reranking — all without changes to existing retrieval internals
+**Depends on**: v2.7 shipped (Phase 50)
+**Requirements**: ORCH-01, ORCH-02, ORCH-03, ORCH-04, ORCH-05, ORCH-06, ORCH-07, ORCH-08
+**Success Criteria** (what must be TRUE):
+  1. A query sent through the orchestrator returns fused results from multiple indexes with RRF scoring that differs from any single-index ranking when scores diverge
+  2. The orchestrator returns results even when one or more of the four indexes returns empty (fail-open behavior)
+  3. When LLM rerank mode is enabled, results are reordered by the configured LLM client (verified with mock)
+  4. ContextBuilder produces a structured MemoryContext with summary, events, entities, and estimated token count
+  5. The existing memory-retrieval crate compiles and passes all tests unchanged
+**Plans**: TBD
+
+Plans:
+- [ ] 51-01: TBD
+- [ ] 51-02: TBD
+
+### Phase 52: Simple CLI API
+**Goal**: Users can interact with Agent Memory through a single `memory` binary that provides search, context injection, recall, add, timeline, and summary — with sensible defaults and TTY-aware output
+**Depends on**: Phase 51
+**Requirements**: CLI-01, CLI-02, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07, CLI-08, CLI-09, CLI-10
+**Success Criteria** (what must be TRUE):
+  1. Running `memory search "query"` returns ranked results; `--format=json` produces a JSON envelope with results, meta, and confidence
+  2. Running `memory recall` returns LLM-reranked top-10 results (delegates to search with rerank flags)
+  3. Running `memory add "note"` writes an event via gRPC; exits non-zero with a clear error when the daemon is not running
+  4. Output is human-readable in a terminal and JSON when piped (TTY detection), and all commands exit 0 on success / non-zero on hard failure
+  5. Running `memory context` returns structured context suitable for prompt injection, including `meta.tokens_estimated` in the JSON envelope
+**Plans**: TBD
+
+Plans:
+- [ ] 52-01: TBD
+- [ ] 52-02: TBD
+
+### Phase 53: Benchmark Suite
+**Goal**: Users can measure and compare Agent Memory retrieval quality with reproducible benchmarks and a publishable LOCOMO score
+**Depends on**: Phase 52
+**Requirements**: BENCH-01, BENCH-02, BENCH-03, BENCH-04, BENCH-05, BENCH-06, BENCH-07, BENCH-08
+**Success Criteria** (what must be TRUE):
+  1. Running `memory benchmark temporal|multisession|compression|all` executes TOML-fixture benchmarks and reports accuracy, recall@5, token_usage, latency_p50/p95, and compression ratio
+  2. Running `memory benchmark` with `--dataset` flag ingests the LOCOMO dataset and produces `results.json` with an aggregate score
+  3. Running `memory benchmark --compare` reads `benchmarks/baselines.toml` and prints a side-by-side competitor comparison table
+  4. Benchmark output is available in both JSON and Markdown report formats
+  5. CI runs the benchmark suite without blocking (LOCOMO skipped when `--dataset` flag is absent); `locomo-data/` is gitignored
+**Plans**: TBD
+
+Plans:
+- [ ] 53-01: TBD
+- [ ] 53-02: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 51 -> 52 -> 53
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -149,7 +211,8 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
+| v3.0 Competitive Parity | 51-53 | 0/TBD | Not started | - |
 
 ---
 
-*Updated: 2026-03-22 after v2.7 milestone complete*
+*Updated: 2026-03-21 after v3.0 roadmap creation*
