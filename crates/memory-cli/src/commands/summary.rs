@@ -101,17 +101,14 @@ pub async fn run(args: SummaryArgs, global: &GlobalArgs) -> Result<()> {
 
             let total_tokens: usize = summaries
                 .iter()
-                .map(|s| {
-                    estimate_tokens(s["summary"].as_str().unwrap_or(""))
-                })
+                .map(|s| estimate_tokens(s["summary"].as_str().unwrap_or("")))
                 .sum();
 
-            let envelope =
-                JsonEnvelope::ok("summary", json!(summaries)).with_meta(Meta {
-                    retrieval_ms: 0,
-                    tokens_estimated: total_tokens,
-                    confidence: 1.0,
-                });
+            let envelope = JsonEnvelope::ok("summary", json!(summaries)).with_meta(Meta {
+                retrieval_ms: 0,
+                tokens_estimated: total_tokens,
+                confidence: 1.0,
+            });
             print_output(&envelope, force_json);
             Ok(())
         }

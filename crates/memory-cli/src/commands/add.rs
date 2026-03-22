@@ -30,7 +30,14 @@ fn build_event(content: &str, kind: &str, agent: Option<&str>) -> Event {
     let event_type = kind_to_event_type(kind);
     let role = EventRole::User;
 
-    let event = Event::new(event_id, session_id, timestamp, event_type, role, content.to_string());
+    let event = Event::new(
+        event_id,
+        session_id,
+        timestamp,
+        event_type,
+        role,
+        content.to_string(),
+    );
 
     match agent {
         Some(a) => event.with_agent(a),
@@ -86,42 +93,66 @@ mod tests {
 
     #[test]
     fn test_kind_to_event_type_episodic() {
-        assert!(matches!(kind_to_event_type("episodic"), EventType::UserMessage));
+        assert!(matches!(
+            kind_to_event_type("episodic"),
+            EventType::UserMessage
+        ));
     }
 
     #[test]
     fn test_kind_to_event_type_user_message() {
-        assert!(matches!(kind_to_event_type("user_message"), EventType::UserMessage));
+        assert!(matches!(
+            kind_to_event_type("user_message"),
+            EventType::UserMessage
+        ));
     }
 
     #[test]
     fn test_kind_to_event_type_tool_result() {
-        assert!(matches!(kind_to_event_type("tool_result"), EventType::ToolResult));
+        assert!(matches!(
+            kind_to_event_type("tool_result"),
+            EventType::ToolResult
+        ));
     }
 
     #[test]
     fn test_kind_to_event_type_assistant() {
-        assert!(matches!(kind_to_event_type("assistant"), EventType::AssistantMessage));
+        assert!(matches!(
+            kind_to_event_type("assistant"),
+            EventType::AssistantMessage
+        ));
     }
 
     #[test]
     fn test_kind_to_event_type_assistant_message() {
-        assert!(matches!(kind_to_event_type("assistant_message"), EventType::AssistantMessage));
+        assert!(matches!(
+            kind_to_event_type("assistant_message"),
+            EventType::AssistantMessage
+        ));
     }
 
     #[test]
     fn test_kind_to_event_type_session_start() {
-        assert!(matches!(kind_to_event_type("session_start"), EventType::SessionStart));
+        assert!(matches!(
+            kind_to_event_type("session_start"),
+            EventType::SessionStart
+        ));
     }
 
     #[test]
     fn test_kind_to_event_type_session_end() {
-        assert!(matches!(kind_to_event_type("session_end"), EventType::SessionEnd));
+        assert!(matches!(
+            kind_to_event_type("session_end"),
+            EventType::SessionEnd
+        ));
     }
 
     #[test]
     fn test_kind_to_event_type_unknown_defaults() {
-        assert!(matches!(kind_to_event_type("unknown_kind"), EventType::UserMessage));
+        assert!(matches!(
+            kind_to_event_type("unknown_kind"),
+            EventType::UserMessage
+        ));
     }
 
     #[test]
