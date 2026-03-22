@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn test_ranked_result_ordering() {
-        let mut results = vec![
+        let mut results = [
             RankedResult {
                 score: 0.5,
                 doc_id: "a".into(),
