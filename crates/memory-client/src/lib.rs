@@ -43,8 +43,8 @@ pub use client::{
 pub use error::ClientError;
 pub use hook_mapping::{map_hook_event, HookEvent, HookEventType};
 pub use memory_service::pb::{
-    ExplainabilityPayload, HybridSearchResponse, RetrievalResult, RouteQueryResponse,
-    VectorIndexStatus, VectorMatch, VectorTeleportResponse,
+    Event as ProtoEvent, ExplainabilityPayload, HybridSearchResponse, RetrievalResult,
+    RouteQueryResponse, VectorIndexStatus, VectorMatch, VectorTeleportResponse,
 };
 
 // Re-export Event type for convenience
