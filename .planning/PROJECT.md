@@ -2,10 +2,26 @@
 
 ## Current State
 
-**Version:** v2.7 (Shipped 2026-03-22)
-**Status:** Planning v3.0
+**Version:** v3.0 (In Progress)
+**Status:** Building retrieval orchestration, CLI API, and benchmark suite
 
-**Previous version:** v2.6 (Shipped 2026-03-16) — BM25 hybrid wiring, salience/usage decay, lifecycle automation, observability RPCs, episodic memory
+## Current Milestone: v3.0 Competitive Parity & Benchmarks
+
+**Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
+
+**Target features:**
+- Retrieval Orchestrator crate (query expansion, RRF fusion, LLM reranking)
+- Simple `memory` CLI binary (search, context, recall, add, timeline, summary)
+- Benchmark suite with custom harness + LOCOMO adapter
+- Positioning writeup (side quest, not a GSD phase)
+
+**Previous version:** v2.7 (Shipped 2026-03-22) — Multi-runtime installer with 6 converters
+
+**Spec reference:** `docs/superpowers/specs/2026-03-21-v3-competitive-parity-design.md`
+**Plan references:**
+- `docs/superpowers/plans/2026-03-21-v3-phase-a-retrieval-orchestrator.md`
+- `docs/superpowers/plans/2026-03-21-v3-phase-b-simple-cli-api.md`
+- `docs/superpowers/plans/2026-03-21-v3-phase-c-benchmark-suite.md`
 
 The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, multi-runtime installer, and comprehensive testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)
@@ -362,4 +378,4 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Archive adapters (not delete) | One release cycle before removal; README stubs redirect to installer | ✓ Validated v2.7 |
 
 ---
-*Last updated: 2026-03-22 after v2.7 milestone*
+*Last updated: 2026-03-22 after v3.0 milestone start*
