@@ -191,11 +191,12 @@ Plans:
   3. Running `memory benchmark --compare` reads `benchmarks/baselines.toml` and prints a side-by-side competitor comparison table
   4. Benchmark output is available in both JSON and Markdown report formats
   5. CI runs the benchmark suite without blocking (LOCOMO skipped when `--dataset` flag is absent); `locomo-data/` is gitignored
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 53-01: TBD
-- [ ] 53-02: TBD
+- [ ] 53-01-PLAN.md — Scaffold crate, fixture format, TOML loader, and benchmark data files
+- [ ] 53-02-PLAN.md — Runner, scorer, report, baseline comparison, and CLI wiring
+- [ ] 53-03-PLAN.md — LOCOMO adapter and full QA verification
 
 ## Progress
 
@@ -213,8 +214,8 @@ Phases execute in numeric order: 51 -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 | 3/TBD | In progress | - |
+| v3.0 Competitive Parity | 51-53 | 9/9 | In progress | - |
 
 ---
 
-*Updated: 2026-03-22 after Phase 52 planning*
+*Updated: 2026-03-22 after Phase 53 planning*
