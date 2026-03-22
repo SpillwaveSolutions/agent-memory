@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Competitive Parity & Benchmarks
 status: unknown
-stopped_at: Completed 51-01-PLAN.md
-last_updated: "2026-03-22T04:04:35.565Z"
+stopped_at: Completed 51-02-PLAN.md
+last_updated: "2026-03-22T04:09:05.950Z"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 51 (retrieval-orchestrator) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -46,6 +46,9 @@ See .planning/MILESTONES.md
 - Existing implementation plans in docs/superpowers/plans/ will be converted to GSD plans
 - [Phase 51]: RerankMode defaults to Heuristic (no LLM cost by default)
 - [Phase 51]: RankedResult uses f64 for fusion precision, SearchResult uses f32
+- [Phase 51]: RRF deduplicates by doc_id, keeping first-seen SearchResult
+- [Phase 51]: HeuristicReranker trims to top 10 (MAX_RESULTS const)
+- [Phase 51]: Token estimation: chars * 0.75 + 50 overhead
 
 ## Blockers
 
@@ -81,5 +84,5 @@ See: .planning/MILESTONES.md for complete history
 ## Session Continuity
 
 **Last Session:** 2026-03-22T04:04:35.563Z
-**Stopped At:** Completed 51-01-PLAN.md
+**Stopped At:** Completed 51-02-PLAN.md
 **Resume File:** None

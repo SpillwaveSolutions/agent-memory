@@ -10,11 +10,11 @@ Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roa
 ### Retrieval Orchestrator (ORCH)
 
 - [x] **ORCH-01**: `memory-orchestrator` crate exists with query expansion, RRF fusion, and rerank pipeline
-- [ ] **ORCH-02**: RRF fusion produces different ranking than any single index when scores diverge (unit tested)
-- [ ] **ORCH-03**: Orchestrator returns results when one of the four indexes returns empty (fail-open, unit tested)
-- [ ] **ORCH-04**: LLM rerank mode invokes configured LLM client and reorders results (integration tested with mock)
-- [ ] **ORCH-05**: Cross-encoder reranker extension point stubbed (trait exists, not implemented)
-- [ ] **ORCH-06**: `ContextBuilder` converts ranked results into structured `MemoryContext` with summary, events, entities, tokens
+- [x] **ORCH-02**: RRF fusion produces different ranking than any single index when scores diverge (unit tested)
+- [x] **ORCH-03**: Orchestrator returns results when one of the four indexes returns empty (fail-open, unit tested)
+- [x] **ORCH-04**: LLM rerank mode invokes configured LLM client and reorders results (integration tested with mock)
+- [x] **ORCH-05**: Cross-encoder reranker extension point stubbed (trait exists, not implemented)
+- [x] **ORCH-06**: `ContextBuilder` converts ranked results into structured `MemoryContext` with summary, events, entities, tokens
 - [x] **ORCH-07**: Heuristic query expansion generates lowercase + keyword-stripped variants
 - [ ] **ORCH-08**: Existing `memory-retrieval` crate unchanged — orchestrator wraps `RetrievalExecutor`
 
@@ -64,11 +64,11 @@ Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roa
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ORCH-01 | Phase 51 | Complete |
-| ORCH-02 | Phase 51 | Pending |
-| ORCH-03 | Phase 51 | Pending |
-| ORCH-04 | Phase 51 | Pending |
-| ORCH-05 | Phase 51 | Pending |
-| ORCH-06 | Phase 51 | Pending |
+| ORCH-02 | Phase 51 | Complete |
+| ORCH-03 | Phase 51 | Complete |
+| ORCH-04 | Phase 51 | Complete |
+| ORCH-05 | Phase 51 | Complete |
+| ORCH-06 | Phase 51 | Complete |
 | ORCH-07 | Phase 51 | Complete |
 | ORCH-08 | Phase 51 | Pending |
 | CLI-01 | Phase 52 | Pending |
