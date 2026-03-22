@@ -16,7 +16,7 @@ Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roa
 - [x] **ORCH-05**: Cross-encoder reranker extension point stubbed (trait exists, not implemented)
 - [x] **ORCH-06**: `ContextBuilder` converts ranked results into structured `MemoryContext` with summary, events, entities, tokens
 - [x] **ORCH-07**: Heuristic query expansion generates lowercase + keyword-stripped variants
-- [ ] **ORCH-08**: Existing `memory-retrieval` crate unchanged — orchestrator wraps `RetrievalExecutor`
+- [x] **ORCH-08**: Existing `memory-retrieval` crate unchanged — orchestrator wraps `RetrievalExecutor`
 
 ### CLI API (CLI)
 
@@ -70,7 +70,7 @@ Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roa
 | ORCH-05 | Phase 51 | Complete |
 | ORCH-06 | Phase 51 | Complete |
 | ORCH-07 | Phase 51 | Complete |
-| ORCH-08 | Phase 51 | Pending |
+| ORCH-08 | Phase 51 | Complete |
 | CLI-01 | Phase 52 | Pending |
 | CLI-02 | Phase 52 | Pending |
 | CLI-03 | Phase 52 | Pending |
