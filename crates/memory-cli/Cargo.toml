@@ -1,0 +1,24 @@
+[package]
+name = "memory-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Simple CLI for querying and ingesting agent memory"
+
+[[bin]]
+name = "memory"
+path = "src/main.rs"
+
+[dependencies]
+memory-client = { path = "../memory-client" }
+memory-types = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+ulid = { workspace = true }

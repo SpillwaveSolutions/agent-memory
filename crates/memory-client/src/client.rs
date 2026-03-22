@@ -12,8 +12,9 @@ use memory_service::pb::{
     GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest, GetTocRootRequest,
     GetTopTopicsRequest, GetTopicGraphStatusRequest, GetTopicsByQueryRequest,
     GetVectorIndexStatusRequest, Grip as ProtoGrip, HybridSearchRequest, HybridSearchResponse,
-    IngestEventRequest, TeleportSearchRequest, TeleportSearchResponse, TocNode as ProtoTocNode,
-    Topic as ProtoTopic, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
+    IngestEventRequest, RouteQueryRequest, RouteQueryResponse, TeleportSearchRequest,
+    TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic, VectorIndexStatus,
+    VectorTeleportRequest, VectorTeleportResponse,
 };
 use memory_types::{Event, EventRole, EventType};
 
@@ -280,6 +281,35 @@ impl MemoryClient {
             agent_filter: None,
         });
         let response = self.inner.hybrid_search(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Route a query through the retrieval orchestrator.
+    ///
+    /// Uses the daemon's `RouteQuery` RPC to run orchestrated retrieval
+    /// (intent classification, layer selection, fusion, reranking).
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - Natural language query
+    /// * `limit` - Maximum number of results to return
+    /// * `agent_filter` - Optional agent filter (e.g., "claude")
+    pub async fn route_query(
+        &mut self,
+        query: &str,
+        limit: i32,
+        agent_filter: Option<String>,
+    ) -> Result<RouteQueryResponse, ClientError> {
+        debug!("RouteQuery request: query={}, limit={}", query, limit);
+        let request = tonic::Request::new(RouteQueryRequest {
+            query: query.to_string(),
+            intent_override: None,
+            stop_conditions: None,
+            mode_override: None,
+            limit,
+            agent_filter,
+        });
+        let response = self.inner.route_query(request).await?;
         Ok(response.into_inner())
     }
 
