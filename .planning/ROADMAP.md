@@ -131,7 +131,7 @@ See: `.planning/milestones/v2.6-ROADMAP.md`
 - [x] **Phase 47: Claude & OpenCode Converters** - Pass-through Claude converter and OpenCode flat-naming converter with dry-run support (completed 2026-03-18)
 - [x] **Phase 48: Gemini & Codex Converters** - Gemini TOML converter with settings.json merge and Codex skills converter with AGENTS.md generation (completed 2026-03-18)
 - [x] **Phase 49: Copilot, Generic Skills & Hook Porting** - Copilot converter, generic skills target, and cross-runtime hook conversion pipeline (completed 2026-03-18)
-- [ ] **Phase 50: Integration Testing & Migration** - E2E install tests, adapter archival, and CI integration
+- [x] **Phase 50: Integration Testing & Migration** - E2E install tests, adapter archival, and CI integration (completed 2026-03-22)
 
 ## Phase Details
 
@@ -214,7 +214,7 @@ Plans:
 **Goal**: The installer is proven correct by E2E tests, old adapter directories are safely archived, and the installer is integrated into CI
 **Depends on**: Phase 49
 **Requirements**: MIG-01, MIG-02, MIG-03, MIG-04
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 50-01-PLAN.md — E2E integration tests for all 6 converters (file structure + frontmatter)
@@ -247,7 +247,7 @@ Note: Phases 47 and 48 are independent after Phase 46 and could be parallelized.
 | 47. Claude & OpenCode Converters | 1/1 | Complete    | 2026-03-18 | - |
 | 48. Gemini & Codex Converters | 2/2 | Complete    | 2026-03-18 | - |
 | 49. Copilot, Generic Skills & Hook Porting | 2/2 | Complete    | 2026-03-18 | - |
-| 50. Integration Testing & Migration | 1/2 | In Progress|  | - |
+| 50. Integration Testing & Migration | 2/2 | Complete   | 2026-03-22 | - |
 
 ---
 

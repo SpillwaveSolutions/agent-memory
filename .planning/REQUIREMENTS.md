@@ -75,7 +75,7 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 
 - [x] **MIG-01**: E2E tests verify install-to-temp-dir produces correct file structure per runtime
 - [x] **MIG-02**: E2E tests verify frontmatter conversion correctness (tool names, format, fields)
-- [ ] **MIG-03**: Old adapter directories archived with README stubs pointing to `memory-installer`
+- [x] **MIG-03**: Old adapter directories archived with README stubs pointing to `memory-installer`
 - [x] **MIG-04**: Installer added to workspace CI (build, clippy, test)
 
 ## Future Requirements (v2.8+)
@@ -139,7 +139,7 @@ Requirements for the Multi-Runtime Portability milestone. Each maps to roadmap p
 | HOOK-03 | Phase 49 | Complete |
 | MIG-01 | Phase 50 | Complete |
 | MIG-02 | Phase 50 | Complete |
-| MIG-03 | Phase 50 | Pending |
+| MIG-03 | Phase 50 | Complete |
 | MIG-04 | Phase 50 | Complete |
 
 **Coverage:**
