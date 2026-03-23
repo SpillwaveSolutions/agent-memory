@@ -1,100 +1,95 @@
-# Requirements: Agent Memory v3.0
+# Requirements: Agent Memory v3.1
 
-**Defined:** 2026-03-22
+**Defined:** 2026-03-23
 **Core Value:** Agent can answer "what were we talking about last week?" without scanning everything
 
-## v3.0 Requirements
+## v3.1 Requirements
 
-Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roadmap phases.
+Requirements for the Memory Export/Import milestone. Each maps to roadmap phases.
 
-### Retrieval Orchestrator (ORCH)
+### Daily Markdown Export (DAILY)
 
-- [x] **ORCH-01**: `memory-orchestrator` crate exists with query expansion, RRF fusion, and rerank pipeline
-- [x] **ORCH-02**: RRF fusion produces different ranking than any single index when scores diverge (unit tested)
-- [x] **ORCH-03**: Orchestrator returns results when one of the four indexes returns empty (fail-open, unit tested)
-- [x] **ORCH-04**: LLM rerank mode invokes configured LLM client and reorders results (integration tested with mock)
-- [x] **ORCH-05**: Cross-encoder reranker extension point stubbed (trait exists, not implemented)
-- [x] **ORCH-06**: `ContextBuilder` converts ranked results into structured `MemoryContext` with summary, events, entities, tokens
-- [x] **ORCH-07**: Heuristic query expansion generates lowercase + keyword-stripped variants
-- [x] **ORCH-08**: Existing `memory-retrieval` crate unchanged — orchestrator wraps `RetrievalExecutor`
+- [ ] **DAILY-01**: `memory daily` produces browsable markdown files (`memory/YYYY-MM-DD.md`) from TOC day nodes
+- [ ] **DAILY-02**: Daily markdown includes session markers, summary bullets, keywords, and grip excerpts
+- [ ] **DAILY-03**: `memory daily --range 7d` exports multiple days; handles days without rollup (partial output with pending note)
+- [ ] **DAILY-04**: Skips days with no events (no empty files)
+- [ ] **DAILY-05**: Footer includes "derived view" notice and export timestamp
 
-### CLI API (CLI)
+### Structured Backup (BACKUP)
 
-- [x] **CLI-01**: New `memory` binary with `search`, `context`, `recall`, `add`, `timeline`, `summary` subcommands
-- [x] **CLI-02**: `memory search "query" --format=json` returns JSON envelope with results, meta, confidence
-- [x] **CLI-03**: `memory recall` delegates to search with `--rerank=llm --top=10`
-- [x] **CLI-04**: `memory add` writes via gRPC MemoryClient — exits non-zero with clear error if daemon not running
-- [x] **CLI-05**: TTY detection: JSON when piped, human-readable when interactive
-- [x] **CLI-06**: `memory context` returns structured context for prompt injection
-- [x] **CLI-07**: `memory timeline` and `memory summary` query TOC by entity/range
-- [x] **CLI-08**: `memory-daemon` binary and existing skill hooks unchanged
-- [x] **CLI-09**: All commands exit 0 on success, non-zero on hard failure
-- [x] **CLI-10**: `meta.tokens_estimated` included in JSON envelope for context budget decisions
+- [ ] **BACKUP-01**: `memory backup` exports all layers as JSONL directory structure with `manifest.json`
+- [ ] **BACKUP-02**: `memory backup --events-only` exports just the base event layer
+- [ ] **BACKUP-03**: `memory backup --since 24h` exports only recent data (incremental by time range)
+- [ ] **BACKUP-04**: Incremental backups overwrite per-day event files (no duplicate JSONL lines)
+- [ ] **BACKUP-05**: `manifest.json` includes version, counts, time range, and incremental flag
+- [ ] **BACKUP-06**: Backup includes events, TOC nodes (all levels), grips, and episodes
+- [ ] **BACKUP-07**: `ExportBackup` uses server-side gRPC streaming (first streaming RPC in the project)
 
-### Benchmark Suite (BENCH)
+### Import/Bootstrap (IMPORT)
 
-- [x] **BENCH-01**: Custom benchmark harness with TOML fixture files (temporal, multisession, compression)
-- [x] **BENCH-02**: `memory benchmark temporal|multisession|compression|all` subcommands
-- [x] **BENCH-03**: Benchmark reports accuracy, recall@5, token_usage, latency_p50/p95, compression ratio
-- [x] **BENCH-04**: LOCOMO adapter ingests Snap Research dataset and produces `results.json` with aggregate score
-- [x] **BENCH-05**: `--compare` flag reads `benchmarks/baselines.toml` and prints side-by-side competitor table
-- [x] **BENCH-06**: `locomo-data/` in `.gitignore` — dataset never committed
-- [x] **BENCH-07**: CI runs benchmark suite (non-blocking, skips LOCOMO without `--dataset` flag)
-- [x] **BENCH-08**: JSON + markdown report output for all benchmark types
+- [ ] **IMPORT-01**: `memory import ./dir/` restores a full backup to RocksDB
+- [ ] **IMPORT-02**: Round-trip test: export → wipe → import → all queries return same results
+- [ ] **IMPORT-03**: `memory import --dry-run` shows what would be imported without writing
+- [ ] **IMPORT-04**: Idempotent — events with existing IDs are skipped (dedup by event_id)
+- [ ] **IMPORT-05**: `ImportBackup` uses client-side gRPC streaming
+- [ ] **IMPORT-06**: Events-only import works; user triggers TOC rebuild after
 
-## Future Requirements (v3.1+)
+### gRPC Infrastructure (GRPC)
 
-- **ORCH-F01**: Cross-encoder reranking (requires new inference path in memory-embeddings)
-- **CLI-F01**: REST/HTTP endpoint wrapping CLI commands
-- **CLI-F02**: Python SDK wrapping CLI binary
-- **BENCH-F01**: Continuous benchmark regression tracking in CI
+- [ ] **GRPC-01**: `ExportDaily` unary RPC returns structured day data (CLI renders markdown)
+- [ ] **GRPC-02**: `ExportBackup` server-side streaming RPC delivers JSONL chunks
+- [ ] **GRPC-03**: `ImportBackup` client-side streaming RPC accepts JSONL chunks
+- [ ] **GRPC-04**: Streaming support wired into tonic server framework (new infrastructure)
+
+## Future Requirements (v3.2+)
+
+- **DAILY-F01**: Automatic daemon scheduler integration (DailyExportJob after day rollup)
+- **DAILY-F02**: Configurable export time and directory via `[daily_export]` in config.toml
+- **IMPORT-F01**: `rebuild-toc` command if it doesn't exist at implementation time
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| REST/HTTP endpoint | Future milestone — CLI-first for v3.0 |
-| Python SDK | Future milestone — wraps CLI |
-| Memory views UI | Future milestone |
-| Cross-encoder reranking | Requires new inference path in memory-embeddings; extension point only |
-| Multi-agent shared memory changes | Shipped in v2.1 |
+| Live sync / file watching | Not bidirectional — files are derived views |
+| Markdown import | Only JSONL backup imports; markdown dailies are read-only |
+| Index file backup (BM25/HNSW) | Platform-specific; rebuild from events |
+| Automatic cloud backup | Use cron + `memory backup --since 24h` + git push |
+| Editing markdown dailies reflected in RocksDB | Files are read-only derived views |
+| Automatic daemon scheduler for daily export | Deferred to v3.2; use cron for v3.1 |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ORCH-01 | Phase 51 | Complete |
-| ORCH-02 | Phase 51 | Complete |
-| ORCH-03 | Phase 51 | Complete |
-| ORCH-04 | Phase 51 | Complete |
-| ORCH-05 | Phase 51 | Complete |
-| ORCH-06 | Phase 51 | Complete |
-| ORCH-07 | Phase 51 | Complete |
-| ORCH-08 | Phase 51 | Complete |
-| CLI-01 | Phase 52 | Complete |
-| CLI-02 | Phase 52 | Complete |
-| CLI-03 | Phase 52 | Complete |
-| CLI-04 | Phase 52 | Complete |
-| CLI-05 | Phase 52 | Complete |
-| CLI-06 | Phase 52 | Complete |
-| CLI-07 | Phase 52 | Complete |
-| CLI-08 | Phase 52 | Complete |
-| CLI-09 | Phase 52 | Complete |
-| CLI-10 | Phase 52 | Complete |
-| BENCH-01 | Phase 53 | Complete |
-| BENCH-02 | Phase 53 | Complete |
-| BENCH-03 | Phase 53 | Complete |
-| BENCH-04 | Phase 53 | Complete |
-| BENCH-05 | Phase 53 | Complete |
-| BENCH-06 | Phase 53 | Complete |
-| BENCH-07 | Phase 53 | Complete |
-| BENCH-08 | Phase 53 | Complete |
+| DAILY-01 | Phase 54 | Pending |
+| DAILY-02 | Phase 54 | Pending |
+| DAILY-03 | Phase 54 | Pending |
+| DAILY-04 | Phase 54 | Pending |
+| DAILY-05 | Phase 54 | Pending |
+| BACKUP-01 | Phase 55 | Pending |
+| BACKUP-02 | Phase 55 | Pending |
+| BACKUP-03 | Phase 55 | Pending |
+| BACKUP-04 | Phase 55 | Pending |
+| BACKUP-05 | Phase 55 | Pending |
+| BACKUP-06 | Phase 55 | Pending |
+| BACKUP-07 | Phase 55 | Pending |
+| IMPORT-01 | Phase 56 | Pending |
+| IMPORT-02 | Phase 56 | Pending |
+| IMPORT-03 | Phase 56 | Pending |
+| IMPORT-04 | Phase 56 | Pending |
+| IMPORT-05 | Phase 56 | Pending |
+| IMPORT-06 | Phase 56 | Pending |
+| GRPC-01 | Phase 54 | Pending |
+| GRPC-02 | Phase 55 | Pending |
+| GRPC-03 | Phase 56 | Pending |
+| GRPC-04 | Phase 55 | Pending |
 
 **Coverage:**
-- v3.0 requirements: 26 total
-- Mapped to phases: 26
+- v3.1 requirements: 22 total
+- Mapped to phases: 22
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after spec review*
+*Requirements defined: 2026-03-23*
+*Last updated: 2026-03-23 after spec review*
