@@ -180,6 +180,36 @@ jobs:
           fi
           echo "E2E tests passed!"
 
+  benchmark-smoke:
+    name: Benchmark Suite Smoke Test
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libclang-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "bench-smoke"
+
+      - name: Build memory-bench
+        run: cargo build -p memory-bench
+
+      - name: Smoke test (help only — no daemon required)
+        run: |
+          cargo run -p memory-bench -- --help
+          cargo run -p memory-bench -- all --help
+          cargo run -p memory-bench -- locomo --help
+
   # Summary job that depends on all other jobs
   ci-success:
     name: CI Success

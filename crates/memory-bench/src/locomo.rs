@@ -135,7 +135,14 @@ pub fn score_conversation(conv: &LocomoConversation, answers: &[String]) -> Loco
         .into_iter()
         .map(|(k, (t, c))| {
             let s = if t == 0 { 0.0 } else { c as f64 / t as f64 };
-            (k, TypeScore { total: t, correct: c, score: s })
+            (
+                k,
+                TypeScore {
+                    total: t,
+                    correct: c,
+                    score: s,
+                },
+            )
         })
         .collect();
 
@@ -176,7 +183,14 @@ pub fn aggregate_results(results: &[LocomoResult]) -> LocomoAggregateResult {
         .into_iter()
         .map(|(k, (t, c))| {
             let s = if t == 0 { 0.0 } else { c as f64 / t as f64 };
-            (k, TypeScore { total: t, correct: c, score: s })
+            (
+                k,
+                TypeScore {
+                    total: t,
+                    correct: c,
+                    score: s,
+                },
+            )
         })
         .collect();
 
@@ -226,7 +240,11 @@ mod tests {
         }"#;
         let conv: LocomoConversation = serde_json::from_str(json).unwrap();
         assert_eq!(conv.questions.len(), 4);
-        let types: Vec<&str> = conv.questions.iter().map(|q| q.question_type.as_str()).collect();
+        let types: Vec<&str> = conv
+            .questions
+            .iter()
+            .map(|q| q.question_type.as_str())
+            .collect();
         assert!(types.contains(&"single_hop"));
         assert!(types.contains(&"multi_hop"));
         assert!(types.contains(&"temporal"));
@@ -239,8 +257,16 @@ mod tests {
             conversation_id: "test".to_string(),
             turns: vec![],
             questions: vec![
-                Question { question: "q1".into(), answer: "alpha".into(), question_type: "single_hop".into() },
-                Question { question: "q2".into(), answer: "beta".into(), question_type: "multi_hop".into() },
+                Question {
+                    question: "q1".into(),
+                    answer: "alpha".into(),
+                    question_type: "single_hop".into(),
+                },
+                Question {
+                    question: "q2".into(),
+                    answer: "beta".into(),
+                    question_type: "multi_hop".into(),
+                },
             ],
         };
         let answers = vec![
@@ -259,10 +285,26 @@ mod tests {
             conversation_id: "test".to_string(),
             turns: vec![],
             questions: vec![
-                Question { question: "q1".into(), answer: "alpha".into(), question_type: "single_hop".into() },
-                Question { question: "q2".into(), answer: "beta".into(), question_type: "single_hop".into() },
-                Question { question: "q3".into(), answer: "gamma".into(), question_type: "temporal".into() },
-                Question { question: "q4".into(), answer: "delta".into(), question_type: "temporal".into() },
+                Question {
+                    question: "q1".into(),
+                    answer: "alpha".into(),
+                    question_type: "single_hop".into(),
+                },
+                Question {
+                    question: "q2".into(),
+                    answer: "beta".into(),
+                    question_type: "single_hop".into(),
+                },
+                Question {
+                    question: "q3".into(),
+                    answer: "gamma".into(),
+                    question_type: "temporal".into(),
+                },
+                Question {
+                    question: "q4".into(),
+                    answer: "delta".into(),
+                    question_type: "temporal".into(),
+                },
             ],
         };
         let answers = vec![
@@ -284,8 +326,22 @@ mod tests {
             correct: 3,
             score: 0.75,
             by_type: HashMap::from([
-                ("single_hop".into(), TypeScore { total: 2, correct: 2, score: 1.0 }),
-                ("temporal".into(), TypeScore { total: 2, correct: 1, score: 0.5 }),
+                (
+                    "single_hop".into(),
+                    TypeScore {
+                        total: 2,
+                        correct: 2,
+                        score: 1.0,
+                    },
+                ),
+                (
+                    "temporal".into(),
+                    TypeScore {
+                        total: 2,
+                        correct: 1,
+                        score: 0.5,
+                    },
+                ),
             ]),
         };
         let r2 = LocomoResult {
@@ -294,8 +350,22 @@ mod tests {
             correct: 1,
             score: 0.5,
             by_type: HashMap::from([
-                ("single_hop".into(), TypeScore { total: 1, correct: 0, score: 0.0 }),
-                ("temporal".into(), TypeScore { total: 1, correct: 1, score: 1.0 }),
+                (
+                    "single_hop".into(),
+                    TypeScore {
+                        total: 1,
+                        correct: 0,
+                        score: 0.0,
+                    },
+                ),
+                (
+                    "temporal".into(),
+                    TypeScore {
+                        total: 1,
+                        correct: 1,
+                        score: 1.0,
+                    },
+                ),
             ]),
         };
         let agg = aggregate_results(&[r1, r2]);
