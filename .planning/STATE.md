@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Memory Export/Import
-status: defining_requirements
+status: roadmap_complete
 stopped_at: null
-last_updated: "2026-03-23T06:00:00.000Z"
-last_activity: 2026-03-23 — Milestone v3.1 started
+last_updated: "2026-03-23T07:00:00.000Z"
+last_activity: 2026-03-23 — v3.1 roadmap created (3 phases, 22 requirements)
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,53 +21,36 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v3.1 Memory Export/Import — Defining requirements
+**Current focus:** v3.1 Memory Export/Import — Roadmap complete, ready for phase planning
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 54 (Daily Markdown Export) — not started
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-23 — Milestone v3.1 started
+Status: Ready for `plan-phase 54`
+Last activity: 2026-03-23 — v3.1 roadmap created
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 148 (across 9 milestones)
+- Total plans completed: 155 (across 10 milestones)
 - Average duration: ~15 min
-- Total execution time: ~36 hours
+- Total execution time: ~38 hours
 
 **Milestone History:**
 See .planning/MILESTONES.md
 
 ## Decisions
 
-- v3.0 scope: Retrieval orchestrator, simple CLI API, benchmark suite (3 phases)
-- Orchestrator wraps existing RetrievalExecutor (no changes to memory-retrieval crate)
-- CLI uses new `memory` binary (memory-daemon and hook handlers unchanged)
-- LOCOMO dataset never committed (gitignored)
-- Existing implementation plans in docs/superpowers/plans/ will be converted to GSD plans
-- [Phase 51]: RerankMode defaults to Heuristic (no LLM cost by default)
-- [Phase 51]: RankedResult uses f64 for fusion precision, SearchResult uses f32
-- [Phase 51]: RRF deduplicates by doc_id, keeping first-seen SearchResult
-- [Phase 51]: HeuristicReranker trims to top 10 (MAX_RESULTS const)
-- [Phase 51]: Token estimation: chars * 0.75 + 50 overhead
-- [Phase 51]: MemoryOrchestrator accepts Box<dyn Reranker> via with_reranker() for test injection
-- [Phase 52]: All CLI commands route through gRPC (no direct RocksDB access)
-- [Phase 52]: JsonEnvelope output pattern: ok/error/context_ok constructors, TTY detection via IsTerminal
-- [Phase 52]: CLI events use EventRole::User with ULID session IDs prefixed cli-
-- [Phase 52]: Timeline entity filter is client-side (daemon get_events lacks entity parameter)
-- [Phase 52]: Summary browses one TOC level deep from overlapping root nodes
-- [Phase 52]: RetrievalLayer mapped by proto i32 values (topics=1, hybrid=2, vector=3, bm25=4, agentic=5)
-- [Phase 52]: Context key_entities uses doc_id+doc_type pairs; recall rerank flag is informational-only
-- [Phase 53]: TOML fixture format with [[test]] arrays for multi-case files
-- [Phase 53]: Fixture::load validates id and query non-empty at parse time
-- [Phase 53]: Fixture::load_dir sorts entries for deterministic ordering
-- [Phase 53]: [Phase 53]: Runner shells out via std::process::Command (no in-process coupling)
-- [Phase 53]: [Phase 53]: Compression ratio = 1.0 - (context_tokens / raw_tokens), raw_tokens from chars/4
-- [Phase 53]: LOCOMO scoring uses case-insensitive substring matching (same as custom harness scorer)
-- [Phase 53]: tempfile moved to runtime dependency for LOCOMO JSONL session creation
+- v3.1 scope: Daily markdown export, structured JSONL backup, import/bootstrap (3 phases)
+- Spec reference: docs/superpowers/specs/2026-03-23-memory-export-import-design.md
+- Markdown rendering happens in CLI, not daemon (ExportDaily returns structured data)
+- Daemon scheduler integration deferred to v3.2 (CLI-only for v3.1, use cron for automation)
+- RocksDB remains source of truth; exported files are derived views
+- First streaming RPCs in project: ExportBackup (server-side), ImportBackup (client-side)
+- Index files (BM25/HNSW) not included in backup — rebuilt from events
+- Incremental backup overwrites per-day event files (not appends) to prevent duplicate JSONL lines
 
 ## Blockers
 
@@ -75,10 +58,12 @@ See .planning/MILESTONES.md
 
 ## Accumulated Context
 
-- Spec reference: docs/superpowers/specs/2026-03-21-v3-competitive-parity-design.md
-- Phase A plan: docs/superpowers/plans/2026-03-21-v3-phase-a-retrieval-orchestrator.md
-- Phase B plan: docs/superpowers/plans/2026-03-21-v3-phase-b-simple-cli-api.md
-- Phase C plan: docs/superpowers/plans/2026-03-21-v3-phase-c-benchmark-suite.md
+- Approved spec: docs/superpowers/specs/2026-03-23-memory-export-import-design.md
+- Phase 54: Daily export + ExportDaily unary RPC (6 requirements)
+- Phase 55: Structured backup + streaming RPCs (9 requirements)
+- Phase 56: Import/bootstrap + client streaming (7 requirements)
+- CLI follows Phase 52 patterns (memory-cli crate, JsonEnvelope, TTY-aware output)
+- Proto changes require `cargo build` to regenerate (tonic-build)
 
 ## Milestone History
 
@@ -93,15 +78,16 @@ See: .planning/MILESTONES.md for complete history
 - v2.5 Semantic Dedup & Retrieval Quality: Shipped 2026-03-10 (4 phases, 11 plans)
 - v2.6 Cognitive Retrieval: Shipped 2026-03-16 (6 phases, 13 plans)
 - v2.7 Multi-Runtime Portability: Shipped 2026-03-22 (6 phases, 11 plans)
+- v3.0 Competitive Parity & Benchmarks: Shipped 2026-03-23 (3 phases, 9 plans)
 
 ## Cumulative Stats
 
 - ~56,400 LOC Rust across 15 crates
-- 51 phases, 148 plans across 9 milestones
+- 53 phases, 155 plans across 10 milestones
 - 46+ E2E tests + 144 bats CLI tests
 
 ## Session Continuity
 
-**Last Session:** 2026-03-23T02:29:01Z
-**Stopped At:** Completed 53-03-PLAN.md (Phase 53 complete)
+**Last Session:** 2026-03-23T07:00:00Z
+**Stopped At:** Roadmap created for v3.1 (3 phases: 54-56)
 **Resume File:** None

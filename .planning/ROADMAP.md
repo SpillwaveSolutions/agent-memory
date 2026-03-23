@@ -12,6 +12,7 @@
 - ✅ **v2.6 Cognitive Retrieval** — Phases 39-44 (shipped 2026-03-16)
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
 - ✅ **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 (shipped 2026-03-23)
+- [ ] **v3.1 Memory Export/Import** — Phases 54-56
 
 ## Phases
 
@@ -148,6 +149,49 @@ See: `.planning/milestones/v3.0-ROADMAP.md`
 
 </details>
 
+### v3.1 Memory Export/Import (Phases 54-56)
+
+- [ ] **Phase 54: Daily Markdown Export** — Browsable markdown dailies from TOC day nodes + ExportDaily unary RPC
+- [ ] **Phase 55: Structured Backup** — Full JSONL backup with incremental support + first streaming RPCs
+- [ ] **Phase 56: Import/Bootstrap** — Restore from backup directory with client-side streaming + round-trip validation
+
+## Phase Details
+
+### Phase 54: Daily Markdown Export
+**Goal**: Users can browse their agent's daily activity as human-readable markdown files
+**Depends on**: Nothing (reads existing TOC day nodes and events)
+**Requirements**: DAILY-01, DAILY-02, DAILY-03, DAILY-04, DAILY-05, GRPC-01
+**Success Criteria** (what must be TRUE):
+  1. Running `memory daily` produces a `memory/YYYY-MM-DD.md` file with session markers, summary bullets, keywords, and grip excerpts for today's activity
+  2. Running `memory daily --range 7d` produces one markdown file per active day; days without events produce no files; days without rollup include a "summary pending" note
+  3. Each markdown file contains a footer with "derived view" notice and export timestamp
+  4. The ExportDaily gRPC RPC returns structured day data (nodes, segments, grips) that the CLI renders into markdown
+**Plans**: TBD
+
+### Phase 55: Structured Backup
+**Goal**: Users can create complete or incremental JSONL backups of all memory layers for disaster recovery and migration
+**Depends on**: Phase 54 (shares proto patterns; streaming infrastructure is new)
+**Requirements**: BACKUP-01, BACKUP-02, BACKUP-03, BACKUP-04, BACKUP-05, BACKUP-06, BACKUP-07, GRPC-02, GRPC-04
+**Success Criteria** (what must be TRUE):
+  1. Running `memory backup` produces a directory with `manifest.json`, per-day event JSONL files, TOC node JSONL files (by level), `grips.jsonl`, and `episodes.jsonl`
+  2. Running `memory backup --events-only` produces only the event files and manifest (no TOC/grips/episodes)
+  3. Running `memory backup --since 24h` exports only data from the last 24 hours; incremental per-day event files overwrite (not append) to prevent duplicate lines
+  4. The `manifest.json` includes version, counts per layer, time range, and incremental flag
+  5. ExportBackup uses server-side gRPC streaming to deliver JSONL chunks (first streaming RPC in the project; tonic streaming infrastructure wired)
+**Plans**: TBD
+
+### Phase 56: Import/Bootstrap
+**Goal**: Users can restore memory from a backup directory to a new or existing RocksDB instance, enabling migration and portability
+**Depends on**: Phase 55 (consumes backup directory format)
+**Requirements**: IMPORT-01, IMPORT-02, IMPORT-03, IMPORT-04, IMPORT-05, IMPORT-06, GRPC-03
+**Success Criteria** (what must be TRUE):
+  1. Running `memory import ./backup-dir/` restores all layers (events, TOC nodes, grips, episodes) to RocksDB
+  2. Round-trip test passes: backup full store, wipe RocksDB, import, verify queries return equivalent results
+  3. Running `memory import --dry-run ./backup-dir/` shows counts of what would be imported without writing anything
+  4. Import is idempotent: re-running with the same backup skips events that already exist (dedup by event_id)
+  5. Events-only import works (`--events-only`); user can trigger TOC rebuild afterward
+**Plans**: TBD
+
 ## Progress
 
 | Milestone | Phases | Plans | Status | Shipped |
@@ -162,7 +206,8 @@ See: `.planning/milestones/v3.0-ROADMAP.md`
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
 | v3.0 Competitive Parity | 51-53 | 9/9 | Complete | 2026-03-23 |
+| v3.1 Memory Export/Import | 54-56 | 0/TBD | In Progress | - |
 
 ---
 
-*Updated: 2026-03-23 after v3.0 milestone complete*
+*Updated: 2026-03-23 after v3.1 roadmap created*
