@@ -143,8 +143,9 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 
 - [x] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor (merged 2026-04-28 via PR #28)
 - [x] **Phase 51.5: API Summarizer Wiring** - Wire `ApiSummarizer` from config (out-of-band; merged 2026-04-28 via PR #27)
-- [x] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands (PR in review 2026-05-12)
-- [ ] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring
+- [x] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands (merged 2026-05-14 via PR #29)
+- [x] **Phase 53.5: Cross-Project Federation** - Federated query across multiple project stores (out-of-band; merged 2026-05-14 via PR #25)
+- [x] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring (PR in review 2026-05-14)
 
 ## Phase Details
 
