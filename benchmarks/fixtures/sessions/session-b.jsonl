@@ -1,0 +1,6 @@
+{"role":"user","content":"How is the Redis caching performing in production?"}
+{"role":"assistant","content":"The results are excellent. We're seeing 95% cache hit rates on read-heavy endpoints. Average latency dropped from 45ms to 3ms for cached responses. The cache-aside pattern is working well."}
+{"role":"user","content":"Any issues with cache invalidation?"}
+{"role":"assistant","content":"We had one issue where batch updates weren't invalidating properly. Fixed it by adding a bulk invalidation method that uses Redis SCAN instead of individual DEL commands. Performance is now consistent."}
+{"role":"user","content":"What about memory usage?"}
+{"role":"assistant","content":"Redis is using about 2GB for our dataset, well within the 8GB instance. The 15-minute TTL keeps memory stable. Peak usage during high traffic only reaches 3.5GB. No eviction pressure."}
