@@ -1,0 +1,7 @@
+[[test]]
+id = "compress-001"
+description = "Verify context is compressed vs raw session dump"
+setup = ["sessions/long-session.jsonl"]
+query = "summarize the key decisions from this project"
+expected_contains = ["decision", "architecture"]
+max_tokens = 800
