@@ -5,6 +5,7 @@
 use tonic::transport::Channel;
 use tracing::{debug, info};
 
+pub use memory_service::pb::DayExport;
 use memory_service::pb::{
     memory_service_client::MemoryServiceClient, BrowseTocRequest, Event as ProtoEvent,
     EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
@@ -16,7 +17,6 @@ use memory_service::pb::{
     TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic, VectorIndexStatus,
     VectorTeleportRequest, VectorTeleportResponse,
 };
-pub use memory_service::pb::DayExport;
 use memory_types::{Event, EventRole, EventType};
 
 use crate::error::ClientError;

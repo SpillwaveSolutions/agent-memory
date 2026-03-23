@@ -45,6 +45,9 @@ pub enum Commands {
 
     /// Recall: search with LLM reranking (alias for search --rerank=llm).
     Recall(RecallArgs),
+
+    /// Export daily markdown files from memory.
+    Daily(DailyArgs),
 }
 
 /// Arguments for the `search` subcommand.
@@ -130,6 +133,18 @@ pub struct RecallArgs {
     /// Output format override.
     #[arg(long)]
     pub format: Option<String>,
+}
+
+/// Arguments for the `daily` subcommand.
+#[derive(Parser, Debug)]
+pub struct DailyArgs {
+    /// Time range for export (e.g., "7d", "30d"). Default: today only.
+    #[arg(long)]
+    pub range: Option<String>,
+
+    /// Output directory for markdown files.
+    #[arg(long, default_value = "./memory")]
+    pub dir: String,
 }
 
 #[cfg(test)]
@@ -267,8 +282,33 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_daily() {
+        let cli = Cli::try_parse_from(["memory", "daily"]).unwrap();
+        match cli.command {
+            Commands::Daily(args) => {
+                assert!(args.range.is_none());
+                assert_eq!(args.dir, "./memory");
+            }
+            _ => panic!("Expected Daily command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_daily_with_options() {
+        let cli =
+            Cli::try_parse_from(["memory", "daily", "--range", "7d", "--dir", "/tmp/out"]).unwrap();
+        match cli.command {
+            Commands::Daily(args) => {
+                assert_eq!(args.range.as_deref(), Some("7d"));
+                assert_eq!(args.dir, "/tmp/out");
+            }
+            _ => panic!("Expected Daily command"),
+        }
+    }
+
+    #[test]
     fn test_all_subcommands_parse() {
-        // Verify all 6 subcommands can be parsed
+        // Verify all 7 subcommands can be parsed
         let cases = vec![
             vec!["memory", "search", "q"],
             vec!["memory", "context", "q"],
@@ -276,6 +316,7 @@ mod tests {
             vec!["memory", "timeline"],
             vec!["memory", "summary"],
             vec!["memory", "recall", "q"],
+            vec!["memory", "daily"],
         ];
         for args in cases {
             Cli::try_parse_from(&args)

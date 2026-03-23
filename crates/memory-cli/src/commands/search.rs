@@ -62,10 +62,7 @@ pub fn build_results_json(response: &RouteQueryResponse) -> Value {
 
 /// Build metadata from the RouteQuery response.
 pub fn build_meta(response: &RouteQueryResponse) -> Meta {
-    let retrieval_ms = response
-        .explanation
-        .as_ref()
-        .map_or(0, |e| e.total_time_ms);
+    let retrieval_ms = response.explanation.as_ref().map_or(0, |e| e.total_time_ms);
 
     let tokens_estimated: usize = response
         .results
@@ -73,10 +70,7 @@ pub fn build_meta(response: &RouteQueryResponse) -> Meta {
         .map(|r| estimate_tokens(&r.text_preview))
         .sum();
 
-    let confidence = response
-        .results
-        .first()
-        .map_or(0.0, |r| f64::from(r.score));
+    let confidence = response.results.first().map_or(0.0, |r| f64::from(r.score));
 
     Meta {
         retrieval_ms,

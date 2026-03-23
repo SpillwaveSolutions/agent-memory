@@ -288,7 +288,10 @@ pub async fn export_daily(
     request: Request<ExportDailyRequest>,
 ) -> Result<Response<ExportDailyResponse>, Status> {
     let req = request.into_inner();
-    debug!("ExportDaily request: {} to {}", req.start_date, req.end_date);
+    debug!(
+        "ExportDaily request: {} to {}",
+        req.start_date, req.end_date
+    );
 
     // Parse date strings to NaiveDate
     let start = chrono::NaiveDate::parse_from_str(&req.start_date, "%Y-%m-%d")
@@ -363,25 +366,24 @@ pub async fn export_daily(
         let mut seen_grip_ids = std::collections::HashSet::new();
 
         // Helper closure to collect grips from a node's bullets
-        let collect_grips =
-            |node: &DomainTocNode,
-             grips: &mut Vec<DomainGrip>,
-             seen: &mut std::collections::HashSet<String>|
-             -> Result<(), Status> {
-                for bullet in &node.bullets {
-                    for grip_id in &bullet.grip_ids {
-                        if seen.insert(grip_id.clone()) {
-                            if let Some(grip) = storage
-                                .get_grip(grip_id)
-                                .map_err(|e| Status::internal(format!("Storage error: {e}")))?
-                            {
-                                grips.push(grip);
-                            }
+        let collect_grips = |node: &DomainTocNode,
+                             grips: &mut Vec<DomainGrip>,
+                             seen: &mut std::collections::HashSet<String>|
+         -> Result<(), Status> {
+            for bullet in &node.bullets {
+                for grip_id in &bullet.grip_ids {
+                    if seen.insert(grip_id.clone()) {
+                        if let Some(grip) = storage
+                            .get_grip(grip_id)
+                            .map_err(|e| Status::internal(format!("Storage error: {e}")))?
+                        {
+                            grips.push(grip);
                         }
                     }
                 }
-                Ok(())
-            };
+            }
+            Ok(())
+        };
 
         if let Some(ref dn) = day_node_opt {
             collect_grips(dn, &mut all_grips, &mut seen_grip_ids)?;
@@ -391,12 +393,12 @@ pub async fn export_daily(
         }
 
         // Convert domain types to proto types
-        let proto_events: Vec<ProtoEvent> =
-            events.into_iter().map(domain_to_proto_event).collect();
-        let proto_segments: Vec<ProtoTocNode> =
-            segment_nodes.into_iter().map(domain_to_proto_node).collect();
-        let proto_grips: Vec<ProtoGrip> =
-            all_grips.into_iter().map(domain_to_proto_grip).collect();
+        let proto_events: Vec<ProtoEvent> = events.into_iter().map(domain_to_proto_event).collect();
+        let proto_segments: Vec<ProtoTocNode> = segment_nodes
+            .into_iter()
+            .map(domain_to_proto_node)
+            .collect();
+        let proto_grips: Vec<ProtoGrip> = all_grips.into_iter().map(domain_to_proto_grip).collect();
         let proto_day_node = day_node_opt.map(domain_to_proto_node);
 
         days.push(DayExport {

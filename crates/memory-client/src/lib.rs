@@ -36,8 +36,10 @@ pub mod error;
 pub mod hook_mapping;
 
 pub use client::{
-    BrowseTocResult, ExpandGripResult, GetEventsResult, MemoryClient, DEFAULT_ENDPOINT,
+    BrowseTocResult, ExpandGripResult, ExportDailyResult, GetEventsResult, MemoryClient,
+    DEFAULT_ENDPOINT,
 };
+pub use memory_service::pb::DayExport;
 
 // Re-export vector search response types for convenience
 pub use error::ClientError;
