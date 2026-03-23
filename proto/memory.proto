@@ -129,6 +129,11 @@ service MemoryService {
 
     // Find episodes similar to a query (brute-force cosine similarity)
     rpc GetSimilarEpisodes(GetSimilarEpisodesRequest) returns (GetSimilarEpisodesResponse);
+
+    // ===== Daily Export RPCs (Phase 54) =====
+
+    // Export structured day data for a date range (CLI renders markdown)
+    rpc ExportDaily(ExportDailyRequest) returns (ExportDailyResponse);
 }
 
 // Role of the message author
@@ -1209,4 +1214,36 @@ message EpisodeSummary {
 message GetSimilarEpisodesResponse {
     // Similar episodes ranked by similarity
     repeated EpisodeSummary episodes = 1;
+}
+
+// ===== Daily Export messages (Phase 54) =====
+
+// Request for ExportDaily RPC
+message ExportDailyRequest {
+    // Start date (ISO format "YYYY-MM-DD")
+    string start_date = 1;
+    // End date (ISO format "YYYY-MM-DD")
+    string end_date = 2;
+}
+
+// A single day's export data
+message DayExport {
+    // Date string "YYYY-MM-DD"
+    string date = 1;
+    // Day-level TOC node (absent if no rollup yet)
+    optional TocNode day_node = 2;
+    // Segment-level children of the day node
+    repeated TocNode segments = 3;
+    // All events for this day
+    repeated Event events = 4;
+    // Grips referenced by bullet grip_ids
+    repeated Grip grips = 5;
+    // Whether day rollup has completed (false = partial output)
+    bool has_rollup = 6;
+}
+
+// Response for ExportDaily RPC
+message ExportDailyResponse {
+    // One entry per day in the requested range (days with no events are omitted)
+    repeated DayExport days = 1;
 }
