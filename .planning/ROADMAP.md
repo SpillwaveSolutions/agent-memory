@@ -168,8 +168,8 @@ See: `.planning/milestones/v3.0-ROADMAP.md`
   4. The ExportDaily gRPC RPC returns structured day data (nodes, segments, grips) that the CLI renders into markdown
 **Plans**: 2 plans
 Plans:
-- [ ] 54-01-PLAN.md — ExportDaily proto, handler, trait dispatch, and client method
-- [ ] 54-02-PLAN.md — CLI daily subcommand with markdown rendering
+- [x] 54-01-PLAN.md — ExportDaily proto, handler, trait dispatch, and client method
+- [x] 54-02-PLAN.md — CLI daily subcommand with markdown rendering
 
 ### Phase 55: Structured Backup
 **Goal**: Users can create complete or incremental JSONL backups of all memory layers for disaster recovery and migration
@@ -183,8 +183,8 @@ Plans:
   5. ExportBackup uses server-side gRPC streaming to deliver JSONL chunks (first streaming RPC in the project; tonic streaming infrastructure wired)
 **Plans**: 2 plans
 Plans:
-- [ ] 54-01-PLAN.md — ExportDaily proto, handler, trait dispatch, and client method
-- [ ] 54-02-PLAN.md — CLI daily subcommand with markdown rendering
+- [ ] 55-01-PLAN.md — Proto + tokio-stream + storage methods + streaming backup handler
+- [ ] 55-02-PLAN.md — Streaming client method + CLI backup command
 
 ### Phase 56: Import/Bootstrap
 **Goal**: Users can restore memory from a backup directory to a new or existing RocksDB instance, enabling migration and portability
@@ -198,8 +198,8 @@ Plans:
   5. Events-only import works (`--events-only`); user can trigger TOC rebuild afterward
 **Plans**: 2 plans
 Plans:
-- [ ] 54-01-PLAN.md — ExportDaily proto, handler, trait dispatch, and client method
-- [ ] 54-02-PLAN.md — CLI daily subcommand with markdown rendering
+- [ ] 56-01-PLAN.md — ImportBackup client-streaming RPC + storage import methods
+- [ ] 56-02-PLAN.md — CLI import command with dry-run and round-trip validation
 
 ## Progress
 
@@ -215,8 +215,8 @@ Plans:
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
 | v3.0 Competitive Parity | 51-53 | 9/9 | Complete | 2026-03-23 |
-| v3.1 Memory Export/Import | 54-56 | 0/TBD | In Progress | - |
+| v3.1 Memory Export/Import | 54-56 | 2/6 | In Progress | - |
 
 ---
 
-*Updated: 2026-03-23 after v3.1 roadmap created*
+*Updated: 2026-03-23 after Phase 55 planning*
