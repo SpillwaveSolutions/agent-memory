@@ -33,12 +33,12 @@ Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roa
 
 ### Benchmark Suite (BENCH)
 
-- [ ] **BENCH-01**: Custom benchmark harness with TOML fixture files (temporal, multisession, compression)
+- [x] **BENCH-01**: Custom benchmark harness with TOML fixture files (temporal, multisession, compression)
 - [ ] **BENCH-02**: `memory benchmark temporal|multisession|compression|all` subcommands
 - [ ] **BENCH-03**: Benchmark reports accuracy, recall@5, token_usage, latency_p50/p95, compression ratio
 - [ ] **BENCH-04**: LOCOMO adapter ingests Snap Research dataset and produces `results.json` with aggregate score
 - [ ] **BENCH-05**: `--compare` flag reads `benchmarks/baselines.toml` and prints side-by-side competitor table
-- [ ] **BENCH-06**: `locomo-data/` in `.gitignore` — dataset never committed
+- [x] **BENCH-06**: `locomo-data/` in `.gitignore` — dataset never committed
 - [ ] **BENCH-07**: CI runs benchmark suite (non-blocking, skips LOCOMO without `--dataset` flag)
 - [ ] **BENCH-08**: JSON + markdown report output for all benchmark types
 
@@ -81,12 +81,12 @@ Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roa
 | CLI-08 | Phase 52 | Complete |
 | CLI-09 | Phase 52 | Complete |
 | CLI-10 | Phase 52 | Complete |
-| BENCH-01 | Phase 53 | Pending |
+| BENCH-01 | Phase 53 | Complete |
 | BENCH-02 | Phase 53 | Pending |
 | BENCH-03 | Phase 53 | Pending |
 | BENCH-04 | Phase 53 | Pending |
 | BENCH-05 | Phase 53 | Pending |
-| BENCH-06 | Phase 53 | Pending |
+| BENCH-06 | Phase 53 | Complete |
 | BENCH-07 | Phase 53 | Pending |
 | BENCH-08 | Phase 53 | Pending |
 
