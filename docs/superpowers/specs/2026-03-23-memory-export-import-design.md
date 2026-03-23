@@ -134,7 +134,7 @@ memory-backup/
 │   ├── months.jsonl           # all month nodes
 │   └── years.jsonl            # all year nodes
 ├── grips.jsonl                # all grips (provenance links)
-└── config.toml                # copy of active config (for restore context)
+└── episodes.jsonl             # episodic memory (Phase 44)
 ```
 
 **manifest.json:**
@@ -155,7 +155,8 @@ memory-backup/
     "weeks": 0,
     "months": 0,
     "years": 0,
-    "grips": 87
+    "grips": 87,
+    "episodes": 12
   },
   "incremental": true,
   "events_only": false
@@ -178,9 +179,12 @@ memory-backup/
 - `--since` filters events by timestamp range
 - TOC nodes included if their time range overlaps the export range
 - Grips included if their source events fall within the range
+- Episodes included if their start time falls within the range
 - `manifest.json` records `incremental: true` with the time range
-- Incremental files merge into existing backup directory (additive, not destructive)
-- Event files are per-day, so incremental naturally appends new day files
+- Incremental files are per-day for events. On overlap, the entire day file is **overwritten** (not appended) to avoid duplicate JSONL lines. This is safe because each day file is self-contained.
+- TOC/grips/episodes JSONL files are fully rewritten on each incremental run (these are small relative to events)
+
+**Topic graph:** Topic graph data is derived from the TOC hierarchy and rebuilt via the topic clustering job. It is NOT included in backups — it is rebuilt from events like BM25/HNSW indexes.
 
 ### 3. `memory import` — Bootstrap from Backup
 
@@ -200,14 +204,15 @@ memory import ./memory-backup/ --dry-run
 2. Import events first (base layer, chronological order)
 3. Import TOC nodes (segments → days → weeks → months → years)
 4. Import grips
-5. Trigger outbox entries for any events that need indexing
+5. Import episodes
+6. Trigger outbox entries for any events that need indexing
 6. Report: events imported, nodes restored, time elapsed
 
 **Safety:**
 - Idempotent — events with existing IDs are skipped (dedup by event_id)
 - `--dry-run` shows counts without writing
 - Does NOT delete existing data — additive merge only
-- If importing events-only, user must run `memory-daemon rebuild-toc` after
+- If importing events-only, user must trigger TOC rebuild. The daemon's existing `rebuild-toc` admin command handles this. If the command does not exist at implementation time, add it as a new `memory-daemon rebuild-toc` subcommand that triggers the full rollup pipeline (segment → day → week → month → year).
 
 **What is NOT imported:**
 - BM25/HNSW indexes (rebuilt from events via outbox)
@@ -220,31 +225,30 @@ memory import ./memory-backup/ --dry-run
 
 ### New gRPC RPCs
 
-All three commands route through gRPC to the daemon (same pattern as Phase 52).
+All three commands route through gRPC to the daemon.
 
 | RPC | Direction | Purpose |
 |-----|-----------|---------|
-| `ExportDaily(DateRange)` | Read | Returns day nodes with segments, events, grips for markdown rendering |
-| `ExportBackup(BackupOptions)` | Read (streaming) | Streams all data in layer order as JSONL chunks |
-| `ImportBackup(stream)` | Write (streaming) | Accepts JSONL stream, writes to RocksDB |
+| `ExportDaily(DateRange)` | Unary | Returns structured day data (nodes, segments, events, grips). **CLI renders markdown.** |
+| `ExportBackup(BackupOptions)` | Server streaming | Streams all data in layer order as JSONL chunks |
+| `ImportBackup(stream)` | Client streaming | Accepts JSONL stream, writes to RocksDB |
 
-**ExportBackup uses server-side streaming** — the backup can be large and shouldn't be buffered entirely in memory. Each streamed chunk is a batch of JSONL records with a type tag.
+**Streaming RPCs are new infrastructure.** The current proto has zero streaming RPCs — all existing RPCs are unary. Adding server-side streaming (`ExportBackup`) and client streaming (`ImportBackup`) requires wiring tonic streaming support into the server framework. This is the first use of gRPC streaming in the project and represents meaningful new work (not just "new RPCs follow existing patterns").
 
-### Daemon Scheduler Integration
+**Markdown rendering happens in the CLI, not the daemon.** `ExportDaily` returns structured data (day nodes, segment nodes, events, grip excerpts). The CLI's `daily` command renders this into the markdown format shown above, following the same pattern as Phase 52 where the CLI handles all output formatting (`output.rs`).
 
-The daily markdown export is a new scheduler job:
+### Daemon Scheduler Integration (v3.1 scope: CLI only)
 
-```rust
-// New job alongside existing rollup jobs
-DailyExportJob {
-    schedule: "59 23 * * *",  // end of day, after rollup
-    config: DailyExportConfig,
-}
+**v3.1 ships manual `memory daily` CLI command only.** Automatic daemon scheduler integration is deferred to v3.2 — it adds complexity (filesystem permissions from daemon context, config for time/dir, dependency ordering with rollup jobs) that isn't needed when users can automate with system cron:
+
+```bash
+# Cron example: daily markdown export at midnight
+0 0 * * * cd /project && memory daily --range 1d --dir ./memory/
 ```
 
-- Runs after `DayRollupJob` (depends on day summary existing)
-- Writes to configured directory (default `./memory/`)
-- No-op if no events for the day
+**v3.2 (deferred):** Add `DailyExportJob` to daemon scheduler, running after `DayRollupJob` completes. Config via `[daily_export]` section in config.toml.
+
+**Manual invocation note:** `memory daily --range 7d` may hit days whose rollup hasn't completed yet. For those days, the command generates a partial markdown file from raw events (no summary bullets, just event timeline). The file includes a note: `*Summary pending — day rollup not yet complete*`.
 
 ### CLI → Daemon Flow
 
@@ -263,13 +267,13 @@ Note: `memory import` reads files locally and streams to daemon. The CLI does th
 New section in `config.toml`:
 
 ```toml
-[daily_export]
-enabled = true           # automatic daily export (default: true)
-time = "23:59"           # local time to run
-dir = "./memory"         # output directory
-
 [backup]
 default_dir = "./memory-backup"   # default backup directory
+
+# [daily_export] — deferred to v3.2 (automatic scheduler integration)
+# enabled = true
+# time = "23:59"
+# dir = "./memory"
 ```
 
 ---
@@ -288,7 +292,7 @@ default_dir = "./memory-backup"   # default backup directory
 
 **Daily export:**
 - [ ] `memory daily` produces browsable markdown that a developer would check into GitHub
-- [ ] Automatic export runs daily via scheduler (configurable, on by default)
+- [ ] `memory daily --range 7d` handles days without rollup (partial output with pending note)
 - [ ] Markdown format includes sessions, summaries, keywords, and grip excerpts
 - [ ] Skips days with no events
 
@@ -318,8 +322,8 @@ This extends the existing architecture without modifying it:
 - **RocksDB remains source of truth** — exports are derived views
 - **TOC hierarchy unchanged** — daily export reads existing day/segment nodes
 - **Summarizer unchanged** — daily export consumes summaries, doesn't generate them
-- **gRPC pattern unchanged** — new RPCs follow existing handler patterns
-- **Scheduler extended** — new job alongside existing rollup jobs
+- **gRPC extended** — new RPCs include first streaming RPCs (tonic streaming support)
+- **Scheduler unchanged for v3.1** — automatic daily export deferred to v3.2
 - **CLI extended** — new subcommands follow Phase 52 patterns
 
 The OpenClaw-style daily files give users a human-readable window into their agent's memory without requiring them to understand gRPC, RocksDB, or the TOC hierarchy. The backup/import system gives them complete portability and disaster recovery.
