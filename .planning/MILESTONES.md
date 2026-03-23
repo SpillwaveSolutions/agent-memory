@@ -1,5 +1,26 @@
 # Project Milestones: Agent Memory
 
+## v3.0 Competitive Parity & Benchmarks (Shipped: 2026-03-23)
+
+**Delivered:** Retrieval orchestration with RRF fusion across 4 indexes, dead-simple `memory` CLI binary with 6 structured-JSON commands, and benchmark suite with custom harness + LOCOMO adapter for publishable scores.
+
+**Phases completed:** 51-53 (3 phases, 9 plans)
+
+**Key accomplishments:**
+
+- `memory-orchestrator` crate: RRF fusion, heuristic query expansion, Reranker trait (heuristic + cross-encoder stub), MockLlmReranker with DI — 23 tests
+- `memory-cli` crate: `memory` binary with search/context/recall/add/timeline/summary commands, JsonEnvelope with TTY-aware output, all routing through gRPC — 62 tests
+- `memory-bench` crate: TOML fixture harness (temporal/multisession/compression), LOCOMO adapter, baseline comparison tables, JSON + markdown reports — 24 tests
+- All 3 competitive gaps closed: retrieval orchestration (MemMachine), simple API (Mem0), publishable benchmarks (narrative)
+
+**Stats:**
+
+- ~3,750 LOC across 3 new crates (memory-orchestrator, memory-cli, memory-bench)
+- 109 new tests (23 + 62 + 24)
+- Timeline: 2026-03-22 → 2026-03-23 (2 days)
+
+---
+
 ## v2.7 Multi-Runtime Portability (Shipped: 2026-03-22)
 
 **Delivered:** Rust-based multi-runtime installer that converts canonical Claude plugin source into runtime-specific installations for 6 targets, replacing 5 manually-maintained adapter directories with a single conversion pipeline.

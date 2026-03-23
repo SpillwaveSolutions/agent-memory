@@ -2,26 +2,10 @@
 
 ## Current State
 
-**Version:** v3.0 (In Progress)
-**Status:** Building retrieval orchestration, CLI API, and benchmark suite
-
-## Current Milestone: v3.0 Competitive Parity & Benchmarks
-
-**Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
-
-**Target features:**
-- Retrieval Orchestrator crate (query expansion, RRF fusion, LLM reranking)
-- Simple `memory` CLI binary (search, context, recall, add, timeline, summary)
-- Benchmark suite with custom harness + LOCOMO adapter
-- Positioning writeup (side quest, not a GSD phase)
+**Version:** v3.0 (Shipped 2026-03-23)
+**Status:** Planning v3.1
 
 **Previous version:** v2.7 (Shipped 2026-03-22) — Multi-runtime installer with 6 converters
-
-**Spec reference:** `docs/superpowers/specs/2026-03-21-v3-competitive-parity-design.md`
-**Plan references:**
-- `docs/superpowers/plans/2026-03-21-v3-phase-a-retrieval-orchestrator.md`
-- `docs/superpowers/plans/2026-03-21-v3-phase-b-simple-cli-api.md`
-- `docs/superpowers/plans/2026-03-21-v3-phase-c-benchmark-suite.md`
 
 The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, multi-runtime installer, and comprehensive testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)
@@ -259,9 +243,24 @@ Agent Memory implements a layered cognitive architecture:
 - [x] 7 E2E integration tests for full converter pipeline — v2.7
 - [x] Old adapter directories archived with README stubs — v2.7
 
-### Known Gaps (v2.7)
+### Validated (v3.0 - Shipped 2026-03-23)
 
-- OC-01–06: OpenCode converter is a stub (methods return empty). Deferred to v3.0.
+**Competitive Parity & Benchmarks (v3.0)**
+- [x] `memory-orchestrator` crate with RRF fusion, query expansion, reranker trait — v3.0
+- [x] Fail-open orchestrator (continues when indexes return empty) — v3.0
+- [x] MockLlmReranker with dependency injection for mock-verified LLM reranking — v3.0
+- [x] `memory` CLI binary with search/context/recall/add/timeline/summary — v3.0
+- [x] JsonEnvelope with TTY-aware output (JSON when piped, human-readable when interactive) — v3.0
+- [x] All CLI commands route through gRPC (RocksDB lock safety) — v3.0
+- [x] Custom benchmark harness with TOML fixtures (temporal/multisession/compression) — v3.0
+- [x] LOCOMO adapter for publishable scores — v3.0
+- [x] Baseline comparison tables from `benchmarks/baselines.toml` — v3.0
+- [x] CI benchmark-smoke job (non-blocking) — v3.0
+
+### Known Gaps (v2.7 + v3.0)
+
+- OC-01–06: OpenCode converter is a stub (methods return empty). Deferred.
+- Cross-encoder reranking: trait stubbed, not implemented (requires new inference path)
 
 ### Deferred / Future
 
@@ -378,4 +377,4 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Archive adapters (not delete) | One release cycle before removal; README stubs redirect to installer | ✓ Validated v2.7 |
 
 ---
-*Last updated: 2026-03-22 after v3.0 milestone start*
+*Last updated: 2026-03-23 after v3.0 milestone*
