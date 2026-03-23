@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Memory Export/Import
-status: roadmap_complete
-stopped_at: null
-last_updated: "2026-03-23T07:00:00.000Z"
-last_activity: 2026-03-23 — v3.1 roadmap created (3 phases, 22 requirements)
+status: unknown
+stopped_at: "Completed 54-01-PLAN.md (ExportDaily RPC)"
+last_updated: "2026-03-23T21:30:06Z"
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,14 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v3.1 Memory Export/Import — Roadmap complete, ready for phase planning
+**Current focus:** Phase 54 — daily-markdown-export
 
 ## Current Position
 
-Phase: 54 (Daily Markdown Export) — not started
-Plan: —
-Status: Ready for `plan-phase 54`
-Last activity: 2026-03-23 — v3.1 roadmap created
+Phase: 54 (daily-markdown-export) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -51,6 +47,8 @@ See .planning/MILESTONES.md
 - First streaming RPCs in project: ExportBackup (server-side), ImportBackup (client-side)
 - Index files (BM25/HNSW) not included in backup — rebuilt from events
 - Incremental backup overwrites per-day event files (not appends) to prevent duplicate JSONL lines
+- ExportDaily handler deserializes events from raw storage bytes (EventKey, Vec<u8>) matching get_events pattern
+- domain_to_proto_grip helper extracted as standalone fn for reuse across handlers
 
 ## Blockers
 
@@ -88,6 +86,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-23T07:00:00Z
-**Stopped At:** Roadmap created for v3.1 (3 phases: 54-56)
+**Last Session:** 2026-03-23T21:30:06Z
+**Stopped At:** Completed 54-01-PLAN.md (ExportDaily RPC)
 **Resume File:** None

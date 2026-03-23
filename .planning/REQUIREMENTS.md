@@ -36,7 +36,7 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 
 ### gRPC Infrastructure (GRPC)
 
-- [ ] **GRPC-01**: `ExportDaily` unary RPC returns structured day data (CLI renders markdown)
+- [x] **GRPC-01**: `ExportDaily` unary RPC returns structured day data (CLI renders markdown)
 - [ ] **GRPC-02**: `ExportBackup` server-side streaming RPC delivers JSONL chunks
 - [ ] **GRPC-03**: `ImportBackup` client-side streaming RPC accepts JSONL chunks
 - [ ] **GRPC-04**: Streaming support wired into tonic server framework (new infrastructure)
@@ -80,7 +80,7 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 | IMPORT-04 | Phase 56 | Pending |
 | IMPORT-05 | Phase 56 | Pending |
 | IMPORT-06 | Phase 56 | Pending |
-| GRPC-01 | Phase 54 | Pending |
+| GRPC-01 | Phase 54 | Complete |
 | GRPC-02 | Phase 55 | Pending |
 | GRPC-03 | Phase 56 | Pending |
 | GRPC-04 | Phase 55 | Pending |
