@@ -166,7 +166,10 @@ See: `.planning/milestones/v3.0-ROADMAP.md`
   2. Running `memory daily --range 7d` produces one markdown file per active day; days without events produce no files; days without rollup include a "summary pending" note
   3. Each markdown file contains a footer with "derived view" notice and export timestamp
   4. The ExportDaily gRPC RPC returns structured day data (nodes, segments, grips) that the CLI renders into markdown
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 54-01-PLAN.md — ExportDaily proto, handler, trait dispatch, and client method
+- [ ] 54-02-PLAN.md — CLI daily subcommand with markdown rendering
 
 ### Phase 55: Structured Backup
 **Goal**: Users can create complete or incremental JSONL backups of all memory layers for disaster recovery and migration
@@ -178,7 +181,10 @@ See: `.planning/milestones/v3.0-ROADMAP.md`
   3. Running `memory backup --since 24h` exports only data from the last 24 hours; incremental per-day event files overwrite (not append) to prevent duplicate lines
   4. The `manifest.json` includes version, counts per layer, time range, and incremental flag
   5. ExportBackup uses server-side gRPC streaming to deliver JSONL chunks (first streaming RPC in the project; tonic streaming infrastructure wired)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 54-01-PLAN.md — ExportDaily proto, handler, trait dispatch, and client method
+- [ ] 54-02-PLAN.md — CLI daily subcommand with markdown rendering
 
 ### Phase 56: Import/Bootstrap
 **Goal**: Users can restore memory from a backup directory to a new or existing RocksDB instance, enabling migration and portability
@@ -190,7 +196,10 @@ See: `.planning/milestones/v3.0-ROADMAP.md`
   3. Running `memory import --dry-run ./backup-dir/` shows counts of what would be imported without writing anything
   4. Import is idempotent: re-running with the same backup skips events that already exist (dedup by event_id)
   5. Events-only import works (`--events-only`); user can trigger TOC rebuild afterward
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 54-01-PLAN.md — ExportDaily proto, handler, trait dispatch, and client method
+- [ ] 54-02-PLAN.md — CLI daily subcommand with markdown rendering
 
 ## Progress
 
