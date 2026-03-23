@@ -1,0 +1,6 @@
+{"role":"user","content":"We need to decide on an authentication approach for the API. What are our options?"}
+{"role":"assistant","content":"We have three main options: 1) JWT tokens with refresh rotation, 2) OAuth2 with a third-party provider, 3) Session-based auth with server-side storage. Given our microservices architecture, JWT is the most common choice."}
+{"role":"user","content":"JWT sounds right. What about token expiry and refresh?"}
+{"role":"assistant","content":"I recommend short-lived access tokens (15 minutes) with longer refresh tokens (7 days). We should implement refresh token rotation where each refresh invalidates the old token and issues a new pair."}
+{"role":"user","content":"Let's go with JWT and refresh token rotation. Can you outline the implementation?"}
+{"role":"assistant","content":"Here's the plan: 1) Use the jose library for JWT signing/verification, 2) Store refresh tokens in the database with a family ID for rotation detection, 3) Access tokens carry user_id and roles in claims, 4) Middleware validates on every request. I'll start with the token service."}

@@ -58,3 +58,6 @@ coverage/
 
 # Local Cargo configuration (platform-specific)
 .cargo/
+
+# LOCOMO benchmark dataset — download separately via benchmarks/scripts/download-locomo.sh
+locomo-data/

@@ -1,0 +1,6 @@
+{"role":"user","content":"We're getting a null pointer exception in the user profile handler. It crashes when the user has no avatar set."}
+{"role":"assistant","content":"I see the issue. The `get_avatar_url()` method returns a raw pointer without checking for null. In Rust, we should use Option<String> instead. Let me look at the handler code."}
+{"role":"user","content":"Yes, the avatar field was added later and some users don't have it. How should we fix it?"}
+{"role":"assistant","content":"We need to: 1) Change the avatar field type from String to Option<String>, 2) Add a null check in the handler using .unwrap_or_default(), 3) Update the database migration to allow NULL in the avatar column. The Option type will prevent this class of bug entirely."}
+{"role":"user","content":"That makes sense. Let's also add a default avatar URL for users without one."}
+{"role":"assistant","content":"Good idea. I'll add a DEFAULT_AVATAR_URL constant and use it in the unwrap_or. The handler will now be: `let avatar = user.avatar.unwrap_or_else(|| DEFAULT_AVATAR_URL.to_string())`. This ensures every response includes a valid avatar URL."}
