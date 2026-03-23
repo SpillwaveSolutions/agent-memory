@@ -9,11 +9,11 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 
 ### Daily Markdown Export (DAILY)
 
-- [ ] **DAILY-01**: `memory daily` produces browsable markdown files (`memory/YYYY-MM-DD.md`) from TOC day nodes
-- [ ] **DAILY-02**: Daily markdown includes session markers, summary bullets, keywords, and grip excerpts
-- [ ] **DAILY-03**: `memory daily --range 7d` exports multiple days; handles days without rollup (partial output with pending note)
-- [ ] **DAILY-04**: Skips days with no events (no empty files)
-- [ ] **DAILY-05**: Footer includes "derived view" notice and export timestamp
+- [x] **DAILY-01**: `memory daily` produces browsable markdown files (`memory/YYYY-MM-DD.md`) from TOC day nodes
+- [x] **DAILY-02**: Daily markdown includes session markers, summary bullets, keywords, and grip excerpts
+- [x] **DAILY-03**: `memory daily --range 7d` exports multiple days; handles days without rollup (partial output with pending note)
+- [x] **DAILY-04**: Skips days with no events (no empty files)
+- [x] **DAILY-05**: Footer includes "derived view" notice and export timestamp
 
 ### Structured Backup (BACKUP)
 
@@ -62,11 +62,11 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DAILY-01 | Phase 54 | Pending |
-| DAILY-02 | Phase 54 | Pending |
-| DAILY-03 | Phase 54 | Pending |
-| DAILY-04 | Phase 54 | Pending |
-| DAILY-05 | Phase 54 | Pending |
+| DAILY-01 | Phase 54 | Complete |
+| DAILY-02 | Phase 54 | Complete |
+| DAILY-03 | Phase 54 | Complete |
+| DAILY-04 | Phase 54 | Complete |
+| DAILY-05 | Phase 54 | Complete |
 | BACKUP-01 | Phase 55 | Pending |
 | BACKUP-02 | Phase 55 | Pending |
 | BACKUP-03 | Phase 55 | Pending |

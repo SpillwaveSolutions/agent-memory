@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Memory Export/Import
 status: unknown
-stopped_at: "Completed 54-01-PLAN.md (ExportDaily RPC)"
-last_updated: "2026-03-23T21:30:06Z"
+stopped_at: "Completed 54-02-PLAN.md (Daily CLI Subcommand)"
+last_updated: "2026-03-23T21:40:00Z"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 54 (daily-markdown-export) — EXECUTING
-Plan: 2 of 2
+Phase: 54 (daily-markdown-export) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 155 (across 10 milestones)
+- Total plans completed: 156 (across 10 milestones)
 - Average duration: ~15 min
 - Total execution time: ~38 hours
 
@@ -49,6 +49,8 @@ See .planning/MILESTONES.md
 - Incremental backup overwrites per-day event files (not appends) to prevent duplicate JSONL lines
 - ExportDaily handler deserializes events from raw storage bytes (EventKey, Vec<u8>) matching get_events pattern
 - domain_to_proto_grip helper extracted as standalone fn for reuse across handlers
+- Daily markdown files always overwrite (idempotent derived views, not source of truth)
+- Session grouping uses HashMap+Vec for insertion-order-preserving O(n) grouping
 
 ## Blockers
 
@@ -86,6 +88,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-23T21:30:06Z
-**Stopped At:** Completed 54-01-PLAN.md (ExportDaily RPC)
+**Last Session:** 2026-03-23T21:40:00Z
+**Stopped At:** Completed 54-02-PLAN.md (Daily CLI Subcommand)
 **Resume File:** None
