@@ -2,7 +2,7 @@ use clap::Parser;
 
 mod cli;
 
-use memory_bench::{baseline, fixture, report, runner, scorer};
+use memory_bench::{baseline, fixture, locomo, report, runner, scorer};
 use scorer::BenchmarkReport;
 
 fn main() -> anyhow::Result<()> {
@@ -44,9 +44,59 @@ fn main() -> anyhow::Result<()> {
                 eprintln!("Results written to {path}");
             }
         }
-        cli::Commands::Locomo { .. } => {
-            eprintln!("LOCOMO adapter -- use memory-bench locomo --dataset=./locomo-data/");
-            eprintln!("(Implemented in Plan 03)");
+        cli::Commands::Locomo {
+            dataset,
+            output,
+            compare,
+            baselines,
+        } => {
+            let conversations = locomo::load_dataset(std::path::Path::new(&dataset))?;
+            eprintln!(
+                "Loaded {} conversations from {}",
+                conversations.len(),
+                dataset
+            );
+
+            let mut results = Vec::new();
+            for conv in &conversations {
+                // Convert turns to JSONL and ingest via runner
+                let temp_dir = tempfile::tempdir()?;
+                let session_path = temp_dir.path().join("session.jsonl");
+                let mut lines = Vec::new();
+                for turn in &conv.turns {
+                    lines.push(format!(
+                        "{{\"role\":\"{}\",\"content\":\"{}\"}}",
+                        turn.role,
+                        turn.content.replace('\\', "\\\\").replace('"', "\\\"")
+                    ));
+                }
+                std::fs::write(&session_path, lines.join("\n"))?;
+                let _ = runner::ingest_session(session_path.to_str().unwrap_or_default(), &config);
+
+                // Run each question through runner and collect answers
+                let mut answers = Vec::new();
+                for q in &conv.questions {
+                    let result = runner::run_query(&q.question, &config);
+                    answers.push(result.raw_output);
+                }
+
+                let result = locomo::score_conversation(conv, &answers);
+                results.push(result);
+            }
+
+            let aggregate = locomo::aggregate_results(&results);
+
+            if compare {
+                let _baselines_data = baseline::Baselines::load(std::path::Path::new(&baselines))?;
+                eprintln!("Loaded baselines for comparison");
+            }
+
+            let json = serde_json::to_string_pretty(&aggregate)?;
+            println!("{json}");
+            if let Some(path) = output {
+                std::fs::write(&path, &json)?;
+                eprintln!("Results written to {path}");
+            }
         }
     }
     Ok(())

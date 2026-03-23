@@ -18,5 +18,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 
+[dependencies.tempfile]
+workspace = true
+
 [dev-dependencies]
-tempfile = { workspace = true }

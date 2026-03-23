@@ -63,14 +63,8 @@ pub fn to_markdown(report: &BenchmarkReport, baselines: Option<&Baselines>) -> S
             report.recall_at_5 * 100.0
         ));
         out.push_str(&format!("| Avg Tokens | {} |\n", report.token_usage_avg));
-        out.push_str(&format!(
-            "| Latency p50 | {}ms |\n",
-            report.latency_p50_ms
-        ));
-        out.push_str(&format!(
-            "| Latency p95 | {}ms |\n",
-            report.latency_p95_ms
-        ));
+        out.push_str(&format!("| Latency p50 | {}ms |\n", report.latency_p50_ms));
+        out.push_str(&format!("| Latency p95 | {}ms |\n", report.latency_p95_ms));
         out.push_str(&format!(
             "| Compression | {:.1}% |\n",
             report.compression_ratio * 100.0
