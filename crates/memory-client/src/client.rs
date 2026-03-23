@@ -8,14 +8,15 @@ use tracing::{debug, info};
 use memory_service::pb::{
     memory_service_client::MemoryServiceClient, BrowseTocRequest, Event as ProtoEvent,
     EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
-    GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest, GetNodeRequest,
-    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest, GetTocRootRequest,
-    GetTopTopicsRequest, GetTopicGraphStatusRequest, GetTopicsByQueryRequest,
+    ExportDailyRequest, GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest,
+    GetNodeRequest, GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
+    GetTocRootRequest, GetTopTopicsRequest, GetTopicGraphStatusRequest, GetTopicsByQueryRequest,
     GetVectorIndexStatusRequest, Grip as ProtoGrip, HybridSearchRequest, HybridSearchResponse,
     IngestEventRequest, RouteQueryRequest, RouteQueryResponse, TeleportSearchRequest,
     TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic, VectorIndexStatus,
     VectorTeleportRequest, VectorTeleportResponse,
 };
+pub use memory_service::pb::DayExport;
 use memory_types::{Event, EventRole, EventType};
 
 use crate::error::ClientError;
@@ -454,6 +455,26 @@ impl MemoryClient {
         let response = self.inner.get_top_topics(request).await?;
         Ok(response.into_inner().topics)
     }
+
+    // ===== Daily Export Methods (Phase 54) =====
+
+    /// Export structured day data for a date range.
+    ///
+    /// Per GRPC-01: Returns day nodes, segments, events, grips per day.
+    pub async fn export_daily(
+        &mut self,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<ExportDailyResult, ClientError> {
+        debug!("ExportDaily request: {} to {}", start_date, end_date);
+        let request = tonic::Request::new(ExportDailyRequest {
+            start_date: start_date.to_string(),
+            end_date: end_date.to_string(),
+        });
+        let response = self.inner.export_daily(request).await?;
+        let resp = response.into_inner();
+        Ok(ExportDailyResult { days: resp.days })
+    }
 }
 
 /// Topic graph status.
@@ -485,6 +506,12 @@ pub struct BrowseTocResult {
 pub struct GetEventsResult {
     pub events: Vec<ProtoEvent>,
     pub has_more: bool,
+}
+
+/// Result of an ExportDaily call.
+#[derive(Debug)]
+pub struct ExportDailyResult {
+    pub days: Vec<DayExport>,
 }
 
 /// Result of expand_grip operation.

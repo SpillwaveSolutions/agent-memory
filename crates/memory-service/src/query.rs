@@ -9,12 +9,14 @@ use tracing::{debug, warn};
 
 use memory_storage::Storage;
 use memory_types::{
-    Event, EventRole, EventType, TocLevel as DomainTocLevel, TocNode as DomainTocNode,
+    Event, EventRole, EventType, Grip as DomainGrip, TocLevel as DomainTocLevel,
+    TocNode as DomainTocNode,
 };
 
 use crate::pb::{
-    BrowseTocRequest, BrowseTocResponse, Event as ProtoEvent, EventRole as ProtoEventRole,
-    EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, GetEventsRequest,
+    BrowseTocRequest, BrowseTocResponse, DayExport, Event as ProtoEvent,
+    EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
+    ExpandGripResponse, ExportDailyRequest, ExportDailyResponse, GetEventsRequest,
     GetEventsResponse, GetNodeRequest, GetNodeResponse, GetTocRootRequest, GetTocRootResponse,
     Grip as ProtoGrip, MemoryKind as ProtoMemoryKind, TocBullet as ProtoTocBullet,
     TocLevel as ProtoTocLevel, TocNode as ProtoTocNode,
@@ -277,6 +279,142 @@ pub async fn expand_grip(
     }))
 }
 
+/// Export structured day data for a date range.
+///
+/// Per GRPC-01: Returns day nodes, segments, events, and grips.
+/// Days with no events are omitted (DAILY-04).
+pub async fn export_daily(
+    storage: Arc<Storage>,
+    request: Request<ExportDailyRequest>,
+) -> Result<Response<ExportDailyResponse>, Status> {
+    let req = request.into_inner();
+    debug!("ExportDaily request: {} to {}", req.start_date, req.end_date);
+
+    // Parse date strings to NaiveDate
+    let start = chrono::NaiveDate::parse_from_str(&req.start_date, "%Y-%m-%d")
+        .map_err(|e| Status::invalid_argument(format!("Invalid start_date: {e}")))?;
+    let end = chrono::NaiveDate::parse_from_str(&req.end_date, "%Y-%m-%d")
+        .map_err(|e| Status::invalid_argument(format!("Invalid end_date: {e}")))?;
+
+    if end < start {
+        return Err(Status::invalid_argument("end_date must be >= start_date"));
+    }
+
+    let mut days = Vec::new();
+    let mut current = start;
+
+    while current <= end {
+        let date_str = current.format("%Y-%m-%d").to_string();
+
+        // Day boundaries in milliseconds
+        let day_start_ms = current
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp_millis();
+        let day_end_ms = current
+            .and_hms_milli_opt(23, 59, 59, 999)
+            .unwrap()
+            .and_utc()
+            .timestamp_millis();
+
+        // Get all events for this day (storage returns raw key-value pairs)
+        let raw_events = storage
+            .get_events_in_range(day_start_ms, day_end_ms)
+            .map_err(|e| Status::internal(format!("Storage error: {e}")))?;
+
+        // DAILY-04: Skip days with no events
+        if raw_events.is_empty() {
+            current += chrono::Duration::days(1);
+            continue;
+        }
+
+        // Deserialize events
+        let mut events = Vec::new();
+        for (_key, bytes) in &raw_events {
+            match Event::from_bytes(bytes) {
+                Ok(event) => events.push(event),
+                Err(e) => {
+                    warn!("Failed to deserialize event: {e}");
+                    continue;
+                }
+            }
+        }
+
+        // Look up day TOC node (deterministic ID: toc:day:YYYY-MM-DD)
+        let node_id = format!("toc:day:{date_str}");
+        let day_node_opt = storage
+            .get_toc_node(&node_id)
+            .map_err(|e| Status::internal(format!("Storage error: {e}")))?;
+
+        let has_rollup = day_node_opt.is_some();
+
+        // Get segment children if day node exists
+        let segment_nodes = if has_rollup {
+            storage
+                .get_child_nodes(&node_id)
+                .map_err(|e| Status::internal(format!("Storage error: {e}")))?
+        } else {
+            Vec::new()
+        };
+
+        // Collect grips: from day node and all segment nodes
+        let mut all_grips = Vec::new();
+        let mut seen_grip_ids = std::collections::HashSet::new();
+
+        // Helper closure to collect grips from a node's bullets
+        let collect_grips =
+            |node: &DomainTocNode,
+             grips: &mut Vec<DomainGrip>,
+             seen: &mut std::collections::HashSet<String>|
+             -> Result<(), Status> {
+                for bullet in &node.bullets {
+                    for grip_id in &bullet.grip_ids {
+                        if seen.insert(grip_id.clone()) {
+                            if let Some(grip) = storage
+                                .get_grip(grip_id)
+                                .map_err(|e| Status::internal(format!("Storage error: {e}")))?
+                            {
+                                grips.push(grip);
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            };
+
+        if let Some(ref dn) = day_node_opt {
+            collect_grips(dn, &mut all_grips, &mut seen_grip_ids)?;
+        }
+        for seg in &segment_nodes {
+            collect_grips(seg, &mut all_grips, &mut seen_grip_ids)?;
+        }
+
+        // Convert domain types to proto types
+        let proto_events: Vec<ProtoEvent> =
+            events.into_iter().map(domain_to_proto_event).collect();
+        let proto_segments: Vec<ProtoTocNode> =
+            segment_nodes.into_iter().map(domain_to_proto_node).collect();
+        let proto_grips: Vec<ProtoGrip> =
+            all_grips.into_iter().map(domain_to_proto_grip).collect();
+        let proto_day_node = day_node_opt.map(domain_to_proto_node);
+
+        days.push(DayExport {
+            date: date_str,
+            day_node: proto_day_node,
+            segments: proto_segments,
+            events: proto_events,
+            grips: proto_grips,
+            has_rollup,
+        });
+
+        current += chrono::Duration::days(1);
+    }
+
+    debug!("ExportDaily returning {} days", days.len());
+    Ok(Response::new(ExportDailyResponse { days }))
+}
+
 // ===== Type Conversion Functions =====
 
 fn domain_to_proto_node(node: DomainTocNode) -> ProtoTocNode {
@@ -328,6 +466,20 @@ fn domain_to_proto_node(node: DomainTocNode) -> ProtoTocNode {
         // Phase 40: Usage tracking
         access_count: node.access_count,
         last_accessed_ms: node.last_accessed_ms.unwrap_or(0),
+    }
+}
+
+fn domain_to_proto_grip(grip: DomainGrip) -> ProtoGrip {
+    ProtoGrip {
+        grip_id: grip.grip_id,
+        excerpt: grip.excerpt,
+        event_id_start: grip.event_id_start,
+        event_id_end: grip.event_id_end,
+        timestamp_ms: grip.timestamp.timestamp_millis(),
+        source: grip.source,
+        salience_score: grip.salience_score,
+        memory_kind: ProtoMemoryKind::Observation as i32,
+        is_pinned: grip.is_pinned,
     }
 }
 

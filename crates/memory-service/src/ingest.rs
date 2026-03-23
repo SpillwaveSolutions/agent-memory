@@ -27,22 +27,23 @@ use crate::pb::{
     memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
     ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, CompleteEpisodeRequest,
     CompleteEpisodeResponse, Event as ProtoEvent, EventRole as ProtoEventRole,
-    EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, GetAgentActivityRequest,
-    GetAgentActivityResponse, GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest,
-    GetEventsResponse, GetNodeRequest, GetNodeResponse, GetRankingStatusRequest,
-    GetRankingStatusResponse, GetRelatedTopicsRequest, GetRelatedTopicsResponse,
-    GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse, GetSchedulerStatusRequest,
-    GetSchedulerStatusResponse, GetSimilarEpisodesRequest, GetSimilarEpisodesResponse,
-    GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest, GetTopTopicsResponse,
-    GetTopicGraphStatusRequest, GetTopicGraphStatusResponse, GetTopicsByQueryRequest,
-    GetTopicsByQueryResponse, GetVectorIndexStatusRequest, HybridSearchRequest,
-    HybridSearchResponse, IngestEventRequest, IngestEventResponse, ListAgentsRequest,
-    ListAgentsResponse, PauseJobRequest, PauseJobResponse, PruneBm25IndexRequest,
-    PruneBm25IndexResponse, PruneVectorIndexRequest, PruneVectorIndexResponse, RecordActionRequest,
-    RecordActionResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
-    RouteQueryResponse, SearchChildrenRequest, SearchChildrenResponse, SearchNodeRequest,
-    SearchNodeResponse, StartEpisodeRequest, StartEpisodeResponse, TeleportSearchRequest,
-    TeleportSearchResponse, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
+    EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, ExportDailyRequest,
+    ExportDailyResponse, GetAgentActivityRequest, GetAgentActivityResponse, GetDedupStatusRequest,
+    GetDedupStatusResponse, GetEventsRequest, GetEventsResponse, GetNodeRequest, GetNodeResponse,
+    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
+    GetRelatedTopicsResponse, GetRetrievalCapabilitiesRequest,
+    GetRetrievalCapabilitiesResponse, GetSchedulerStatusRequest, GetSchedulerStatusResponse,
+    GetSimilarEpisodesRequest, GetSimilarEpisodesResponse, GetTocRootRequest, GetTocRootResponse,
+    GetTopTopicsRequest, GetTopTopicsResponse, GetTopicGraphStatusRequest,
+    GetTopicGraphStatusResponse, GetTopicsByQueryRequest, GetTopicsByQueryResponse,
+    GetVectorIndexStatusRequest, HybridSearchRequest, HybridSearchResponse, IngestEventRequest,
+    IngestEventResponse, ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
+    PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
+    PruneVectorIndexResponse, RecordActionRequest, RecordActionResponse, ResumeJobRequest,
+    ResumeJobResponse, RouteQueryRequest, RouteQueryResponse, SearchChildrenRequest,
+    SearchChildrenResponse, SearchNodeRequest, SearchNodeResponse, StartEpisodeRequest,
+    StartEpisodeResponse, TeleportSearchRequest, TeleportSearchResponse, VectorIndexStatus,
+    VectorTeleportRequest, VectorTeleportResponse,
 };
 use crate::query;
 use crate::retrieval::RetrievalHandler;
@@ -1210,6 +1211,16 @@ impl MemoryService for MemoryServiceImpl {
                 "Episodic memory is not enabled",
             )),
         }
+    }
+
+    /// Export structured day data for a date range.
+    ///
+    /// Per Phase 54: Daily markdown export foundation.
+    async fn export_daily(
+        &self,
+        request: Request<ExportDailyRequest>,
+    ) -> Result<Response<ExportDailyResponse>, Status> {
+        query::export_daily(self.storage.clone(), request).await
     }
 }
 
