@@ -20,7 +20,7 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 - [x] **BACKUP-01**: `memory backup` exports all layers as JSONL directory structure with `manifest.json`
 - [x] **BACKUP-02**: `memory backup --events-only` exports just the base event layer
 - [x] **BACKUP-03**: `memory backup --since 24h` exports only recent data (incremental by time range)
-- [ ] **BACKUP-04**: Incremental backups overwrite per-day event files (no duplicate JSONL lines)
+- [x] **BACKUP-04**: Incremental backups overwrite per-day event files (no duplicate JSONL lines)
 - [x] **BACKUP-05**: `manifest.json` includes version, counts, time range, and incremental flag
 - [x] **BACKUP-06**: Backup includes events, TOC nodes (all levels), grips, and episodes
 - [x] **BACKUP-07**: `ExportBackup` uses server-side gRPC streaming (first streaming RPC in the project)
@@ -70,7 +70,7 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 | BACKUP-01 | Phase 55 | Complete |
 | BACKUP-02 | Phase 55 | Complete |
 | BACKUP-03 | Phase 55 | Complete |
-| BACKUP-04 | Phase 55 | Pending |
+| BACKUP-04 | Phase 55 | Complete |
 | BACKUP-05 | Phase 55 | Complete |
 | BACKUP-06 | Phase 55 | Complete |
 | BACKUP-07 | Phase 55 | Complete |

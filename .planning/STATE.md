@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Memory Export/Import
 status: unknown
-stopped_at: Completed 55-01-PLAN.md (Structured Backup Server-Side)
+stopped_at: Completed 55-02-PLAN.md (Backup CLI Command)
 last_updated: "2026-03-24T02:40:20.908Z"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 55 (structured-backup) — EXECUTING
-Plan: 2 of 2
+Phase: 55 (structured-backup) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 156 (across 10 milestones)
+- Total plans completed: 157 (across 10 milestones)
 - Average duration: ~15 min
 - Total execution time: ~38 hours
 
@@ -53,6 +53,8 @@ See .planning/MILESTONES.md
 - Session grouping uses HashMap+Vec for insertion-order-preserving O(n) grouping
 - [Phase 55]: tokio mpsc channel + ReceiverStream pattern for server-side streaming RPCs
 - [Phase 55]: Domain types (not proto) serialized to JSONL for backup round-trip fidelity
+- [Phase 55]: BackupChunkType re-exported from memory-client for CLI chunk routing
+- [Phase 55]: Per-day event files overwritten (not appended) for incremental backup correctness
 
 ## Blockers
 
@@ -90,6 +92,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-24T02:40:20.906Z
-**Stopped At:** Completed 55-01-PLAN.md (Structured Backup Server-Side)
+**Last Session:** 2026-03-24T02:47:29Z
+**Stopped At:** Completed 55-02-PLAN.md (Backup CLI Command)
 **Resume File:** None

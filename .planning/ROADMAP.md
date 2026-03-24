@@ -152,7 +152,7 @@ See: `.planning/milestones/v3.0-ROADMAP.md`
 ### v3.1 Memory Export/Import (Phases 54-56)
 
 - [x] **Phase 54: Daily Markdown Export** — Browsable markdown dailies from TOC day nodes + ExportDaily unary RPC (completed 2026-03-23)
-- [ ] **Phase 55: Structured Backup** — Full JSONL backup with incremental support + first streaming RPCs
+- [x] **Phase 55: Structured Backup** — Full JSONL backup with incremental support + first streaming RPCs (completed 2026-03-24)
 - [ ] **Phase 56: Import/Bootstrap** — Restore from backup directory with client-side streaming + round-trip validation
 
 ## Phase Details
