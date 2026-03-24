@@ -51,6 +51,9 @@ pub enum Commands {
 
     /// Create a structured JSONL backup of all memory layers.
     Backup(BackupArgs),
+
+    /// Restore memory from a backup directory.
+    Import(ImportArgs),
 }
 
 /// Arguments for the `search` subcommand.
@@ -168,6 +171,21 @@ pub struct BackupArgs {
     /// Output directory for backup files.
     #[arg(long, default_value = "./memory-backup")]
     pub dir: String,
+}
+
+/// Arguments for the `import` subcommand.
+#[derive(Parser, Debug)]
+pub struct ImportArgs {
+    /// Backup directory to import from.
+    pub dir: String,
+
+    /// Only import events (skip TOC, grips, episodes).
+    #[arg(long)]
+    pub events_only: bool,
+
+    /// Show what would be imported without writing.
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 #[cfg(test)]
@@ -330,8 +348,35 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_import_defaults() {
+        let cli = Cli::try_parse_from(["memory", "import", "./backup"]).unwrap();
+        match cli.command {
+            Commands::Import(args) => {
+                assert_eq!(args.dir, "./backup");
+                assert!(!args.events_only);
+                assert!(!args.dry_run);
+            }
+            _ => panic!("Expected Import command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_import_with_flags() {
+        let cli =
+            Cli::try_parse_from(["memory", "import", "./backup", "--events-only", "--dry-run"])
+                .unwrap();
+        match cli.command {
+            Commands::Import(args) => {
+                assert!(args.events_only);
+                assert!(args.dry_run);
+            }
+            _ => panic!("Expected Import command"),
+        }
+    }
+
+    #[test]
     fn test_all_subcommands_parse() {
-        // Verify all 8 subcommands can be parsed
+        // Verify all 9 subcommands can be parsed
         let cases = vec![
             vec!["memory", "search", "q"],
             vec!["memory", "context", "q"],
@@ -341,6 +386,7 @@ mod tests {
             vec!["memory", "recall", "q"],
             vec!["memory", "daily"],
             vec!["memory", "backup"],
+            vec!["memory", "import", "./dir"],
         ];
         for args in cases {
             Cli::try_parse_from(&args)
