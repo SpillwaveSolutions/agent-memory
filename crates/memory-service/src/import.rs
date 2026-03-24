@@ -168,12 +168,7 @@ fn import_events(storage: &Storage, jsonl_data: &str, dry_run: bool, counts: &mu
 }
 
 /// Import TOC nodes from JSONL data.
-fn import_toc_nodes(
-    storage: &Storage,
-    jsonl_data: &str,
-    dry_run: bool,
-    counts: &mut ImportCounts,
-) {
+fn import_toc_nodes(storage: &Storage, jsonl_data: &str, dry_run: bool, counts: &mut ImportCounts) {
     for line in jsonl_data.lines() {
         let line = line.trim();
         if line.is_empty() {
@@ -237,12 +232,7 @@ fn import_grips(storage: &Storage, jsonl_data: &str, dry_run: bool, counts: &mut
 }
 
 /// Import episodes from JSONL data.
-fn import_episodes(
-    storage: &Storage,
-    jsonl_data: &str,
-    dry_run: bool,
-    counts: &mut ImportCounts,
-) {
+fn import_episodes(storage: &Storage, jsonl_data: &str, dry_run: bool, counts: &mut ImportCounts) {
     for line in jsonl_data.lines() {
         let line = line.trim();
         if line.is_empty() {

@@ -29,11 +29,7 @@ pub async fn run(args: ImportArgs, global: &GlobalArgs) -> Result<()> {
         let mut event_files: Vec<_> = std::fs::read_dir(&events_dir)
             .context("Failed to read events directory")?
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.path()
-                    .extension()
-                    .is_some_and(|ext| ext == "jsonl")
-            })
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "jsonl"))
             .collect();
         event_files.sort_by_key(|e| e.file_name());
 
@@ -92,7 +88,10 @@ pub async fn run(args: ImportArgs, global: &GlobalArgs) -> Result<()> {
 
     // Stream chunks to daemon
     let stream = tokio_stream::iter(chunks);
-    let result = client.import_backup(stream).await.context("Import failed")?;
+    let result = client
+        .import_backup(stream)
+        .await
+        .context("Import failed")?;
 
     // Report results
     report_result(&result, dry_run, events_only);
@@ -112,10 +111,7 @@ fn validate_manifest(base: &Path) -> Result<serde_json::Value> {
         .and_then(|v| v.as_str())
         .unwrap_or("");
     if version != "1.0" {
-        bail!(
-            "Unsupported backup version: '{}' (expected '1.0')",
-            version
-        );
+        bail!("Unsupported backup version: '{}' (expected '1.0')", version);
     }
     Ok(manifest)
 }
@@ -148,11 +144,7 @@ fn read_jsonl_chunks(
 }
 
 /// Report import results to stderr.
-fn report_result(
-    result: &memory_client::ImportResult,
-    dry_run: bool,
-    events_only: bool,
-) {
+fn report_result(result: &memory_client::ImportResult, dry_run: bool, events_only: bool) {
     let prefix = if dry_run { "[DRY RUN] " } else { "" };
 
     eprintln!("{prefix}Import results:");

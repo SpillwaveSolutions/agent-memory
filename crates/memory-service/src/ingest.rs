@@ -23,8 +23,8 @@ use crate::agents::AgentDiscoveryHandler;
 use crate::backup;
 use crate::episodes::EpisodeHandler;
 use crate::hybrid::HybridSearchHandler;
-use crate::novelty::NoveltyChecker;
 use crate::import;
+use crate::novelty::NoveltyChecker;
 use crate::pb::{
     memory_service_server::MemoryService, BackupOptions, BrowseTocRequest, BrowseTocResponse,
     ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, CompleteEpisodeRequest,
@@ -39,8 +39,7 @@ use crate::pb::{
     GetTopTopicsResponse, GetTopicGraphStatusRequest, GetTopicGraphStatusResponse,
     GetTopicsByQueryRequest, GetTopicsByQueryResponse, GetVectorIndexStatusRequest,
     HybridSearchRequest, HybridSearchResponse, ImportChunk, ImportResult, IngestEventRequest,
-    IngestEventResponse,
-    ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
+    IngestEventResponse, ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
     PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
     PruneVectorIndexResponse, RecordActionRequest, RecordActionResponse, ResumeJobRequest,
     ResumeJobResponse, RouteQueryRequest, RouteQueryResponse, SearchChildrenRequest,

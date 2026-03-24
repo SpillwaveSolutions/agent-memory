@@ -25,8 +25,7 @@ fn make_test_event(ulid_suffix: u8, text: &str) -> Event {
     Event::new(
         ulid.to_string(),
         "test-session".to_string(),
-        DateTime::from_timestamp_millis(1_700_000_000_000)
-            .unwrap_or_else(Utc::now),
+        DateTime::from_timestamp_millis(1_700_000_000_000).unwrap_or_else(Utc::now),
         EventType::UserMessage,
         EventRole::User,
         text.to_string(),
@@ -123,17 +122,9 @@ fn test_import_dry_run_no_writes() {
     let result = import::import_chunks(&storage, &[chunk]);
 
     assert!(result.dry_run, "Result should report dry_run=true");
-    assert_eq!(
-        result.events_imported, 1,
-        "dry_run still counts the record"
-    );
+    assert_eq!(result.events_imported, 1, "dry_run still counts the record");
 
     // Event must NOT be in storage
-    let retrieved = storage
-        .get_event(&event_id)
-        .expect("get_event failed");
-    assert!(
-        retrieved.is_none(),
-        "dry_run must not write to storage"
-    );
+    let retrieved = storage.get_event(&event_id).expect("get_event failed");
+    assert!(retrieved.is_none(), "dry_run must not write to storage");
 }
