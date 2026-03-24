@@ -27,18 +27,18 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 
 ### Import/Bootstrap (IMPORT)
 
-- [ ] **IMPORT-01**: `memory import ./dir/` restores a full backup to RocksDB
+- [x] **IMPORT-01**: `memory import ./dir/` restores a full backup to RocksDB
 - [ ] **IMPORT-02**: Round-trip test: export → wipe → import → all queries return same results
-- [ ] **IMPORT-03**: `memory import --dry-run` shows what would be imported without writing
-- [ ] **IMPORT-04**: Idempotent — events with existing IDs are skipped (dedup by event_id)
-- [ ] **IMPORT-05**: `ImportBackup` uses client-side gRPC streaming
+- [x] **IMPORT-03**: `memory import --dry-run` shows what would be imported without writing
+- [x] **IMPORT-04**: Idempotent — events with existing IDs are skipped (dedup by event_id)
+- [x] **IMPORT-05**: `ImportBackup` uses client-side gRPC streaming
 - [ ] **IMPORT-06**: Events-only import works; user triggers TOC rebuild after
 
 ### gRPC Infrastructure (GRPC)
 
 - [x] **GRPC-01**: `ExportDaily` unary RPC returns structured day data (CLI renders markdown)
 - [x] **GRPC-02**: `ExportBackup` server-side streaming RPC delivers JSONL chunks
-- [ ] **GRPC-03**: `ImportBackup` client-side streaming RPC accepts JSONL chunks
+- [x] **GRPC-03**: `ImportBackup` client-side streaming RPC accepts JSONL chunks
 - [x] **GRPC-04**: Streaming support wired into tonic server framework (new infrastructure)
 
 ## Future Requirements (v3.2+)
@@ -74,15 +74,15 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 | BACKUP-05 | Phase 55 | Complete |
 | BACKUP-06 | Phase 55 | Complete |
 | BACKUP-07 | Phase 55 | Complete |
-| IMPORT-01 | Phase 56 | Pending |
+| IMPORT-01 | Phase 56 | Complete |
 | IMPORT-02 | Phase 56 | Pending |
-| IMPORT-03 | Phase 56 | Pending |
-| IMPORT-04 | Phase 56 | Pending |
-| IMPORT-05 | Phase 56 | Pending |
+| IMPORT-03 | Phase 56 | Complete |
+| IMPORT-04 | Phase 56 | Complete |
+| IMPORT-05 | Phase 56 | Complete |
 | IMPORT-06 | Phase 56 | Pending |
 | GRPC-01 | Phase 54 | Complete |
 | GRPC-02 | Phase 55 | Complete |
-| GRPC-03 | Phase 56 | Pending |
+| GRPC-03 | Phase 56 | Complete |
 | GRPC-04 | Phase 55 | Complete |
 
 **Coverage:**
