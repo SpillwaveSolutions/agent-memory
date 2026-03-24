@@ -37,36 +37,53 @@ pub async fn import_backup(
 ) -> Result<tonic::Response<ImportResult>, Status> {
     let start = Instant::now();
     let mut stream = request.into_inner();
-    let mut counts = ImportCounts::default();
-    let mut dry_run = false;
-    let mut first_chunk = true;
+    let mut chunks = Vec::new();
 
     while let Some(chunk) = stream.message().await.map_err(|e| {
         error!("Import stream error: {e}");
         Status::internal(format!("Stream error: {e}"))
     })? {
-        if first_chunk {
-            dry_run = chunk.dry_run;
-            first_chunk = false;
-        }
+        chunks.push(chunk);
+    }
 
+    let result = process_import_chunks(&storage, &chunks, start);
+    Ok(tonic::Response::new(result))
+}
+
+/// Import from a pre-collected vec of chunks (testable without tonic Streaming).
+///
+/// This is the core import logic shared between the gRPC handler and tests.
+pub fn import_chunks(storage: &Arc<Storage>, chunks: &[ImportChunk]) -> ImportResult {
+    process_import_chunks(storage, chunks, Instant::now())
+}
+
+/// Core import logic operating on a slice of chunks.
+fn process_import_chunks(
+    storage: &Storage,
+    chunks: &[ImportChunk],
+    start: Instant,
+) -> ImportResult {
+    let mut counts = ImportCounts::default();
+    let dry_run = chunks.first().is_some_and(|c| c.dry_run);
+
+    for chunk in chunks {
         let chunk_type = chunk.chunk_type();
         match chunk_type {
             BackupChunkType::Events => {
-                import_events(&storage, &chunk.jsonl_data, dry_run, &mut counts);
+                import_events(storage, &chunk.jsonl_data, dry_run, &mut counts);
             }
             BackupChunkType::TocSegments
             | BackupChunkType::TocDays
             | BackupChunkType::TocWeeks
             | BackupChunkType::TocMonths
             | BackupChunkType::TocYears => {
-                import_toc_nodes(&storage, &chunk.jsonl_data, dry_run, &mut counts);
+                import_toc_nodes(storage, &chunk.jsonl_data, dry_run, &mut counts);
             }
             BackupChunkType::Grips => {
-                import_grips(&storage, &chunk.jsonl_data, dry_run, &mut counts);
+                import_grips(storage, &chunk.jsonl_data, dry_run, &mut counts);
             }
             BackupChunkType::Episodes => {
-                import_episodes(&storage, &chunk.jsonl_data, dry_run, &mut counts);
+                import_episodes(storage, &chunk.jsonl_data, dry_run, &mut counts);
             }
             _ => {
                 debug!("Skipping chunk type {:?} during import", chunk_type);
@@ -86,7 +103,7 @@ pub async fn import_backup(
         elapsed,
     );
 
-    Ok(tonic::Response::new(ImportResult {
+    ImportResult {
         events_imported: counts.events_imported,
         events_skipped: counts.events_skipped,
         toc_nodes_imported: counts.toc_nodes_imported,
@@ -95,7 +112,7 @@ pub async fn import_backup(
         errors: counts.errors,
         elapsed_seconds: elapsed,
         dry_run,
-    }))
+    }
 }
 
 /// Import events from JSONL data with idempotency and outbox entries.
