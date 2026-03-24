@@ -565,6 +565,34 @@ impl Storage {
         Ok(grips)
     }
 
+    /// List all grips in storage (for backup export).
+    ///
+    /// Iterates CF_GRIPS from start, skipping `node:` index entries
+    /// which are stored alongside grip data in the same column family.
+    pub fn list_all_grips(&self) -> Result<Vec<memory_types::Grip>, StorageError> {
+        let grips_cf = self
+            .db
+            .cf_handle(CF_GRIPS)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_GRIPS.to_string()))?;
+
+        let mut grips = Vec::new();
+        let iter = self.db.iterator_cf(&grips_cf, IteratorMode::Start);
+
+        for item in iter {
+            let (key, value) = item?;
+            let key_str = String::from_utf8_lossy(&key);
+            // Skip node:{node_id}:{grip_id} index entries
+            if key_str.starts_with("node:") {
+                continue;
+            }
+            let grip = memory_types::Grip::from_bytes(&value)
+                .map_err(|e| StorageError::Serialization(e.to_string()))?;
+            grips.push(grip);
+        }
+
+        Ok(grips)
+    }
+
     /// Delete a grip and its index entry.
     pub fn delete_grip(&self, grip_id: &str) -> Result<(), StorageError> {
         let grips_cf = self
@@ -1184,5 +1212,12 @@ mod tests {
         // Verify all gone
         let entries = storage.get_outbox_entries(0, 10).unwrap();
         assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_list_all_grips_empty() {
+        let (storage, _temp) = create_test_storage();
+        let grips = storage.list_all_grips().unwrap();
+        assert!(grips.is_empty());
     }
 }

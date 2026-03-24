@@ -134,6 +134,11 @@ service MemoryService {
 
     // Export structured day data for a date range (CLI renders markdown)
     rpc ExportDaily(ExportDailyRequest) returns (ExportDailyResponse);
+
+    // ===== Structured Backup RPCs (Phase 55) =====
+
+    // Stream full or incremental backup as JSONL chunks (first streaming RPC)
+    rpc ExportBackup(BackupOptions) returns (stream BackupChunk);
 }
 
 // Role of the message author
@@ -1246,4 +1251,40 @@ message DayExport {
 message ExportDailyResponse {
     // One entry per day in the requested range (days with no events are omitted)
     repeated DayExport days = 1;
+}
+
+// ===== Backup Messages (Phase 55) =====
+
+// Options for ExportBackup streaming RPC.
+message BackupOptions {
+    // Only export events (skip TOC, grips, episodes)
+    bool events_only = 1;
+    // Start timestamp for incremental export (0 = all time)
+    int64 since_ms = 2;
+    // End timestamp for incremental export (0 = now)
+    int64 until_ms = 3;
+}
+
+// A chunk of backup data streamed from ExportBackup.
+message BackupChunk {
+    // Type of data in this chunk
+    BackupChunkType chunk_type = 1;
+    // One or more JSONL lines (newline-separated JSON objects)
+    string jsonl_data = 2;
+    // Number of records in this chunk
+    uint32 record_count = 3;
+}
+
+// Type tag for BackupChunk to route data to correct output files.
+enum BackupChunkType {
+    BACKUP_CHUNK_TYPE_UNSPECIFIED = 0;
+    BACKUP_CHUNK_TYPE_EVENTS = 1;
+    BACKUP_CHUNK_TYPE_TOC_SEGMENTS = 2;
+    BACKUP_CHUNK_TYPE_TOC_DAYS = 3;
+    BACKUP_CHUNK_TYPE_TOC_WEEKS = 4;
+    BACKUP_CHUNK_TYPE_TOC_MONTHS = 5;
+    BACKUP_CHUNK_TYPE_TOC_YEARS = 6;
+    BACKUP_CHUNK_TYPE_GRIPS = 7;
+    BACKUP_CHUNK_TYPE_EPISODES = 8;
+    BACKUP_CHUNK_TYPE_MANIFEST = 9;
 }

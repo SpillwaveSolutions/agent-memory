@@ -15,6 +15,7 @@ memory-vector = { workspace = true }
 memory-topics = { workspace = true }
 memory-retrieval = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tonic-health = { workspace = true }
 tonic-reflection = { workspace = true }

@@ -57,6 +57,28 @@ impl Storage {
         Ok(episodes)
     }
 
+    /// List ALL episodes in storage (no limit, for backup export).
+    ///
+    /// Uses forward iteration (oldest first) unlike `list_episodes` which is newest-first.
+    pub fn list_all_episodes(&self) -> Result<Vec<Episode>, StorageError> {
+        let cf = self
+            .db
+            .cf_handle(CF_EPISODES)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_EPISODES.to_string()))?;
+
+        let mut episodes = Vec::new();
+        let iter = self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start);
+
+        for item in iter {
+            let (_, value) = item?;
+            let episode: Episode = serde_json::from_slice(&value)
+                .map_err(|e| StorageError::Serialization(e.to_string()))?;
+            episodes.push(episode);
+        }
+
+        Ok(episodes)
+    }
+
     /// Update an episode (overwrite by ID).
     ///
     /// This is equivalent to store_episode but semantically indicates an update.
@@ -193,6 +215,28 @@ mod tests {
 
         let listed = storage.list_episodes(10).unwrap();
         assert!(listed.is_empty());
+    }
+
+    #[test]
+    fn test_list_all_episodes_empty() {
+        let (storage, _tmp) = create_test_storage();
+        let episodes = storage.list_all_episodes().unwrap();
+        assert!(episodes.is_empty());
+    }
+
+    #[test]
+    fn test_list_all_episodes_returns_all() {
+        let (storage, _tmp) = create_test_storage();
+        // Create 5 episodes
+        for i in 0..5 {
+            let episode = Episode::new(
+                ulid::Ulid::new().to_string(),
+                format!("task {i}"),
+            );
+            storage.store_episode(&episode).unwrap();
+        }
+        let episodes = storage.list_all_episodes().unwrap();
+        assert_eq!(episodes.len(), 5);
     }
 
     #[test]

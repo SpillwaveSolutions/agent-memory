@@ -48,6 +48,7 @@ memory-orchestrator = { path = "crates/memory-orchestrator" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }
+tokio-stream = "0.1"
 
 # gRPC
 tonic = "0.12"
