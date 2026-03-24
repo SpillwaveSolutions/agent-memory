@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Memory Export/Import
 status: unknown
-stopped_at: Completed 54-02-PLAN.md (Daily CLI Subcommand)
-last_updated: "2026-03-23T21:53:15.792Z"
+stopped_at: Completed 55-01-PLAN.md (Structured Backup Server-Side)
+last_updated: "2026-03-24T02:40:20.908Z"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Phase 54 — daily-markdown-export
+**Current focus:** Phase 55 — structured-backup
 
 ## Current Position
 
-Phase: 54 (daily-markdown-export) — COMPLETE
-Plan: 2 of 2 (all complete)
+Phase: 55 (structured-backup) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -51,6 +51,8 @@ See .planning/MILESTONES.md
 - domain_to_proto_grip helper extracted as standalone fn for reuse across handlers
 - Daily markdown files always overwrite (idempotent derived views, not source of truth)
 - Session grouping uses HashMap+Vec for insertion-order-preserving O(n) grouping
+- [Phase 55]: tokio mpsc channel + ReceiverStream pattern for server-side streaming RPCs
+- [Phase 55]: Domain types (not proto) serialized to JSONL for backup round-trip fidelity
 
 ## Blockers
 
@@ -88,6 +90,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-23T21:40:00Z
-**Stopped At:** Completed 54-02-PLAN.md (Daily CLI Subcommand)
+**Last Session:** 2026-03-24T02:40:20.906Z
+**Stopped At:** Completed 55-01-PLAN.md (Structured Backup Server-Side)
 **Resume File:** None

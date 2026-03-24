@@ -17,13 +17,13 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 
 ### Structured Backup (BACKUP)
 
-- [ ] **BACKUP-01**: `memory backup` exports all layers as JSONL directory structure with `manifest.json`
-- [ ] **BACKUP-02**: `memory backup --events-only` exports just the base event layer
-- [ ] **BACKUP-03**: `memory backup --since 24h` exports only recent data (incremental by time range)
+- [x] **BACKUP-01**: `memory backup` exports all layers as JSONL directory structure with `manifest.json`
+- [x] **BACKUP-02**: `memory backup --events-only` exports just the base event layer
+- [x] **BACKUP-03**: `memory backup --since 24h` exports only recent data (incremental by time range)
 - [ ] **BACKUP-04**: Incremental backups overwrite per-day event files (no duplicate JSONL lines)
-- [ ] **BACKUP-05**: `manifest.json` includes version, counts, time range, and incremental flag
-- [ ] **BACKUP-06**: Backup includes events, TOC nodes (all levels), grips, and episodes
-- [ ] **BACKUP-07**: `ExportBackup` uses server-side gRPC streaming (first streaming RPC in the project)
+- [x] **BACKUP-05**: `manifest.json` includes version, counts, time range, and incremental flag
+- [x] **BACKUP-06**: Backup includes events, TOC nodes (all levels), grips, and episodes
+- [x] **BACKUP-07**: `ExportBackup` uses server-side gRPC streaming (first streaming RPC in the project)
 
 ### Import/Bootstrap (IMPORT)
 
@@ -37,9 +37,9 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 ### gRPC Infrastructure (GRPC)
 
 - [x] **GRPC-01**: `ExportDaily` unary RPC returns structured day data (CLI renders markdown)
-- [ ] **GRPC-02**: `ExportBackup` server-side streaming RPC delivers JSONL chunks
+- [x] **GRPC-02**: `ExportBackup` server-side streaming RPC delivers JSONL chunks
 - [ ] **GRPC-03**: `ImportBackup` client-side streaming RPC accepts JSONL chunks
-- [ ] **GRPC-04**: Streaming support wired into tonic server framework (new infrastructure)
+- [x] **GRPC-04**: Streaming support wired into tonic server framework (new infrastructure)
 
 ## Future Requirements (v3.2+)
 
@@ -67,13 +67,13 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 | DAILY-03 | Phase 54 | Complete |
 | DAILY-04 | Phase 54 | Complete |
 | DAILY-05 | Phase 54 | Complete |
-| BACKUP-01 | Phase 55 | Pending |
-| BACKUP-02 | Phase 55 | Pending |
-| BACKUP-03 | Phase 55 | Pending |
+| BACKUP-01 | Phase 55 | Complete |
+| BACKUP-02 | Phase 55 | Complete |
+| BACKUP-03 | Phase 55 | Complete |
 | BACKUP-04 | Phase 55 | Pending |
-| BACKUP-05 | Phase 55 | Pending |
-| BACKUP-06 | Phase 55 | Pending |
-| BACKUP-07 | Phase 55 | Pending |
+| BACKUP-05 | Phase 55 | Complete |
+| BACKUP-06 | Phase 55 | Complete |
+| BACKUP-07 | Phase 55 | Complete |
 | IMPORT-01 | Phase 56 | Pending |
 | IMPORT-02 | Phase 56 | Pending |
 | IMPORT-03 | Phase 56 | Pending |
@@ -81,9 +81,9 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 | IMPORT-05 | Phase 56 | Pending |
 | IMPORT-06 | Phase 56 | Pending |
 | GRPC-01 | Phase 54 | Complete |
-| GRPC-02 | Phase 55 | Pending |
+| GRPC-02 | Phase 55 | Complete |
 | GRPC-03 | Phase 56 | Pending |
-| GRPC-04 | Phase 55 | Pending |
+| GRPC-04 | Phase 55 | Complete |
 
 **Coverage:**
 - v3.1 requirements: 22 total
