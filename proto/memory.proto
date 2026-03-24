@@ -139,6 +139,11 @@ service MemoryService {
 
     // Stream full or incremental backup as JSONL chunks (first streaming RPC)
     rpc ExportBackup(BackupOptions) returns (stream BackupChunk);
+
+    // ===== Import/Bootstrap RPCs (Phase 56) =====
+
+    // Import backup data via client-side streaming (GRPC-03)
+    rpc ImportBackup(stream ImportChunk) returns (ImportResult);
 }
 
 // Role of the message author
@@ -1287,4 +1292,31 @@ enum BackupChunkType {
     BACKUP_CHUNK_TYPE_GRIPS = 7;
     BACKUP_CHUNK_TYPE_EPISODES = 8;
     BACKUP_CHUNK_TYPE_MANIFEST = 9;
+}
+
+// A chunk of import data streamed from CLI to daemon (Phase 56).
+// Reuses BackupChunkType for chunk routing.
+message ImportChunk {
+    // Type tag routing chunk to correct storage write
+    BackupChunkType chunk_type = 1;
+    // One or more JSONL lines (newline-separated JSON objects)
+    string jsonl_data = 2;
+    // Number of records in this chunk
+    uint32 record_count = 3;
+    // If true, count records but do not write to storage
+    bool dry_run = 4;
+    // If true, only import events (skip TOC/grips/episodes)
+    bool events_only = 5;
+}
+
+// Result of an ImportBackup streaming RPC.
+message ImportResult {
+    uint64 events_imported = 1;
+    uint64 events_skipped = 2;
+    uint64 toc_nodes_imported = 3;
+    uint64 grips_imported = 4;
+    uint64 episodes_imported = 5;
+    uint64 errors = 6;
+    double elapsed_seconds = 7;
+    bool dry_run = 8;
 }
