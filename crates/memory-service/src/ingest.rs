@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use chrono::{Duration, TimeZone, Utc};
-use tonic::{Request, Response, Status};
+use tonic::{Request, Response, Status, Streaming};
 use tracing::{debug, error, info};
 
 use memory_scheduler::SchedulerService;
@@ -24,6 +24,7 @@ use crate::backup;
 use crate::episodes::EpisodeHandler;
 use crate::hybrid::HybridSearchHandler;
 use crate::novelty::NoveltyChecker;
+use crate::import;
 use crate::pb::{
     memory_service_server::MemoryService, BackupOptions, BrowseTocRequest, BrowseTocResponse,
     ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, CompleteEpisodeRequest,
@@ -37,7 +38,8 @@ use crate::pb::{
     GetSimilarEpisodesResponse, GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest,
     GetTopTopicsResponse, GetTopicGraphStatusRequest, GetTopicGraphStatusResponse,
     GetTopicsByQueryRequest, GetTopicsByQueryResponse, GetVectorIndexStatusRequest,
-    HybridSearchRequest, HybridSearchResponse, IngestEventRequest, IngestEventResponse,
+    HybridSearchRequest, HybridSearchResponse, ImportChunk, ImportResult, IngestEventRequest,
+    IngestEventResponse,
     ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
     PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
     PruneVectorIndexResponse, RecordActionRequest, RecordActionResponse, ResumeJobRequest,
@@ -1234,6 +1236,16 @@ impl MemoryService for MemoryServiceImpl {
         request: Request<BackupOptions>,
     ) -> Result<Response<Self::ExportBackupStream>, Status> {
         backup::export_backup(self.storage.clone(), request).await
+    }
+
+    /// Import backup data via client-side streaming.
+    ///
+    /// Per Phase 56: Receives JSONL chunks and writes to RocksDB.
+    async fn import_backup(
+        &self,
+        request: Request<Streaming<ImportChunk>>,
+    ) -> Result<Response<ImportResult>, Status> {
+        import::import_backup(self.storage.clone(), request).await
     }
 }
 

@@ -14,9 +14,9 @@ use memory_service::pb::{
     GetEventsRequest, GetNodeRequest, GetRankingStatusRequest, GetRankingStatusResponse,
     GetRelatedTopicsRequest, GetTocRootRequest, GetTopTopicsRequest, GetTopicGraphStatusRequest,
     GetTopicsByQueryRequest, GetVectorIndexStatusRequest, Grip as ProtoGrip, HybridSearchRequest,
-    HybridSearchResponse, IngestEventRequest, RouteQueryRequest, RouteQueryResponse,
-    TeleportSearchRequest, TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic,
-    VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
+    HybridSearchResponse, ImportChunk, ImportResult, IngestEventRequest, RouteQueryRequest,
+    RouteQueryResponse, TeleportSearchRequest, TeleportSearchResponse, TocNode as ProtoTocNode,
+    Topic as ProtoTopic, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use memory_types::{Event, EventRole, EventType};
 
@@ -499,6 +499,19 @@ impl MemoryClient {
             until_ms,
         });
         let response = self.inner.export_backup(request).await?;
+        Ok(response.into_inner())
+    }
+
+    // ===== Import Methods (Phase 56) =====
+
+    /// Import backup data via client-side streaming.
+    ///
+    /// Accepts a stream of `ImportChunk` messages and returns the final `ImportResult`.
+    pub async fn import_backup(
+        &mut self,
+        chunks: impl tonic::IntoStreamingRequest<Message = ImportChunk>,
+    ) -> Result<ImportResult, ClientError> {
+        let response = self.inner.import_backup(chunks).await?;
         Ok(response.into_inner())
     }
 }
