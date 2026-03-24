@@ -20,11 +20,12 @@ use memory_types::{
 };
 
 use crate::agents::AgentDiscoveryHandler;
+use crate::backup;
 use crate::episodes::EpisodeHandler;
 use crate::hybrid::HybridSearchHandler;
 use crate::novelty::NoveltyChecker;
 use crate::pb::{
-    memory_service_server::MemoryService, BrowseTocRequest, BrowseTocResponse,
+    memory_service_server::MemoryService, BackupOptions, BrowseTocRequest, BrowseTocResponse,
     ClassifyQueryIntentRequest, ClassifyQueryIntentResponse, CompleteEpisodeRequest,
     CompleteEpisodeResponse, Event as ProtoEvent, EventRole as ProtoEventRole,
     EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, ExportDailyRequest,
@@ -434,6 +435,8 @@ impl MemoryServiceImpl {
 
 #[tonic::async_trait]
 impl MemoryService for MemoryServiceImpl {
+    type ExportBackupStream = backup::ExportBackupStream;
+
     /// Ingest a conversation event.
     ///
     /// Per ING-01: Accepts Event message via gRPC.
@@ -1221,6 +1224,16 @@ impl MemoryService for MemoryServiceImpl {
         request: Request<ExportDailyRequest>,
     ) -> Result<Response<ExportDailyResponse>, Status> {
         query::export_daily(self.storage.clone(), request).await
+    }
+
+    /// Stream structured backup as JSONL chunks.
+    ///
+    /// Per Phase 55: First streaming RPC in the project.
+    async fn export_backup(
+        &self,
+        request: Request<BackupOptions>,
+    ) -> Result<Response<Self::ExportBackupStream>, Status> {
+        backup::export_backup(self.storage.clone(), request).await
     }
 }
 

@@ -11,6 +11,7 @@
 //! - Reflection endpoint for debugging (GRPC-04)
 
 pub mod agents;
+pub mod backup;
 pub mod episodes;
 pub mod hybrid;
 pub mod ingest;
