@@ -39,7 +39,7 @@ pub use client::{
     BrowseTocResult, ExpandGripResult, ExportDailyResult, GetEventsResult, MemoryClient,
     DEFAULT_ENDPOINT,
 };
-pub use memory_service::pb::DayExport;
+pub use memory_service::pb::{BackupChunkType, DayExport};
 
 // Re-export vector search response types for convenience
 pub use error::ClientError;

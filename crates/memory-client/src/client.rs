@@ -3,19 +3,20 @@
 //! Per HOOK-02: Hook handlers call daemon's IngestEvent RPC.
 
 use tonic::transport::Channel;
+use tonic::Streaming;
 use tracing::{debug, info};
 
 pub use memory_service::pb::DayExport;
 use memory_service::pb::{
-    memory_service_client::MemoryServiceClient, BrowseTocRequest, Event as ProtoEvent,
-    EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
-    ExportDailyRequest, GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest,
-    GetNodeRequest, GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
-    GetTocRootRequest, GetTopTopicsRequest, GetTopicGraphStatusRequest, GetTopicsByQueryRequest,
-    GetVectorIndexStatusRequest, Grip as ProtoGrip, HybridSearchRequest, HybridSearchResponse,
-    IngestEventRequest, RouteQueryRequest, RouteQueryResponse, TeleportSearchRequest,
-    TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic, VectorIndexStatus,
-    VectorTeleportRequest, VectorTeleportResponse,
+    memory_service_client::MemoryServiceClient, BackupChunk, BackupOptions, BrowseTocRequest,
+    Event as ProtoEvent, EventRole as ProtoEventRole, EventType as ProtoEventType,
+    ExpandGripRequest, ExportDailyRequest, GetDedupStatusRequest, GetDedupStatusResponse,
+    GetEventsRequest, GetNodeRequest, GetRankingStatusRequest, GetRankingStatusResponse,
+    GetRelatedTopicsRequest, GetTocRootRequest, GetTopTopicsRequest, GetTopicGraphStatusRequest,
+    GetTopicsByQueryRequest, GetVectorIndexStatusRequest, Grip as ProtoGrip, HybridSearchRequest,
+    HybridSearchResponse, IngestEventRequest, RouteQueryRequest, RouteQueryResponse,
+    TeleportSearchRequest, TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic,
+    VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use memory_types::{Event, EventRole, EventType};
 
@@ -474,6 +475,31 @@ impl MemoryClient {
         let response = self.inner.export_daily(request).await?;
         let resp = response.into_inner();
         Ok(ExportDailyResult { days: resp.days })
+    }
+
+    // ===== Backup Methods (Phase 55) =====
+
+    /// Start a streaming backup export.
+    ///
+    /// Returns a tonic `Streaming` that yields `BackupChunk` messages.
+    /// The caller processes chunks and writes to files.
+    pub async fn export_backup(
+        &mut self,
+        events_only: bool,
+        since_ms: i64,
+        until_ms: i64,
+    ) -> Result<Streaming<BackupChunk>, ClientError> {
+        debug!(
+            "ExportBackup request: events_only={}, since_ms={}, until_ms={}",
+            events_only, since_ms, until_ms
+        );
+        let request = tonic::Request::new(BackupOptions {
+            events_only,
+            since_ms,
+            until_ms,
+        });
+        let response = self.inner.export_backup(request).await?;
+        Ok(response.into_inner())
     }
 }
 

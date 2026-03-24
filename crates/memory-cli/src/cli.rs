@@ -48,6 +48,9 @@ pub enum Commands {
 
     /// Export daily markdown files from memory.
     Daily(DailyArgs),
+
+    /// Create a structured JSONL backup of all memory layers.
+    Backup(BackupArgs),
 }
 
 /// Arguments for the `search` subcommand.
@@ -144,6 +147,26 @@ pub struct DailyArgs {
 
     /// Output directory for markdown files.
     #[arg(long, default_value = "./memory")]
+    pub dir: String,
+}
+
+/// Arguments for the `backup` subcommand.
+#[derive(Parser, Debug)]
+pub struct BackupArgs {
+    /// Only export events (skip TOC, grips, episodes).
+    #[arg(long)]
+    pub events_only: bool,
+
+    /// Incremental: export data since this time (e.g., "24h", "7d", "2026-03-22").
+    #[arg(long)]
+    pub since: Option<String>,
+
+    /// Incremental: export data until this time (e.g., "2026-03-23"). Default: now.
+    #[arg(long)]
+    pub until: Option<String>,
+
+    /// Output directory for backup files.
+    #[arg(long, default_value = "./memory-backup")]
     pub dir: String,
 }
 
@@ -308,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_all_subcommands_parse() {
-        // Verify all 7 subcommands can be parsed
+        // Verify all 8 subcommands can be parsed
         let cases = vec![
             vec!["memory", "search", "q"],
             vec!["memory", "context", "q"],
@@ -317,10 +340,47 @@ mod tests {
             vec!["memory", "summary"],
             vec!["memory", "recall", "q"],
             vec!["memory", "daily"],
+            vec!["memory", "backup"],
         ];
         for args in cases {
             Cli::try_parse_from(&args)
                 .unwrap_or_else(|e| panic!("Failed to parse {:?}: {}", args, e));
+        }
+    }
+
+    #[test]
+    fn test_backup_default_args() {
+        let cli = Cli::try_parse_from(["memory", "backup"]).unwrap();
+        match cli.command {
+            Commands::Backup(args) => {
+                assert!(!args.events_only);
+                assert!(args.since.is_none());
+                assert!(args.until.is_none());
+                assert_eq!(args.dir, "./memory-backup");
+            }
+            _ => panic!("Expected Backup command"),
+        }
+    }
+
+    #[test]
+    fn test_backup_with_flags() {
+        let cli = Cli::try_parse_from([
+            "memory",
+            "backup",
+            "--events-only",
+            "--since",
+            "24h",
+            "--dir",
+            "/tmp/backup",
+        ])
+        .unwrap();
+        match cli.command {
+            Commands::Backup(args) => {
+                assert!(args.events_only);
+                assert_eq!(args.since.as_deref(), Some("24h"));
+                assert_eq!(args.dir, "/tmp/backup");
+            }
+            _ => panic!("Expected Backup command"),
         }
     }
 }

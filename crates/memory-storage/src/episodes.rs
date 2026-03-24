@@ -229,10 +229,7 @@ mod tests {
         let (storage, _tmp) = create_test_storage();
         // Create 5 episodes
         for i in 0..5 {
-            let episode = Episode::new(
-                ulid::Ulid::new().to_string(),
-                format!("task {i}"),
-            );
+            let episode = Episode::new(ulid::Ulid::new().to_string(), format!("task {i}"));
             storage.store_episode(&episode).unwrap();
         }
         let episodes = storage.list_all_episodes().unwrap();

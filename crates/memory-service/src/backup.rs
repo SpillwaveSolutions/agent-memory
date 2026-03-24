@@ -67,11 +67,7 @@ async fn stream_backup(
     let mut counts = ManifestCounts::default();
 
     // Determine time range
-    let since_ms = if opts.since_ms > 0 {
-        opts.since_ms
-    } else {
-        0
-    };
+    let since_ms = if opts.since_ms > 0 { opts.since_ms } else { 0 };
     let until_ms = if opts.until_ms > 0 {
         opts.until_ms
     } else {

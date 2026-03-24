@@ -30,6 +30,7 @@ async fn main() {
         Commands::Summary(args) => commands::summary::run(args, &cli.global).await,
         Commands::Recall(args) => commands::recall::run(args, &cli.global).await,
         Commands::Daily(args) => commands::daily::run(args, &cli.global).await,
+        Commands::Backup(args) => commands::backup::run(args, &cli.global).await,
     };
 
     if let Err(err) = result {
