@@ -28,11 +28,11 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 ### Import/Bootstrap (IMPORT)
 
 - [x] **IMPORT-01**: `memory import ./dir/` restores a full backup to RocksDB
-- [ ] **IMPORT-02**: Round-trip test: export → wipe → import → all queries return same results
+- [x] **IMPORT-02**: Round-trip test: export → wipe → import → all queries return same results
 - [x] **IMPORT-03**: `memory import --dry-run` shows what would be imported without writing
 - [x] **IMPORT-04**: Idempotent — events with existing IDs are skipped (dedup by event_id)
 - [x] **IMPORT-05**: `ImportBackup` uses client-side gRPC streaming
-- [ ] **IMPORT-06**: Events-only import works; user triggers TOC rebuild after
+- [x] **IMPORT-06**: Events-only import works; user triggers TOC rebuild after
 
 ### gRPC Infrastructure (GRPC)
 
@@ -75,11 +75,11 @@ Requirements for the Memory Export/Import milestone. Each maps to roadmap phases
 | BACKUP-06 | Phase 55 | Complete |
 | BACKUP-07 | Phase 55 | Complete |
 | IMPORT-01 | Phase 56 | Complete |
-| IMPORT-02 | Phase 56 | Pending |
+| IMPORT-02 | Phase 56 | Complete |
 | IMPORT-03 | Phase 56 | Complete |
 | IMPORT-04 | Phase 56 | Complete |
 | IMPORT-05 | Phase 56 | Complete |
-| IMPORT-06 | Phase 56 | Pending |
+| IMPORT-06 | Phase 56 | Complete |
 | GRPC-01 | Phase 54 | Complete |
 | GRPC-02 | Phase 55 | Complete |
 | GRPC-03 | Phase 56 | Complete |

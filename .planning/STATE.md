@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Memory Export/Import
-status: unknown
-stopped_at: Completed 56-01-PLAN.md (Import Bootstrap Server)
+status: phase-complete
+stopped_at: Completed 56-02-PLAN.md (Import CLI + Round-Trip Tests)
 last_updated: "2026-03-24T20:01:01.750Z"
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 56 (import-bootstrap) — EXECUTING
-Plan: 2 of 2
+Phase: 56 (import-bootstrap) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## Performance Metrics
 
@@ -56,6 +56,8 @@ See .planning/MILESTONES.md
 - [Phase 55]: BackupChunkType re-exported from memory-client for CLI chunk routing
 - [Phase 55]: Per-day event files overwritten (not appended) for incremental backup correctness
 - [Phase 56]: Client-streaming RPC handler receives Streaming<T>, returns single aggregated response
+- [Phase 56]: Extracted import_chunks pub fn for testable import without tonic Streaming construction
+- [Phase 56]: Event IDs in tests use deterministic ULIDs via ulid::Ulid::from_parts
 
 ## Blockers
 
@@ -93,6 +95,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-24T20:01:00.361Z
-**Stopped At:** Completed 56-01-PLAN.md (Import Bootstrap Server)
+**Last Session:** 2026-03-24T20:12:00Z
+**Stopped At:** Completed 56-02-PLAN.md (Import CLI + Round-Trip Tests) -- Phase 56 complete
 **Resume File:** None
