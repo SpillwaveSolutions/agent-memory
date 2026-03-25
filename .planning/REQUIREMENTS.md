@@ -9,12 +9,12 @@ Requirements for the Plugin Installer & OpenCode Converter milestone.
 
 ### OpenCode Converter (OC)
 
-- [ ] **OC-01**: Commands flattened from `commands/memory-search.md` to `command/memory-search.md`
-- [ ] **OC-02**: Agent frontmatter converts `allowed-tools:` array to `tools:` object with `tool: true` entries
-- [ ] **OC-03**: Tool names converted to lowercase with special mappings (AskUserQuestion→question, etc.)
-- [ ] **OC-04**: Color names normalized to hex values
-- [ ] **OC-05**: Paths rewritten from `~/.claude/` to `~/.config/opencode/`
-- [ ] **OC-06**: Auto-configure `opencode.json` read permissions for installed skill paths
+- [x] **OC-01**: Commands flattened from `commands/memory-search.md` to `command/memory-search.md`
+- [x] **OC-02**: Agent frontmatter converts `allowed-tools:` array to `tools:` object with `tool: true` entries
+- [x] **OC-03**: Tool names converted to lowercase with special mappings (AskUserQuestion→question, etc.)
+- [x] **OC-04**: Color names normalized to hex values
+- [x] **OC-05**: Paths rewritten from `~/.claude/` to `~/.config/opencode/`
+- [x] **OC-06**: Auto-configure `opencode.json` read permissions for installed skill paths
 
 ### Claude Code Registration (CREG)
 
@@ -27,9 +27,9 @@ Requirements for the Plugin Installer & OpenCode Converter milestone.
 
 ### OpenCode Registration (OREG)
 
-- [ ] **OREG-01**: `memory-installer install --agent opencode` writes `opencode.json` with read permissions for installed paths
-- [ ] **OREG-02**: Permission entries use glob patterns matching installed skill/command directories
-- [ ] **OREG-03**: Existing `opencode.json` content preserved (merge, not overwrite)
+- [x] **OREG-01**: `memory-installer install --agent opencode` writes `opencode.json` with read permissions for installed paths
+- [x] **OREG-02**: Permission entries use glob patterns matching installed skill/command directories
+- [x] **OREG-03**: Existing `opencode.json` content preserved (merge, not overwrite)
 
 ### Uninstall (UNINST)
 
@@ -67,21 +67,21 @@ Requirements for the Plugin Installer & OpenCode Converter milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OC-01 | Phase 57 | Pending |
-| OC-02 | Phase 57 | Pending |
-| OC-03 | Phase 57 | Pending |
-| OC-04 | Phase 57 | Pending |
-| OC-05 | Phase 57 | Pending |
-| OC-06 | Phase 57 | Pending |
+| OC-01 | Phase 57 | Complete |
+| OC-02 | Phase 57 | Complete |
+| OC-03 | Phase 57 | Complete |
+| OC-04 | Phase 57 | Complete |
+| OC-05 | Phase 57 | Complete |
+| OC-06 | Phase 57 | Complete |
 | CREG-01 | Phase 58 | Pending |
 | CREG-02 | Phase 58 | Pending |
 | CREG-03 | Phase 58 | Pending |
 | CREG-04 | Phase 58 | Pending |
 | CREG-05 | Phase 58 | Pending |
 | CREG-06 | Phase 58 | Pending |
-| OREG-01 | Phase 57 | Pending |
-| OREG-02 | Phase 57 | Pending |
-| OREG-03 | Phase 57 | Pending |
+| OREG-01 | Phase 57 | Complete |
+| OREG-02 | Phase 57 | Complete |
+| OREG-03 | Phase 57 | Complete |
 | UNINST-01 | Phase 59 | Pending |
 | UNINST-02 | Phase 59 | Pending |
 | UNINST-03 | Phase 59 | Pending |
