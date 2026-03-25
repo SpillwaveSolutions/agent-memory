@@ -164,7 +164,7 @@ See: `.planning/milestones/v3.1-ROADMAP.md`
 ### v3.2 Plugin Installer & OpenCode Converter (Phases 57-59)
 
 - [x] **Phase 57: OpenCode Converter + Registration** — Flesh out stub converter and register with opencode.json (completed 2026-03-25)
-- [ ] **Phase 58: Claude Code Registration + Plugin Metadata** — Write marketplace/plugin registry files and plugin metadata
+- [x] **Phase 58: Claude Code Registration + Plugin Metadata** — Write marketplace/plugin registry files and plugin metadata (completed 2026-03-25)
 - [ ] **Phase 59: Uninstall + Status** — Clean removal and installation status reporting
 
 ## Phase Details

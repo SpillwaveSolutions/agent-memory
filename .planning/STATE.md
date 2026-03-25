@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: Plugin Installer & OpenCode Converter
 status: unknown
-stopped_at: Completed 57-01-PLAN.md
-last_updated: "2026-03-25T21:16:28.426Z"
+stopped_at: Completed 58-01-PLAN.md
+last_updated: "2026-03-25T22:13:05.121Z"
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Phase 57 — opencode-converter-registration
+**Current focus:** Phase 58 — claude-registration-metadata
 
 ## Current Position
 
-Phase: 57 (opencode-converter-registration) — EXECUTING
+Phase: 58 (claude-registration-metadata) — EXECUTING
 Plan: 1 of 1
 
 ## Phase Overview
@@ -58,6 +58,8 @@ See .planning/MILESTONES.md
 - Plugin metadata files (.claude-plugin/) are the version source of truth
 - [Phase 57]: Ordered path rewriting: ~/.claude/plugins/ before ~/.claude/ to prevent double-rewrite
 - [Phase 57]: generate_guidance deep-merges into existing opencode.json rather than overwriting
+- [Phase 58]: Registry helpers accept &Path for home to enable tempdir testing
+- [Phase 58]: Corrupt/missing JSON falls back to empty object (graceful degradation)
 
 ## Blockers
 
@@ -97,6 +99,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-25T21:11:27.672Z
-**Stopped At:** Completed 57-01-PLAN.md
+**Last Session:** 2026-03-25T22:13:05.119Z
+**Stopped At:** Completed 58-01-PLAN.md
 **Resume File:** None

@@ -18,12 +18,12 @@ Requirements for the Plugin Installer & OpenCode Converter milestone.
 
 ### Claude Code Registration (CREG)
 
-- [ ] **CREG-01**: `memory-installer install --agent claude` writes `known_marketplaces.json` with git marketplace entry
-- [ ] **CREG-02**: `memory-installer install --agent claude` writes `installed_plugins.json` with versioned plugin entry
-- [ ] **CREG-03**: `memory-installer install --agent claude` writes `settings.json` with `enabledPlugins` entry
-- [ ] **CREG-04**: Plugin key format follows `{plugin-name}@{marketplace-id}` convention (e.g., `memory-query@agent-memory`)
-- [ ] **CREG-05**: Version read from `.claude-plugin/plugin.json` — install path includes version directory
-- [ ] **CREG-06**: Re-install updates in place (idempotent); old version directories cleaned up
+- [x] **CREG-01**: `memory-installer install --agent claude` writes `known_marketplaces.json` with git marketplace entry
+- [x] **CREG-02**: `memory-installer install --agent claude` writes `installed_plugins.json` with versioned plugin entry
+- [x] **CREG-03**: `memory-installer install --agent claude` writes `settings.json` with `enabledPlugins` entry
+- [x] **CREG-04**: Plugin key format follows `{plugin-name}@{marketplace-id}` convention (e.g., `memory-query@agent-memory`)
+- [x] **CREG-05**: Version read from `.claude-plugin/plugin.json` — install path includes version directory
+- [x] **CREG-06**: Re-install updates in place (idempotent); old version directories cleaned up
 
 ### OpenCode Registration (OREG)
 
@@ -44,9 +44,9 @@ Requirements for the Plugin Installer & OpenCode Converter milestone.
 
 ### Plugin Metadata (META)
 
-- [ ] **META-01**: `.claude-plugin/plugin.json` exists with name, version, description
-- [ ] **META-02**: `.claude-plugin/marketplace.json` exists with marketplace registration metadata
-- [ ] **META-03**: Version in plugin.json is the single source of truth for install path versioning
+- [x] **META-01**: `.claude-plugin/plugin.json` exists with name, version, description
+- [x] **META-02**: `.claude-plugin/marketplace.json` exists with marketplace registration metadata
+- [x] **META-03**: Version in plugin.json is the single source of truth for install path versioning
 
 ## Future Requirements (v3.3+)
 
@@ -73,12 +73,12 @@ Requirements for the Plugin Installer & OpenCode Converter milestone.
 | OC-04 | Phase 57 | Complete |
 | OC-05 | Phase 57 | Complete |
 | OC-06 | Phase 57 | Complete |
-| CREG-01 | Phase 58 | Pending |
-| CREG-02 | Phase 58 | Pending |
-| CREG-03 | Phase 58 | Pending |
-| CREG-04 | Phase 58 | Pending |
-| CREG-05 | Phase 58 | Pending |
-| CREG-06 | Phase 58 | Pending |
+| CREG-01 | Phase 58 | Complete |
+| CREG-02 | Phase 58 | Complete |
+| CREG-03 | Phase 58 | Complete |
+| CREG-04 | Phase 58 | Complete |
+| CREG-05 | Phase 58 | Complete |
+| CREG-06 | Phase 58 | Complete |
 | OREG-01 | Phase 57 | Complete |
 | OREG-02 | Phase 57 | Complete |
 | OREG-03 | Phase 57 | Complete |
@@ -87,9 +87,9 @@ Requirements for the Plugin Installer & OpenCode Converter milestone.
 | UNINST-03 | Phase 59 | Pending |
 | STAT-01 | Phase 59 | Pending |
 | STAT-02 | Phase 59 | Pending |
-| META-01 | Phase 58 | Pending |
-| META-02 | Phase 58 | Pending |
-| META-03 | Phase 58 | Pending |
+| META-01 | Phase 58 | Complete |
+| META-02 | Phase 58 | Complete |
+| META-03 | Phase 58 | Complete |
 
 **Coverage:**
 - v3.2 requirements: 23 total
