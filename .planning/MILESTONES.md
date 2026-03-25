@@ -1,5 +1,29 @@
 # Project Milestones: Agent Memory
 
+## v3.1 Memory Export/Import (Shipped: 2026-03-24)
+
+**Delivered:** Human-readable daily markdown export (OpenClaw-style), full JSONL backup with incremental support, and bootstrap import for migration/portability. First gRPC streaming RPCs in the project.
+
+**Phases completed:** 54-56 (3 phases, 6 plans)
+
+**Key accomplishments:**
+
+- `memory daily` — browsable markdown dailies with sessions, summary bullets, keywords, grip excerpts
+- `ExportDaily` unary RPC + `ExportBackup` server-side streaming (first streaming RPC in project)
+- `memory backup` — full JSONL directory with `--since` incremental, `--events-only`, manifest-last pattern
+- `ImportBackup` client-side streaming RPC with idempotent writes and automatic outbox re-indexing
+- `memory import` — restore from backup with `--dry-run`, manifest validation, rebuild-toc reference
+- 3 round-trip integration tests proving export→import→verify correctness
+- `tokio-stream` infrastructure, `list_all_grips()` (CF_GRIPS key filtering), `list_all_episodes()`
+
+**Stats:**
+
+- ~1,430 LOC across 5 new modules + proto extensions
+- 30 commits across 3 phases
+- Timeline: 2026-03-23 → 2026-03-24 (2 days)
+
+---
+
 ## v3.0 Competitive Parity & Benchmarks (Shipped: 2026-03-23)
 
 **Delivered:** Retrieval orchestration with RRF fusion across 4 indexes, dead-simple `memory` CLI binary with 6 structured-JSON commands, and benchmark suite with custom harness + LOCOMO adapter for publishable scores.

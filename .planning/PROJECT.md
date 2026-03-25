@@ -2,22 +2,10 @@
 
 ## Current State
 
-**Version:** v3.1 (In Progress)
-**Status:** Building memory export/import system
-
-## Current Milestone: v3.1 Memory Export/Import
-
-**Goal:** Add human-readable daily markdown export (OpenClaw-style warm safety blanket), full structured JSONL backup with incremental support, and bootstrap import for migration/portability. RocksDB remains source of truth.
-
-**Target features:**
-- `memory daily` — browsable markdown dailies from TOC day nodes
-- `memory backup` — full JSONL backup with `--since` incremental support
-- `memory import` — bootstrap from backup directory (migration/portability)
-- First gRPC streaming RPCs (ExportBackup, ImportBackup)
+**Version:** v3.1 (Shipped 2026-03-24)
+**Status:** Planning next milestone
 
 **Previous version:** v3.0 (Shipped 2026-03-23) — Retrieval orchestrator, CLI API, benchmark suite
-
-**Spec reference:** `docs/superpowers/specs/2026-03-23-memory-export-import-design.md`
 
 The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, multi-runtime installer, and comprehensive testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)
@@ -389,4 +377,17 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Archive adapters (not delete) | One release cycle before removal; README stubs redirect to installer | ✓ Validated v2.7 |
 
 ---
-*Last updated: 2026-03-23 after v3.0 milestone*
+### Validated (v3.1 - Shipped 2026-03-24)
+
+**Memory Export/Import (v3.1)**
+- [x] `memory daily` produces browsable OpenClaw-style markdown dailies — v3.1
+- [x] ExportDaily unary RPC returns structured day data — v3.1
+- [x] `memory backup` with full JSONL directory structure — v3.1
+- [x] Incremental backup with `--since` time range — v3.1
+- [x] First gRPC streaming RPCs: ExportBackup (server-side), ImportBackup (client-side) — v3.1
+- [x] `memory import` with idempotent writes and automatic re-indexing — v3.1
+- [x] Round-trip validation: export → import → verify queries equivalent — v3.1
+- [x] `--dry-run` and `--events-only` for both backup and import — v3.1
+- [x] `tokio-stream` infrastructure + `list_all_grips` + `list_all_episodes` storage methods — v3.1
+
+*Last updated: 2026-03-24 after v3.1 milestone*
