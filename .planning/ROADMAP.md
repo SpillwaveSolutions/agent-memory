@@ -173,13 +173,15 @@ See: `.planning/milestones/v3.1-ROADMAP.md`
 **Goal**: `memory-installer install --agent opencode` produces correctly-formatted commands, agents, and skills AND registers them with the OpenCode runtime
 **Depends on**: v3.1 shipped (existing RuntimeConverter trait and stub from v2.7)
 **Requirements**: OC-01, OC-02, OC-03, OC-04, OC-05, OC-06, OREG-01, OREG-02, OREG-03
+**Plans**: 1 plan
+Plans:
+- [ ] 57-01-PLAN.md — Full OpenCode converter implementation + E2E test update
 **Success Criteria** (what must be TRUE):
   1. Running `memory-installer install --agent opencode` produces command files in flat `command/` directory (not `commands/`) with correct OpenCode frontmatter
   2. Agent frontmatter in generated files uses `tools:` object format with `tool: true` entries instead of `allowed-tools:` arrays
   3. Tool names in generated output are lowercase with correct special mappings (e.g., AskUserQuestion becomes question)
   4. Color names in generated output are hex values (not CSS names)
   5. After install, `opencode.json` contains read permission entries for all installed skill/command paths, with any pre-existing content preserved
-**Plans**: TBD
 
 ### Phase 58: Claude Code Registration + Plugin Metadata
 **Goal**: `memory-installer install --agent claude` registers the plugin with Claude Code's runtime discovery system so Claude Code loads it automatically
@@ -218,8 +220,8 @@ See: `.planning/milestones/v3.1-ROADMAP.md`
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
 | v3.0 Competitive Parity | 51-53 | 9/9 | Complete | 2026-03-23 |
 | v3.1 Memory Export/Import | 54-56 | 6/6 | Complete | 2026-03-24 |
-| v3.2 Plugin Installer | 57-59 | 0/TBD | In Progress | - |
+| v3.2 Plugin Installer | 57-59 | 0/1 | In Progress | - |
 
 ---
 
-*Updated: 2026-03-25 — v3.2 roadmap created*
+*Updated: 2026-03-25 — Phase 57 planned (1 plan)*
