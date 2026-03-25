@@ -13,6 +13,7 @@
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
 - ✅ **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 (shipped 2026-03-23)
 - ✅ **v3.1 Memory Export/Import** — Phases 54-56 (shipped 2026-03-24)
+- 🔲 **v3.2 Plugin Installer & OpenCode Converter** — Phases 57-59 (in progress)
 
 ## Phases
 
@@ -160,6 +161,48 @@ See: `.planning/milestones/v3.1-ROADMAP.md`
 
 </details>
 
+### v3.2 Plugin Installer & OpenCode Converter (Phases 57-59)
+
+- [ ] **Phase 57: OpenCode Converter + Registration** — Flesh out stub converter and register with opencode.json
+- [ ] **Phase 58: Claude Code Registration + Plugin Metadata** — Write marketplace/plugin registry files and plugin metadata
+- [ ] **Phase 59: Uninstall + Status** — Clean removal and installation status reporting
+
+## Phase Details
+
+### Phase 57: OpenCode Converter + Registration
+**Goal**: `memory-installer install --agent opencode` produces correctly-formatted commands, agents, and skills AND registers them with the OpenCode runtime
+**Depends on**: v3.1 shipped (existing RuntimeConverter trait and stub from v2.7)
+**Requirements**: OC-01, OC-02, OC-03, OC-04, OC-05, OC-06, OREG-01, OREG-02, OREG-03
+**Success Criteria** (what must be TRUE):
+  1. Running `memory-installer install --agent opencode` produces command files in flat `command/` directory (not `commands/`) with correct OpenCode frontmatter
+  2. Agent frontmatter in generated files uses `tools:` object format with `tool: true` entries instead of `allowed-tools:` arrays
+  3. Tool names in generated output are lowercase with correct special mappings (e.g., AskUserQuestion becomes question)
+  4. Color names in generated output are hex values (not CSS names)
+  5. After install, `opencode.json` contains read permission entries for all installed skill/command paths, with any pre-existing content preserved
+**Plans**: TBD
+
+### Phase 58: Claude Code Registration + Plugin Metadata
+**Goal**: `memory-installer install --agent claude` registers the plugin with Claude Code's runtime discovery system so Claude Code loads it automatically
+**Depends on**: v3.1 shipped (existing Claude converter from v2.7)
+**Requirements**: CREG-01, CREG-02, CREG-03, CREG-04, CREG-05, CREG-06, META-01, META-02, META-03
+**Success Criteria** (what must be TRUE):
+  1. Running `memory-installer install --agent claude` writes `known_marketplaces.json`, `installed_plugins.json`, and `settings.json` with correct plugin entries
+  2. Plugin key follows `{name}@{marketplace-id}` format and version is read from `.claude-plugin/plugin.json`
+  3. Re-running install updates in place without duplicating entries; old version directories are cleaned up
+  4. `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` exist with valid metadata and version is the single source of truth
+**Plans**: TBD
+
+### Phase 59: Uninstall + Status
+**Goal**: Users can cleanly remove installed plugins and check installation status across runtimes
+**Depends on**: Phase 57, Phase 58 (needs to know what both runtimes install to reverse it)
+**Requirements**: UNINST-01, UNINST-02, UNINST-03, STAT-01, STAT-02
+**Success Criteria** (what must be TRUE):
+  1. `memory-installer uninstall --agent claude` removes plugin entries from all 3 registry files and deletes installed files; runtime no longer loads the plugin
+  2. `memory-installer uninstall --agent opencode` removes permission entries from `opencode.json` and deletes installed files
+  3. Running uninstall when not installed is a safe no-op (exit 0, no error output)
+  4. `memory-installer status` displays installed runtimes with versions and paths, and reports "not installed" for runtimes without registration
+**Plans**: TBD
+
 ## Progress
 
 | Milestone | Phases | Plans | Status | Shipped |
@@ -175,7 +218,8 @@ See: `.planning/milestones/v3.1-ROADMAP.md`
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
 | v3.0 Competitive Parity | 51-53 | 9/9 | Complete | 2026-03-23 |
 | v3.1 Memory Export/Import | 54-56 | 6/6 | Complete | 2026-03-24 |
+| v3.2 Plugin Installer | 57-59 | 0/TBD | In Progress | - |
 
 ---
 
-*Updated: 2026-03-24 after v3.1 milestone complete*
+*Updated: 2026-03-25 — v3.2 roadmap created*

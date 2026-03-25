@@ -2,62 +2,65 @@
 gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: Plugin Installer & OpenCode Converter
-status: defining_requirements
+status: roadmap_complete
 stopped_at: null
-last_updated: "2026-03-25T03:40:25.151Z"
+last_updated: "2026-03-25T04:00:00.000Z"
 progress:
   total_phases: 3
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-23)
+See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** Phase 56 — import-bootstrap
+**Current focus:** v3.2 roadmap defined — ready for phase planning
 
 ## Current Position
 
-Phase: 56 (import-bootstrap) — COMPLETE
-Plan: 2 of 2 (all complete)
+Phase: 57 (opencode-converter-registration) — Not Started
+Plan: TBD
+Status: Roadmap complete, awaiting phase planning
+
+```
+v3.2 Progress: [..........] 0/3 phases
+```
+
+## Phase Overview
+
+| Phase | Name | Requirements | Depends On | Status |
+|-------|------|--------------|------------|--------|
+| 57 | OpenCode Converter + Registration | OC-01..06, OREG-01..03 | v3.1 shipped | Not Started |
+| 58 | Claude Code Registration + Plugin Metadata | CREG-01..06, META-01..03 | v3.1 shipped | Not Started |
+| 59 | Uninstall + Status | UNINST-01..03, STAT-01..02 | Phase 57, 58 | Not Started |
+
+**Note:** Phases 57 and 58 are independent and can be parallelized.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 157 (across 10 milestones)
+- Total plans completed: 161 (across 11 milestones)
 - Average duration: ~15 min
-- Total execution time: ~38 hours
+- Total execution time: ~40 hours
 
 **Milestone History:**
 See .planning/MILESTONES.md
 
 ## Decisions
 
-- v3.1 scope: Daily markdown export, structured JSONL backup, import/bootstrap (3 phases)
-- Spec reference: docs/superpowers/specs/2026-03-23-memory-export-import-design.md
-- Markdown rendering happens in CLI, not daemon (ExportDaily returns structured data)
-- Daemon scheduler integration deferred to v3.2 (CLI-only for v3.1, use cron for automation)
-- RocksDB remains source of truth; exported files are derived views
-- First streaming RPCs in project: ExportBackup (server-side), ImportBackup (client-side)
-- Index files (BM25/HNSW) not included in backup — rebuilt from events
-- Incremental backup overwrites per-day event files (not appends) to prevent duplicate JSONL lines
-- ExportDaily handler deserializes events from raw storage bytes (EventKey, Vec<u8>) matching get_events pattern
-- domain_to_proto_grip helper extracted as standalone fn for reuse across handlers
-- Daily markdown files always overwrite (idempotent derived views, not source of truth)
-- Session grouping uses HashMap+Vec for insertion-order-preserving O(n) grouping
-- [Phase 55]: tokio mpsc channel + ReceiverStream pattern for server-side streaming RPCs
-- [Phase 55]: Domain types (not proto) serialized to JSONL for backup round-trip fidelity
-- [Phase 55]: BackupChunkType re-exported from memory-client for CLI chunk routing
-- [Phase 55]: Per-day event files overwritten (not appended) for incremental backup correctness
-- [Phase 56]: Client-streaming RPC handler receives Streaming<T>, returns single aggregated response
-- [Phase 56]: Extracted import_chunks pub fn for testable import without tonic Streaming construction
-- [Phase 56]: Event IDs in tests use deterministic ULIDs via ulid::Ulid::from_parts
+- v3.2 scope: OpenCode converter (flesh out stub), Claude registration, uninstall, status (3 phases)
+- Phases 57 and 58 are independent — can be executed in parallel
+- Phase 59 depends on both 57 and 58 (needs to know what both runtimes install to reverse it)
+- OpenCode converter stub exists from v2.7 Phase 47 — this phase fills it in
+- Claude converter already works from v2.7 — Phase 58 adds runtime registration on top
+- Reference implementation: codebase-mentor installer (Python, same registry format)
+- Plugin metadata files (.claude-plugin/) are the version source of truth
 
 ## Blockers
 
@@ -65,12 +68,13 @@ See .planning/MILESTONES.md
 
 ## Accumulated Context
 
-- Approved spec: docs/superpowers/specs/2026-03-23-memory-export-import-design.md
-- Phase 54: Daily export + ExportDaily unary RPC (6 requirements)
-- Phase 55: Structured backup + streaming RPCs (9 requirements)
-- Phase 56: Import/bootstrap + client streaming (7 requirements)
-- CLI follows Phase 52 patterns (memory-cli crate, JsonEnvelope, TTY-aware output)
-- Proto changes require `cargo build` to regenerate (tonic-build)
+- Existing RuntimeConverter trait and 6 converters in memory-installer crate (v2.7)
+- OpenCode converter is currently a stub returning empty (known gap OC-01..06 from v2.7)
+- Claude converter does pass-through with path rewriting (works, but no registration)
+- Tool mapping tables already exist (11 tools x 6 runtimes) with compile-time match expressions
+- format!-based YAML/TOML emitters already handle quoting and block scalars
+- Reference: codebase-mentor uses known_marketplaces.json + installed_plugins.json + settings.json pattern
+- Plugin key format: {plugin-name}@{marketplace-id}
 
 ## Milestone History
 
@@ -86,15 +90,16 @@ See: .planning/MILESTONES.md for complete history
 - v2.6 Cognitive Retrieval: Shipped 2026-03-16 (6 phases, 13 plans)
 - v2.7 Multi-Runtime Portability: Shipped 2026-03-22 (6 phases, 11 plans)
 - v3.0 Competitive Parity & Benchmarks: Shipped 2026-03-23 (3 phases, 9 plans)
+- v3.1 Memory Export/Import: Shipped 2026-03-24 (3 phases, 6 plans)
 
 ## Cumulative Stats
 
 - ~56,400 LOC Rust across 15 crates
-- 53 phases, 155 plans across 10 milestones
+- 56 phases, 161 plans across 11 milestones
 - 46+ E2E tests + 144 bats CLI tests
 
 ## Session Continuity
 
-**Last Session:** 2026-03-24T20:12:00Z
-**Stopped At:** Completed 56-02-PLAN.md (Import CLI + Round-Trip Tests) -- Phase 56 complete
+**Last Session:** 2026-03-25T04:00:00Z
+**Stopped At:** v3.2 roadmap created — ready for phase planning
 **Resume File:** None
