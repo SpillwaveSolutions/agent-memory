@@ -175,7 +175,7 @@ See: `.planning/milestones/v3.1-ROADMAP.md`
 **Requirements**: OC-01, OC-02, OC-03, OC-04, OC-05, OC-06, OREG-01, OREG-02, OREG-03
 **Plans**: 1 plan
 Plans:
-- [ ] 57-01-PLAN.md — Full OpenCode converter implementation + E2E test update
+- [x] 57-01-PLAN.md — Full OpenCode converter implementation + E2E test update
 **Success Criteria** (what must be TRUE):
   1. Running `memory-installer install --agent opencode` produces command files in flat `command/` directory (not `commands/`) with correct OpenCode frontmatter
   2. Agent frontmatter in generated files uses `tools:` object format with `tool: true` entries instead of `allowed-tools:` arrays
@@ -187,12 +187,14 @@ Plans:
 **Goal**: `memory-installer install --agent claude` registers the plugin with Claude Code's runtime discovery system so Claude Code loads it automatically
 **Depends on**: v3.1 shipped (existing Claude converter from v2.7)
 **Requirements**: CREG-01, CREG-02, CREG-03, CREG-04, CREG-05, CREG-06, META-01, META-02, META-03
+**Plans**: 1 plan
+Plans:
+- [ ] 58-01-PLAN.md — Claude registration in generate_guidance + plugin.json creation
 **Success Criteria** (what must be TRUE):
   1. Running `memory-installer install --agent claude` writes `known_marketplaces.json`, `installed_plugins.json`, and `settings.json` with correct plugin entries
   2. Plugin key follows `{name}@{marketplace-id}` format and version is read from `.claude-plugin/plugin.json`
   3. Re-running install updates in place without duplicating entries; old version directories are cleaned up
   4. `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` exist with valid metadata and version is the single source of truth
-**Plans**: TBD
 
 ### Phase 59: Uninstall + Status
 **Goal**: Users can cleanly remove installed plugins and check installation status across runtimes
@@ -220,8 +222,8 @@ Plans:
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
 | v3.0 Competitive Parity | 51-53 | 9/9 | Complete | 2026-03-23 |
 | v3.1 Memory Export/Import | 54-56 | 6/6 | Complete | 2026-03-24 |
-| v3.2 Plugin Installer | 57-59 | 0/1 | In Progress | - |
+| v3.2 Plugin Installer | 57-59 | 1/2 | In Progress | - |
 
 ---
 
-*Updated: 2026-03-25 — Phase 57 planned (1 plan)*
+*Updated: 2026-03-25 — Phase 58 planned (1 plan)*
