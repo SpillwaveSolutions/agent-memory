@@ -1,95 +1,100 @@
-# Requirements: Agent Memory v3.1
+# Requirements: Agent Memory v3.2
 
-**Defined:** 2026-03-23
+**Defined:** 2026-03-25
 **Core Value:** Agent can answer "what were we talking about last week?" without scanning everything
 
-## v3.1 Requirements
+## v3.2 Requirements
 
-Requirements for the Memory Export/Import milestone. Each maps to roadmap phases.
+Requirements for the Plugin Installer & OpenCode Converter milestone.
 
-### Daily Markdown Export (DAILY)
+### OpenCode Converter (OC)
 
-- [x] **DAILY-01**: `memory daily` produces browsable markdown files (`memory/YYYY-MM-DD.md`) from TOC day nodes
-- [x] **DAILY-02**: Daily markdown includes session markers, summary bullets, keywords, and grip excerpts
-- [x] **DAILY-03**: `memory daily --range 7d` exports multiple days; handles days without rollup (partial output with pending note)
-- [x] **DAILY-04**: Skips days with no events (no empty files)
-- [x] **DAILY-05**: Footer includes "derived view" notice and export timestamp
+- [ ] **OC-01**: Commands flattened from `commands/memory-search.md` to `command/memory-search.md`
+- [ ] **OC-02**: Agent frontmatter converts `allowed-tools:` array to `tools:` object with `tool: true` entries
+- [ ] **OC-03**: Tool names converted to lowercase with special mappings (AskUserQuestion→question, etc.)
+- [ ] **OC-04**: Color names normalized to hex values
+- [ ] **OC-05**: Paths rewritten from `~/.claude/` to `~/.config/opencode/`
+- [ ] **OC-06**: Auto-configure `opencode.json` read permissions for installed skill paths
 
-### Structured Backup (BACKUP)
+### Claude Code Registration (CREG)
 
-- [x] **BACKUP-01**: `memory backup` exports all layers as JSONL directory structure with `manifest.json`
-- [x] **BACKUP-02**: `memory backup --events-only` exports just the base event layer
-- [x] **BACKUP-03**: `memory backup --since 24h` exports only recent data (incremental by time range)
-- [x] **BACKUP-04**: Incremental backups overwrite per-day event files (no duplicate JSONL lines)
-- [x] **BACKUP-05**: `manifest.json` includes version, counts, time range, and incremental flag
-- [x] **BACKUP-06**: Backup includes events, TOC nodes (all levels), grips, and episodes
-- [x] **BACKUP-07**: `ExportBackup` uses server-side gRPC streaming (first streaming RPC in the project)
+- [ ] **CREG-01**: `memory-installer install --agent claude` writes `known_marketplaces.json` with git marketplace entry
+- [ ] **CREG-02**: `memory-installer install --agent claude` writes `installed_plugins.json` with versioned plugin entry
+- [ ] **CREG-03**: `memory-installer install --agent claude` writes `settings.json` with `enabledPlugins` entry
+- [ ] **CREG-04**: Plugin key format follows `{plugin-name}@{marketplace-id}` convention (e.g., `memory-query@agent-memory`)
+- [ ] **CREG-05**: Version read from `.claude-plugin/plugin.json` — install path includes version directory
+- [ ] **CREG-06**: Re-install updates in place (idempotent); old version directories cleaned up
 
-### Import/Bootstrap (IMPORT)
+### OpenCode Registration (OREG)
 
-- [x] **IMPORT-01**: `memory import ./dir/` restores a full backup to RocksDB
-- [x] **IMPORT-02**: Round-trip test: export → wipe → import → all queries return same results
-- [x] **IMPORT-03**: `memory import --dry-run` shows what would be imported without writing
-- [x] **IMPORT-04**: Idempotent — events with existing IDs are skipped (dedup by event_id)
-- [x] **IMPORT-05**: `ImportBackup` uses client-side gRPC streaming
-- [x] **IMPORT-06**: Events-only import works; user triggers TOC rebuild after
+- [ ] **OREG-01**: `memory-installer install --agent opencode` writes `opencode.json` with read permissions for installed paths
+- [ ] **OREG-02**: Permission entries use glob patterns matching installed skill/command directories
+- [ ] **OREG-03**: Existing `opencode.json` content preserved (merge, not overwrite)
 
-### gRPC Infrastructure (GRPC)
+### Uninstall (UNINST)
 
-- [x] **GRPC-01**: `ExportDaily` unary RPC returns structured day data (CLI renders markdown)
-- [x] **GRPC-02**: `ExportBackup` server-side streaming RPC delivers JSONL chunks
-- [x] **GRPC-03**: `ImportBackup` client-side streaming RPC accepts JSONL chunks
-- [x] **GRPC-04**: Streaming support wired into tonic server framework (new infrastructure)
+- [ ] **UNINST-01**: `memory-installer uninstall --agent claude` removes plugin from all 3 registry files and deletes installed files
+- [ ] **UNINST-02**: `memory-installer uninstall --agent opencode` removes permission entries and deletes installed files
+- [ ] **UNINST-03**: Uninstall is safe to call when not installed (no-op, no error)
 
-## Future Requirements (v3.2+)
+### Status (STAT)
 
-- **DAILY-F01**: Automatic daemon scheduler integration (DailyExportJob after day rollup)
-- **DAILY-F02**: Configurable export time and directory via `[daily_export]` in config.toml
-- **IMPORT-F01**: `rebuild-toc` command if it doesn't exist at implementation time
+- [ ] **STAT-01**: `memory-installer status` shows installed runtimes, versions, and paths
+- [ ] **STAT-02**: Status reports "not installed" for runtimes without registration
+
+### Plugin Metadata (META)
+
+- [ ] **META-01**: `.claude-plugin/plugin.json` exists with name, version, description
+- [ ] **META-02**: `.claude-plugin/marketplace.json` exists with marketplace registration metadata
+- [ ] **META-03**: Version in plugin.json is the single source of truth for install path versioning
+
+## Future Requirements (v3.3+)
+
+- **CREG-F01**: `--for all` flag to install for all supported runtimes at once
+- **UNINST-F01**: `--all` flag to uninstall from all runtimes
+- **REG-F01**: Gemini, Codex, Copilot registration patterns (currently convert-only)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Live sync / file watching | Not bidirectional — files are derived views |
-| Markdown import | Only JSONL backup imports; markdown dailies are read-only |
-| Index file backup (BM25/HNSW) | Platform-specific; rebuild from events |
-| Automatic cloud backup | Use cron + `memory backup --since 24h` + git push |
-| Editing markdown dailies reflected in RocksDB | Files are read-only derived views |
-| Automatic daemon scheduler for daily export | Deferred to v3.2; use cron for v3.1 |
+| Python wrapper installer | Using Rust memory-installer directly (option 1) |
+| Gemini/Codex/Copilot registration | Convert-only for now; registration deferred |
+| Plugin marketplace publishing | Separate from local installation |
+| Automatic update checking | Future enhancement |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DAILY-01 | Phase 54 | Complete |
-| DAILY-02 | Phase 54 | Complete |
-| DAILY-03 | Phase 54 | Complete |
-| DAILY-04 | Phase 54 | Complete |
-| DAILY-05 | Phase 54 | Complete |
-| BACKUP-01 | Phase 55 | Complete |
-| BACKUP-02 | Phase 55 | Complete |
-| BACKUP-03 | Phase 55 | Complete |
-| BACKUP-04 | Phase 55 | Complete |
-| BACKUP-05 | Phase 55 | Complete |
-| BACKUP-06 | Phase 55 | Complete |
-| BACKUP-07 | Phase 55 | Complete |
-| IMPORT-01 | Phase 56 | Complete |
-| IMPORT-02 | Phase 56 | Complete |
-| IMPORT-03 | Phase 56 | Complete |
-| IMPORT-04 | Phase 56 | Complete |
-| IMPORT-05 | Phase 56 | Complete |
-| IMPORT-06 | Phase 56 | Complete |
-| GRPC-01 | Phase 54 | Complete |
-| GRPC-02 | Phase 55 | Complete |
-| GRPC-03 | Phase 56 | Complete |
-| GRPC-04 | Phase 55 | Complete |
+| OC-01 | Phase 57 | Pending |
+| OC-02 | Phase 57 | Pending |
+| OC-03 | Phase 57 | Pending |
+| OC-04 | Phase 57 | Pending |
+| OC-05 | Phase 57 | Pending |
+| OC-06 | Phase 57 | Pending |
+| CREG-01 | Phase 58 | Pending |
+| CREG-02 | Phase 58 | Pending |
+| CREG-03 | Phase 58 | Pending |
+| CREG-04 | Phase 58 | Pending |
+| CREG-05 | Phase 58 | Pending |
+| CREG-06 | Phase 58 | Pending |
+| OREG-01 | Phase 57 | Pending |
+| OREG-02 | Phase 57 | Pending |
+| OREG-03 | Phase 57 | Pending |
+| UNINST-01 | Phase 59 | Pending |
+| UNINST-02 | Phase 59 | Pending |
+| UNINST-03 | Phase 59 | Pending |
+| STAT-01 | Phase 59 | Pending |
+| STAT-02 | Phase 59 | Pending |
+| META-01 | Phase 58 | Pending |
+| META-02 | Phase 58 | Pending |
+| META-03 | Phase 58 | Pending |
 
 **Coverage:**
-- v3.1 requirements: 22 total
-- Mapped to phases: 22
+- v3.2 requirements: 23 total
+- Mapped to phases: 23
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after spec review*
+*Requirements defined: 2026-03-25*
