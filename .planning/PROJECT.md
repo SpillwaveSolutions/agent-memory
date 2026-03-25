@@ -2,10 +2,24 @@
 
 ## Current State
 
-**Version:** v3.1 (Shipped 2026-03-24)
-**Status:** Planning next milestone
+**Version:** v3.2 (In Progress)
+**Status:** Building complete plugin installer with runtime registration
 
-**Previous version:** v3.0 (Shipped 2026-03-23) — Retrieval orchestrator, CLI API, benchmark suite
+## Current Milestone: v3.2 Plugin Installer & OpenCode Converter
+
+**Goal:** Make `memory-installer install --agent claude|opencode` a complete one-command experience — convert canonical plugin source AND register with the runtime's plugin system. Flesh out the OpenCode converter stub. Add uninstall and status commands.
+
+**Target features:**
+- Full OpenCode converter (OC-01-06): flat naming, tools object, color hex, path rewriting
+- Claude Code plugin registration (known_marketplaces.json, installed_plugins.json, settings.json)
+- OpenCode plugin registration (opencode.json permissions)
+- `memory-installer uninstall --agent claude|opencode` — clean removal
+- `memory-installer status` — show what's installed where
+- Pattern follows codebase-mentor installer (same registry format) but in Rust
+
+**Previous version:** v3.1 (Shipped 2026-03-24) — Daily export, structured backup, import/bootstrap
+
+**Reference implementation:** `/Users/richardhightower/clients/spillwave/src/codebase-mentor/` (Python, same registry format)
 
 The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, multi-runtime installer, and comprehensive testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)

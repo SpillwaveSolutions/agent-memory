@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.1
-milestone_name: Memory Export/Import
-status: unknown
-stopped_at: Completed 56-02-PLAN.md (Import CLI + Round-Trip Tests) -- Phase 56 complete
+milestone: v3.2
+milestone_name: Plugin Installer & OpenCode Converter
+status: defining_requirements
+stopped_at: null
 last_updated: "2026-03-25T03:40:25.151Z"
 progress:
   total_phases: 3
