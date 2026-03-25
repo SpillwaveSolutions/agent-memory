@@ -1,0 +1,13 @@
+{
+  "name": "memory-query",
+  "version": "1.0.0",
+  "description": "Intelligent memory retrieval with tier-aware routing, intent classification, and fallback chains",
+  "keywords": ["memory", "retrieval", "agent-memory", "search", "context"],
+  "author": {
+    "name": "Spillwave Solutions",
+    "url": "https://github.com/SpillwaveSolutions"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/SpillwaveSolutions/agent-memory",
+  "repository": "https://github.com/SpillwaveSolutions/agent-memory"
+}
