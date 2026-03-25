@@ -9,7 +9,7 @@ use crate::types::{
     PluginCommand, PluginSkill, Runtime,
 };
 
-use super::helpers::{reconstruct_md, rewrite_paths, value_to_yaml};
+use super::helpers::{reconstruct_md, rewrite_paths};
 
 /// Map a named CSS/terminal color to its hex equivalent.
 ///
@@ -41,7 +41,11 @@ fn color_to_hex(name: &str) -> Option<&'static str> {
 fn build_opencode_tools(agent: &PluginAgent) -> serde_json::Map<String, serde_json::Value> {
     let mut tools = serde_json::Map::new();
 
-    if let Some(arr) = agent.frontmatter.get("allowed-tools").and_then(|v| v.as_array()) {
+    if let Some(arr) = agent
+        .frontmatter
+        .get("allowed-tools")
+        .and_then(|v| v.as_array())
+    {
         for item in arr {
             if let Some(name) = item.as_str() {
                 if name.starts_with("mcp__") {
@@ -186,11 +190,7 @@ impl RuntimeConverter for OpenCodeConverter {
         None
     }
 
-    fn generate_guidance(
-        &self,
-        _bundle: &PluginBundle,
-        cfg: &InstallConfig,
-    ) -> Vec<ConvertedFile> {
+    fn generate_guidance(&self, _bundle: &PluginBundle, cfg: &InstallConfig) -> Vec<ConvertedFile> {
         let target = self.target_dir(&cfg.scope);
         let json_path = target.join("opencode.json");
 
@@ -651,11 +651,7 @@ mod tests {
         // Pre-create opencode.json with existing content
         let opencode_dir = tmp.path().join(".opencode");
         std::fs::create_dir_all(&opencode_dir).unwrap();
-        std::fs::write(
-            opencode_dir.join("opencode.json"),
-            r#"{"theme": "dark"}"#,
-        )
-        .unwrap();
+        std::fs::write(opencode_dir.join("opencode.json"), r#"{"theme": "dark"}"#).unwrap();
 
         let bundle = PluginBundle {
             commands: vec![],

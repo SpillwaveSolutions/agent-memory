@@ -510,53 +510,118 @@ fn skills_full_bundle() {
 }
 
 // ---------------------------------------------------------------------------
-// 6. OpenCode stub (MIG-01)
+// 6. OpenCode full bundle (OC-01..06, OREG-01..03)
 // ---------------------------------------------------------------------------
 
 #[test]
-fn opencode_stub() {
+fn opencode_full_bundle() {
     let bundle = canonical_bundle();
+    let tmp = TempDir::new().unwrap();
     let cfg = InstallConfig {
-        scope: InstallScope::Project(PathBuf::from("/tmp/opencode-test")),
+        scope: InstallScope::Project(tmp.path().to_path_buf()),
         dry_run: false,
         source_root: PathBuf::from("/src"),
     };
-
     let converter = select_converter(Runtime::OpenCode);
-
-    // Converter name
     assert_eq!(converter.name(), "opencode");
 
-    // All convert methods return empty
+    // Collect all converted files
+    let mut all_files: Vec<ConvertedFile> = Vec::new();
     for cmd in &bundle.commands {
-        assert!(
-            converter.convert_command(cmd, &cfg).is_empty(),
-            "OpenCode convert_command should return empty"
-        );
+        all_files.extend(converter.convert_command(cmd, &cfg));
     }
     for agent in &bundle.agents {
-        assert!(
-            converter.convert_agent(agent, &cfg).is_empty(),
-            "OpenCode convert_agent should return empty"
-        );
+        all_files.extend(converter.convert_agent(agent, &cfg));
     }
     for skill in &bundle.skills {
-        assert!(
-            converter.convert_skill(skill, &cfg).is_empty(),
-            "OpenCode convert_skill should return empty"
-        );
+        all_files.extend(converter.convert_skill(skill, &cfg));
     }
     for hook in &bundle.hooks {
-        assert!(
-            converter.convert_hook(hook, &cfg).is_none(),
-            "OpenCode convert_hook should return None"
-        );
+        // Hooks return None for OpenCode (deferred)
+        assert!(converter.convert_hook(hook, &cfg).is_none());
     }
+    all_files.extend(converter.generate_guidance(&bundle, &cfg));
 
-    // generate_guidance returns empty
+    // Write files to disk
+    write_files(&all_files, false).unwrap();
+
+    // -- Verify command: singular command/ directory --
+    let cmd_path = tmp.path().join(".opencode/command/memory-search.md");
     assert!(
-        converter.generate_guidance(&bundle, &cfg).is_empty(),
-        "OpenCode generate_guidance should return empty"
+        cmd_path.exists(),
+        "Command file should exist at singular command/ path"
+    );
+    let cmd_content = std::fs::read_to_string(&cmd_path).unwrap();
+    assert!(
+        cmd_content.contains("~/.config/opencode/data"),
+        "Command body should have rewritten paths"
+    );
+    assert!(
+        !cmd_content.contains("~/.claude/"),
+        "Command body should not contain ~/.claude/"
+    );
+
+    // -- Verify agent: singular agent/ directory --
+    let agent_path = tmp.path().join(".opencode/agent/memory-navigator.md");
+    assert!(
+        agent_path.exists(),
+        "Agent file should exist at singular agent/ path"
+    );
+    let agent_content = std::fs::read_to_string(&agent_path).unwrap();
+    assert!(
+        agent_content.contains("tools:"),
+        "Agent should have tools: object"
+    );
+    assert!(
+        !agent_content.contains("allowed-tools:"),
+        "Agent should not have allowed-tools"
+    );
+    // Verify tool mapping
+    assert!(
+        agent_content.contains("read: true"),
+        "Agent tools should have mapped tool names"
+    );
+    // Verify mcp passthrough
+    assert!(
+        agent_content.contains("mcp__memory: true"),
+        "MCP tools should pass through"
+    );
+
+    // -- Verify skill: singular skill/ directory --
+    let skill_path = tmp.path().join(".opencode/skill/memory-query/SKILL.md");
+    assert!(
+        skill_path.exists(),
+        "Skill file should exist at singular skill/ path"
+    );
+    let skill_content = std::fs::read_to_string(&skill_path).unwrap();
+    assert!(
+        skill_content.contains("~/.config/opencode/data"),
+        "Skill body should have rewritten paths"
+    );
+
+    // -- Verify additional skill file --
+    let rules_path = tmp
+        .path()
+        .join(".opencode/skill/memory-query/rules/search.md");
+    assert!(rules_path.exists(), "Additional skill file should exist");
+    let rules_content = std::fs::read_to_string(&rules_path).unwrap();
+    assert!(
+        rules_content.contains("~/.config/opencode/db"),
+        "Additional file paths should be rewritten"
+    );
+
+    // -- Verify opencode.json: permissions (OREG-01) --
+    let json_path = tmp.path().join(".opencode/opencode.json");
+    assert!(json_path.exists(), "opencode.json should exist");
+    let json_content = std::fs::read_to_string(&json_path).unwrap();
+    let json_val: serde_json::Value = serde_json::from_str(&json_content).unwrap();
+    assert!(
+        json_val["permission"]["read"].is_object(),
+        "Should have permission.read"
+    );
+    assert!(
+        json_val["permission"]["external_directory"].is_object(),
+        "Should have permission.external_directory"
     );
 }
 

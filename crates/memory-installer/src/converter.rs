@@ -89,9 +89,9 @@ mod tests {
         };
 
         // All implemented converters produce at least one ConvertedFile.
-        // OpenCode is still a stub (Phase 47 scope) -- excluded here.
         for runtime in [
             Runtime::Claude,
+            Runtime::OpenCode,
             Runtime::Gemini,
             Runtime::Codex,
             Runtime::Copilot,
