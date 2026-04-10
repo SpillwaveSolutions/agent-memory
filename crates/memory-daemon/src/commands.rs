@@ -349,7 +349,7 @@ pub fn env_var_for_provider(settings: &SummarizerSettings) -> String {
     })
 }
 
-/// Build a [`Summarizer`] from `SummarizerSettings`.
+/// Build a [`memory_toc::summarizer::Summarizer`] from `SummarizerSettings`.
 ///
 /// Resolution order for the API key:
 /// 1. `settings.api_key` (explicit value in config)
