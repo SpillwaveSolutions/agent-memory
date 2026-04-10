@@ -81,7 +81,10 @@ fn search_toc_in_store(storage: &Storage, query: &str, limit: usize) -> Vec<Sear
             let ts = node.start_time.timestamp_millis();
             metadata.insert("timestamp_ms".to_string(), ts.to_string());
             metadata.insert("memory_kind".to_string(), node.memory_kind.to_string());
-            metadata.insert("salience_score".to_string(), node.salience_score.to_string());
+            metadata.insert(
+                "salience_score".to_string(),
+                node.salience_score.to_string(),
+            );
             if !node.contributing_agents.is_empty() {
                 metadata.insert("agent".to_string(), node.contributing_agents[0].clone());
             }
@@ -98,7 +101,11 @@ fn search_toc_in_store(storage: &Storage, query: &str, limit: usize) -> Vec<Sear
         .collect();
 
     // Sort by score descending, cap to limit
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     results.truncate(limit);
     results
 }
@@ -159,11 +166,7 @@ pub fn federated_query(
         match Storage::open_read_only(store_path.as_path()) {
             Ok(storage) => {
                 let results = search_toc_in_store(&storage, query, limit);
-                debug!(
-                    "federated: {} results from {:?}",
-                    results.len(),
-                    store_path
-                );
+                debug!("federated: {} results from {:?}", results.len(), store_path);
                 let tagged = tag_with_project(results, &path_str);
                 merged.extend(tagged);
             }
@@ -178,7 +181,11 @@ pub fn federated_query(
     }
 
     // Re-sort by score descending and cap to limit
-    merged.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    merged.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     merged.truncate(limit);
     merged
 }
@@ -266,7 +273,10 @@ mod tests {
         let missing = vec![PathBuf::from("/nonexistent/path/db_xyz")];
         // Must not panic; should return empty (primary is empty, remote unavailable, storage is empty)
         let result = federated_query(primary, &storage, "/primary", &missing, "query", 10);
-        assert!(result.is_empty(), "Expected empty result with unavailable store");
+        assert!(
+            result.is_empty(),
+            "Expected empty result with unavailable store"
+        );
     }
 
     /// Test: primary results keep project attribution even when remotes are added.
@@ -292,7 +302,11 @@ mod tests {
         let primary_res = result.iter().find(|r| r.doc_id == "primary-doc");
         assert!(primary_res.is_some(), "Primary doc should be in results");
         assert_eq!(
-            primary_res.unwrap().metadata.get("project").map(|s| s.as_str()),
+            primary_res
+                .unwrap()
+                .metadata
+                .get("project")
+                .map(|s| s.as_str()),
             Some("/my/primary"),
         );
     }
@@ -307,7 +321,12 @@ mod tests {
         let store_b = Storage::open(dir_b.path()).unwrap();
 
         // Put a matching TocNode in store_b
-        let node = make_toc_node("toc:segment:node_b_1", "rust ownership discussion", vec!["rust", "ownership"], "claude");
+        let node = make_toc_node(
+            "toc:segment:node_b_1",
+            "rust ownership discussion",
+            vec!["rust", "ownership"],
+            "claude",
+        );
         store_b.put_toc_node(&node).unwrap();
         drop(store_b); // close write handle before read-only open
 
@@ -348,7 +367,10 @@ mod tests {
         }
 
         // store_b result attributed to store_b path
-        let store_b_result = result.iter().find(|r| r.doc_id == "toc:segment:node_b_1").unwrap();
+        let store_b_result = result
+            .iter()
+            .find(|r| r.doc_id == "toc:segment:node_b_1")
+            .unwrap();
         assert_eq!(
             store_b_result.metadata.get("project").map(|s| s.as_str()),
             Some(dir_b.path().to_str().unwrap()),
@@ -370,7 +392,12 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let storage = Storage::open(dir.path()).unwrap();
 
-        let node = make_toc_node("toc:segment:test_1", "Rust ownership and lifetimes", vec!["rust", "ownership"], "claude");
+        let node = make_toc_node(
+            "toc:segment:test_1",
+            "Rust ownership and lifetimes",
+            vec!["rust", "ownership"],
+            "claude",
+        );
         storage.put_toc_node(&node).unwrap();
 
         let results = search_toc_in_store(&storage, "rust ownership", 10);
@@ -385,11 +412,19 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let storage = Storage::open(dir.path()).unwrap();
 
-        let node = make_toc_node("toc:segment:test_2", "Python machine learning", vec!["python", "ml"], "claude");
+        let node = make_toc_node(
+            "toc:segment:test_2",
+            "Python machine learning",
+            vec!["python", "ml"],
+            "claude",
+        );
         storage.put_toc_node(&node).unwrap();
 
         let results = search_toc_in_store(&storage, "rust ownership", 10);
-        assert!(results.is_empty(), "Should not match Python node for rust query");
+        assert!(
+            results.is_empty(),
+            "Should not match Python node for rust query"
+        );
     }
 
     /// Test: default (single-project) behavior is unchanged when all_projects is false.
@@ -414,7 +449,10 @@ mod tests {
         assert_eq!(result[1].doc_id, "doc-b");
         // Both have project attribution
         for r in &result {
-            assert_eq!(r.metadata.get("project").map(|s| s.as_str()), Some("/project"));
+            assert_eq!(
+                r.metadata.get("project").map(|s| s.as_str()),
+                Some("/project")
+            );
         }
     }
 

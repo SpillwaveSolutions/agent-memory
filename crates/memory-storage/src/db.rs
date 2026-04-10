@@ -42,12 +42,7 @@ impl Storage {
         db_opts.create_if_missing(false);
         db_opts.create_missing_column_families(false);
 
-        let db = DB::open_cf_for_read_only(
-            &db_opts,
-            path,
-            ALL_CF_NAMES.iter().copied(),
-            false,
-        )?;
+        let db = DB::open_cf_for_read_only(&db_opts, path, ALL_CF_NAMES.iter().copied(), false)?;
 
         Ok(Self {
             db,
