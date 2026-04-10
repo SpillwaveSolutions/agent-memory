@@ -1,11 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
 milestone_name: Competitive Parity & Benchmarks
 status: in_progress
 stopped_at: null
-last_updated: "2026-05-12T00:00:00.000Z"
-last_activity: 2026-05-12 — Phase 52 (Simple CLI API) rebased onto main and opening PR
+last_updated: "2026-05-14T00:00:00.000Z"
+last_activity: 2026-05-14 — Phase 52 merged via PR #29; Phase 53.5 (cross-project) re-rebased for merge
 progress:
   total_phases: 4
   completed_phases: 3
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 52 of 53 (Simple CLI API) — opening PR
-Plan: 3 of 3 complete (52-01 scaffold, 52-02 read-path, 52-03 write/query commands)
-Status: Phase 51 + 51.5 + 52 done; Phase 53 (Benchmark Suite) next
-Last activity: 2026-05-12 — Rebased gsd/phase-52-simple-cli-api onto post-Phase-51 main; opening PR
+Phase: 53.5 of 53 (cross-project federation, out-of-band) — landing via PR #25
+Plan: 1 of 1 complete (53.5-01 cross-project federated query)
+Status: Phase 51 + 51.5 + 52 merged; Phase 53.5 (cross-project) merging next; Phase 53 (Benchmark Suite) still pending
+Last activity: 2026-05-14 — Phase 52 merged via PR #29; PR #25 re-rebased onto post-Phase-52 main
 
 Progress: [████████░░] 75% (3 of 4 phases)
 
@@ -73,6 +72,11 @@ See .planning/MILESTONES.md
 - [Phase 52]: All CLI commands route through gRPC (no direct RocksDB access) — daemon stays single source of truth
 - [Phase 52]: JsonEnvelope output pattern: ok/error/context_ok constructors, TTY detection via IsTerminal
 - [Phase 52]: New `memory-cli` crate (binary name: `memory`) added to workspace — separate from `memory-daemon`
+- Phase 53.5 inserted as a decimal phase (out-of-band, mirrors 51.5) for cross-project federation work originally authored against the Phase 51 slot — preserves v3.0 Competitive Parity scope (Phases 51-53)
+- [Phase 53.5]: TOC-based primary fallback in `federated_query` when BM25/vector indexes aren't built — ensures cross-project mode always works
+- [Phase 53.5]: Project attribution stored in `metadata["project"]` — same convention as `metadata["agent"]` from v2.1
+- [Phase 53.5]: `federated_query` is a pure function — matches existing `enrich_with_salience` pattern
+- [Phase 53.5]: `open_read_only` uses `DB::open_cf_for_read_only` from rocksdb 0.22 with `create_if_missing(false)`
 
 ## Blockers
 
@@ -101,9 +105,9 @@ See: .planning/MILESTONES.md for complete history
 
 ## Cumulative Stats
 
-- ~58,000 LOC Rust across 16 crates (memory-orchestrator from Phase 51, memory-cli from Phase 52)
-- 52 phases (Phase 1-52), 153 plans across 9 milestones (counting Phase 51's 3 plans + 51.5 + 52's 3 plans)
-- 46+ E2E tests + 144 bats CLI tests + orchestrator unit tests + memory-cli unit tests
+- ~58,400 LOC Rust across 16 crates (memory-orchestrator from Phase 51, memory-cli from Phase 52) + federated module in memory-service (Phase 53.5)
+- 52 phases (Phase 1-52 + 53.5), 154 plans across 9 milestones
+- 50+ E2E tests + 144 bats CLI tests + orchestrator + memory-cli + 9 federated unit tests + 4 cross-project e2e tests
 
 ## Session Continuity
 

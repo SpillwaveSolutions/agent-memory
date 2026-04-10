@@ -106,6 +106,7 @@ async fn test_full_pipeline_ingest_toc_grip_route_query() {
             mode_override: None,
             limit: 10,
             agent_filter: None,
+            all_projects: false,
         }))
         .await
         .unwrap();

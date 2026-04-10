@@ -669,6 +669,7 @@ async fn run_route_query(
             mode_override: None,
             limit: 10,
             agent_filter: None,
+            all_projects: false,
         }))
         .await
         .map_err(|e| e.to_string())?;

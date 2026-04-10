@@ -240,6 +240,7 @@ async fn test_fail_open_staleness_no_timestamp_returns_results() {
             mode_override: None,
             limit: 10,
             agent_filter: None,
+            all_projects: false,
         }))
         .await
         .unwrap();
