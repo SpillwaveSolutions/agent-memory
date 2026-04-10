@@ -18,7 +18,7 @@ use e2e_tests::{build_toc_segment, create_test_events_for_agent, ingest_events, 
 use memory_service::pb::RouteQueryRequest;
 use memory_service::RetrievalHandler;
 use memory_storage::Storage;
-use memory_types::{TocNode};
+use memory_types::TocNode;
 
 /// Build a TOC segment and set contributing_agents from the agent string.
 ///

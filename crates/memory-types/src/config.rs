@@ -325,7 +325,6 @@ pub struct CrossProjectConfig {
     pub registered: Vec<PathBuf>,
 }
 
-
 /// Main application settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
