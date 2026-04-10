@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.7
-milestone_name: Multi-Runtime Portability
-status: completed
-stopped_at: Milestone v2.7 shipped
-last_updated: "2026-03-22T04:00:00.000Z"
-last_activity: 2026-03-22 — v2.7 Multi-Runtime Portability shipped
+milestone: v3.0
+milestone_name: Cross-Project Unified Memory
+status: in_progress
+stopped_at: Phase 51 implementation complete, tests passing
+last_updated: "2026-04-10T03:00:00.000Z"
+last_activity: 2026-04-10 — v3.0 Phase 51 cross-project federation implemented
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 11
-  completed_plans: 11
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
   percent: 100
 ---
 
@@ -25,8 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Milestone v2.7 Multi-Runtime Portability — SHIPPED 2026-03-22
-All 6 phases (45-50), 11 plans complete.
+Milestone v3.0 Cross-Project Unified Memory — IN PROGRESS
+Phase 51 (Cross-Project Federation Core) implemented and tested.
+
+Previous: Milestone v2.7 Multi-Runtime Portability — SHIPPED 2026-03-22
 
 ## Decisions
 
@@ -62,6 +64,30 @@ All 6 phases (45-50), 11 plans complete.
 - [Phase 50]: Used CARGO_MANIFEST_DIR for reliable workspace root discovery in integration tests
 - [Phase 50]: Preserved memory-capture.sh for include_str! compile dependency in CopilotConverter
 
+## v3.0 Work Completed (Phase 51)
+
+### Feature: Cross-Project Unified Memory
+
+**Branch:** `feature/v3.0-cross-project-memory`
+
+**Files changed:**
+1. `proto/memory.proto` — added `all_projects = 7` to `RouteQueryRequest`, `project = 8` to `RetrievalResult`
+2. `crates/memory-types/src/config.rs` — added `CrossProjectConfig` struct, `registered: Vec<PathBuf>` field, `projects: CrossProjectConfig` to `Settings`
+3. `crates/memory-types/src/lib.rs` — re-exported `CrossProjectConfig`
+4. `crates/memory-storage/src/db.rs` — added `Storage::open_read_only(path)` for read-only federation
+5. `crates/memory-service/src/federated.rs` (NEW) — `FederatedQueryHandler` with fail-open semantics, TOC-based cross-store search, project attribution; 9 unit tests
+6. `crates/memory-service/src/lib.rs` — added `pub mod federated`
+7. `crates/memory-service/src/retrieval.rs` — wired `federated_query` into `route_query` behind `all_projects` opt-in flag
+8. `crates/e2e-tests/tests/cross_project_test.rs` (NEW) — 4 e2e tests (merged results, attribution, fail-open, default unchanged)
+
+**Tests:** 9 unit tests + 4 e2e tests — all passing
+
+**Design decisions:**
+- TOC-based primary fallback: when primary pipeline returns no results (no BM25/vector index), `federated_query` falls back to `search_toc_in_store` on primary — ensures cross-project mode always works
+- Project attribution stored in `metadata["project"]` — same convention as `metadata["agent"]`
+- `federated_query` is a pure function — matches existing `enrich_with_salience` pattern
+- `open_read_only` uses `DB::open_cf_for_read_only` from rocksdb 0.22 with `create_if_missing(false)`
+
 ## Blockers
 
 - None
@@ -93,13 +119,14 @@ See: .planning/MILESTONES.md for complete history
 
 ## Cumulative Stats
 
-- ~56,400 LOC Rust across 15 crates
+- ~57,000 LOC Rust across 15 crates
 - memory-installer with 6 runtime converters
-- 46+ E2E tests + 144 bats CLI tests across 5 CLIs
-- 50 phases, 146 plans across 9 milestones
+- 50+ E2E tests + 144 bats CLI tests across 5 CLIs
+- 51 phases, 147 plans across 10 milestones
 
 ## Session Continuity
 
-**Last Session:** 2026-03-22T02:46:19.509Z
-**Stopped At:** Completed 50-02-PLAN.md
+**Last Session:** 2026-04-10T03:55:00.000Z
+**Stopped At:** Phase 51 cross-project federation implemented, tested, ready for commit
+**Branch:** feature/v3.0-cross-project-memory
 **Resume File:** None

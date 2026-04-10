@@ -183,6 +183,7 @@ async fn test_route_query_empty_query() {
             mode_override: None,
             limit: 10,
             agent_filter: None,
+            all_projects: false,
         }))
         .await;
 

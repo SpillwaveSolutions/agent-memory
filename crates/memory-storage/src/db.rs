@@ -30,6 +30,31 @@ pub struct Storage {
 }
 
 impl Storage {
+    /// Open storage in read-only mode at the given path.
+    ///
+    /// Used by FederatedQueryHandler (v3.0) to open remote project stores
+    /// without acquiring write locks. Does not create the database if missing.
+    /// Returns an error if the path does not exist or lacks the expected CFs.
+    pub fn open_read_only(path: &Path) -> Result<Self, StorageError> {
+        info!("Opening read-only storage at {:?}", path);
+
+        let mut db_opts = Options::default();
+        db_opts.create_if_missing(false);
+        db_opts.create_missing_column_families(false);
+
+        let db = DB::open_cf_for_read_only(
+            &db_opts,
+            path,
+            ALL_CF_NAMES.iter().copied(),
+            false,
+        )?;
+
+        Ok(Self {
+            db,
+            outbox_sequence: std::sync::atomic::AtomicU64::new(0),
+        })
+    }
+
     /// Open storage at the given path, creating if necessary
     ///
     /// Per STOR-04: Each project gets its own RocksDB instance.

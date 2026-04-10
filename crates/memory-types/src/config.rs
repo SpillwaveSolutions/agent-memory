@@ -306,6 +306,33 @@ pub enum MultiAgentMode {
     Unified,
 }
 
+/// Cross-project federation configuration (v3.0).
+///
+/// Controls whether queries can span multiple registered project stores.
+/// Disabled by default — must be explicitly enabled (opt-in).
+/// If a registered project store is unavailable, it is silently skipped (fail-open).
+///
+/// Maps to `[projects]` section in config.toml:
+/// ```toml
+/// [projects]
+/// registered = ["/path/to/project-a/db", "/path/to/project-b/db"]
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossProjectConfig {
+    /// Paths to additional project RocksDB stores.
+    /// Each path is opened read-only for cross-project queries.
+    #[serde(default)]
+    pub registered: Vec<PathBuf>,
+}
+
+impl Default for CrossProjectConfig {
+    fn default() -> Self {
+        Self {
+            registered: Vec::new(),
+        }
+    }
+}
+
 /// Main application settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -369,6 +396,11 @@ pub struct Settings {
     /// Episodic memory configuration (Phase 43).
     #[serde(default)]
     pub episodic: EpisodicConfig,
+
+    /// Cross-project federation configuration (v3.0).
+    /// Lists additional project stores to include in federated queries.
+    #[serde(default)]
+    pub projects: CrossProjectConfig,
 }
 
 /// Lifecycle automation configuration for index pruning and rebuilding.
@@ -564,6 +596,7 @@ impl Default for Settings {
             usage: crate::UsageConfig::default(),
             lifecycle: LifecycleConfig::default(),
             episodic: EpisodicConfig::default(),
+            projects: CrossProjectConfig::default(),
         }
     }
 }

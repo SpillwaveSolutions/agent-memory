@@ -2642,6 +2642,7 @@ async fn retrieval_route(
             mode_override,
             limit: limit as i32,
             agent_filter: agent_filter.map(|s| s.to_string()),
+            all_projects: false,
         })
         .await
         .context("Failed to route query")?

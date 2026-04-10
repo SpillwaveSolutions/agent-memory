@@ -30,6 +30,8 @@ use memory_search::TeleportSearcher;
 use memory_storage::Storage;
 use memory_types::config::StalenessConfig;
 
+use crate::federated::federated_query;
+
 use crate::pb::{
     CapabilityTier as ProtoTier, ClassifyQueryIntentRequest, ClassifyQueryIntentResponse,
     ExecutionMode as ProtoExecMode, ExplainabilityPayload as ProtoExplainability,
@@ -60,6 +62,13 @@ pub struct RetrievalHandler {
 
     /// Staleness scoring configuration
     staleness_config: StalenessConfig,
+
+    /// Registered project store paths for cross-project federation (v3.0).
+    /// Empty by default (opt-in via all_projects=true in RouteQueryRequest).
+    registered_projects: Vec<std::path::PathBuf>,
+
+    /// Path of the primary store (used for result attribution).
+    primary_db_path: String,
 }
 
 impl RetrievalHandler {
@@ -72,6 +81,8 @@ impl RetrievalHandler {
             vector_handler: None,
             topic_handler: None,
             staleness_config: StalenessConfig::default(),
+            registered_projects: Vec::new(),
+            primary_db_path: String::new(),
         }
     }
 
@@ -90,7 +101,20 @@ impl RetrievalHandler {
             vector_handler,
             topic_handler,
             staleness_config,
+            registered_projects: Vec::new(),
+            primary_db_path: String::new(),
         }
+    }
+
+    /// Set registered project paths for cross-project federation (v3.0).
+    pub fn with_registered_projects(
+        mut self,
+        projects: Vec<std::path::PathBuf>,
+        primary_db_path: String,
+    ) -> Self {
+        self.registered_projects = projects;
+        self.primary_db_path = primary_db_path;
+        self
     }
 
     /// Handle GetRetrievalCapabilities RPC.
@@ -296,8 +320,27 @@ impl RetrievalHandler {
 
         let total_time_ms = start.elapsed().as_millis() as u64;
 
+        // v3.0: Cross-project federation (opt-in via all_projects=true)
+        let final_results = if req.all_projects && !self.registered_projects.is_empty() {
+            info!(
+                query = %req.query,
+                registered_count = self.registered_projects.len(),
+                "Executing cross-project federated query"
+            );
+            federated_query(
+                ranked_results,
+                &self.storage,
+                &self.primary_db_path,
+                &self.registered_projects,
+                &req.query,
+                limit,
+            )
+        } else {
+            ranked_results
+        };
+
         // Convert results to proto
-        let results: Vec<ProtoResult> = ranked_results
+        let results: Vec<ProtoResult> = final_results
             .iter()
             .take(limit)
             .map(|r| ProtoResult {
@@ -308,6 +351,7 @@ impl RetrievalHandler {
                 source_layer: layer_to_proto(r.source_layer) as i32,
                 metadata: r.metadata.clone(),
                 agent: r.metadata.get("agent").cloned(),
+                project: r.metadata.get("project").cloned(),
             })
             .collect();
 
@@ -871,6 +915,7 @@ mod tests {
                 mode_override: None,
                 limit: 10,
                 agent_filter: None,
+                all_projects: false,
             }))
             .await
             .unwrap();
@@ -896,6 +941,7 @@ mod tests {
                 mode_override: None,
                 limit: 10,
                 agent_filter: None,
+                all_projects: false,
             }))
             .await;
 
@@ -954,6 +1000,7 @@ mod tests {
             source_layer: layer_to_proto(result.source_layer) as i32,
             metadata: result.metadata.clone(),
             agent: result.metadata.get("agent").cloned(),
+            project: result.metadata.get("project").cloned(),
         };
         assert_eq!(proto_result.agent, Some("opencode".to_string()));
 
@@ -974,6 +1021,7 @@ mod tests {
             source_layer: layer_to_proto(result_no_agent.source_layer) as i32,
             metadata: result_no_agent.metadata.clone(),
             agent: result_no_agent.metadata.get("agent").cloned(),
+            project: result_no_agent.metadata.get("project").cloned(),
         };
         assert_eq!(proto_no_agent.agent, None);
     }
