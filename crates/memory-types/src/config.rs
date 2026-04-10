@@ -317,7 +317,7 @@ pub enum MultiAgentMode {
 /// [projects]
 /// registered = ["/path/to/project-a/db", "/path/to/project-b/db"]
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CrossProjectConfig {
     /// Paths to additional project RocksDB stores.
     /// Each path is opened read-only for cross-project queries.
@@ -325,13 +325,6 @@ pub struct CrossProjectConfig {
     pub registered: Vec<PathBuf>,
 }
 
-impl Default for CrossProjectConfig {
-    fn default() -> Self {
-        Self {
-            registered: Vec::new(),
-        }
-    }
-}
 
 /// Main application settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
