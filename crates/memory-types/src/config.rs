@@ -203,6 +203,12 @@ pub struct SummarizerSettings {
     /// API base URL (for custom endpoints)
     #[serde(default)]
     pub api_base_url: Option<String>,
+
+    /// Name of the environment variable to read the API key from.
+    /// If unset, defaults to "OPENAI_API_KEY" for openai and
+    /// "ANTHROPIC_API_KEY" for anthropic.
+    #[serde(default)]
+    pub api_key_env: Option<String>,
 }
 
 fn default_summarizer_provider() -> String {
@@ -220,6 +226,7 @@ impl Default for SummarizerSettings {
             model: default_summarizer_model(),
             api_key: None,
             api_base_url: None,
+            api_key_env: None,
         }
     }
 }

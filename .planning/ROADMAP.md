@@ -136,6 +136,16 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 
 </details>
 
+## v3.0 — Real Summarization (In Progress)
+
+- [ ] Phase 51: API Summarizer Wiring
+  - [x] Wire `ApiSummarizer` from daemon config (`build_summarizer` function)
+  - [x] Add `api_key_env` field to `SummarizerSettings` for flexible key sourcing
+  - [x] Provider-aware fallback: `MockSummarizer` + `warn!` when no API key present
+  - [x] Unit tests: provider → env var mapping, explicit key, env var lookup, fallback
+
+**Goal:** Ship real AI-powered TOC rollup summaries for all active users with API keys configured.
+
 ## Progress
 
 | Milestone | Phases | Plans | Status | Shipped |
@@ -149,7 +159,8 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
+| v3.0 Real Summarization | 51+ | 1/? | In Progress | — |
 
 ---
 
-*Updated: 2026-03-22 after v2.7 milestone complete*
+*Updated: 2026-03-22 — v3.0 API Summarizer Wiring in progress*

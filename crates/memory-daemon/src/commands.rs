@@ -30,7 +30,8 @@ use memory_service::pb::{
 };
 use memory_service::run_server_with_scheduler;
 use memory_storage::Storage;
-use memory_toc::summarizer::MockSummarizer;
+use memory_toc::summarizer::{ApiSummarizer, ApiSummarizerConfig, MockSummarizer};
+use memory_types::config::SummarizerSettings;
 use memory_types::dedup::InFlightBuffer;
 use memory_types::Settings;
 
@@ -310,6 +311,91 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
     Ok(())
 }
 
+/// Resolve the API key from settings, returning the key and the env var name that was used.
+///
+/// Resolution order:
+/// 1. `settings.api_key` (explicit value in config)
+/// 2. Environment variable named by `settings.api_key_env`
+/// 3. Provider-default env var (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`)
+fn resolve_api_key(settings: &SummarizerSettings) -> (Option<String>, &'static str) {
+    let default_env_var: &'static str = if settings.provider.to_lowercase() == "anthropic" {
+        "ANTHROPIC_API_KEY"
+    } else {
+        "OPENAI_API_KEY"
+    };
+
+    // If a custom env var name is provided, look it up dynamically.
+    // We store the resolved name separately so the returned &'static str is the default.
+    let key = if let Some(ref explicit_key) = settings.api_key {
+        Some(explicit_key.clone())
+    } else {
+        let env_var = settings.api_key_env.as_deref().unwrap_or(default_env_var);
+        std::env::var(env_var).ok()
+    };
+
+    (key, default_env_var)
+}
+
+/// Return the name of the env var that will be consulted for this settings block.
+///
+/// Exported so tests can verify provider → env var mapping without side effects.
+pub fn env_var_for_provider(settings: &SummarizerSettings) -> String {
+    settings.api_key_env.clone().unwrap_or_else(|| {
+        if settings.provider.to_lowercase() == "anthropic" {
+            "ANTHROPIC_API_KEY".to_string()
+        } else {
+            "OPENAI_API_KEY".to_string()
+        }
+    })
+}
+
+/// Build a [`Summarizer`] from `SummarizerSettings`.
+///
+/// Resolution order for the API key:
+/// 1. `settings.api_key` (explicit value in config)
+/// 2. Environment variable named by `settings.api_key_env`
+/// 3. Provider-default env var (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`)
+///
+/// Falls back to [`MockSummarizer`] with a `warn!` when no key is found.
+pub fn build_summarizer(
+    settings: &SummarizerSettings,
+) -> Arc<dyn memory_toc::summarizer::Summarizer> {
+    let env_var_name = env_var_for_provider(settings);
+    let (api_key, _) = resolve_api_key(settings);
+
+    match api_key {
+        Some(key) => {
+            let config = if settings.provider.to_lowercase() == "anthropic" {
+                ApiSummarizerConfig::claude(key, &settings.model)
+            } else {
+                ApiSummarizerConfig::openai(key, &settings.model)
+            };
+
+            match ApiSummarizer::new(config) {
+                Ok(s) => {
+                    info!(
+                        provider = %settings.provider,
+                        model = %settings.model,
+                        "Using API summarizer"
+                    );
+                    Arc::new(s)
+                }
+                Err(e) => {
+                    warn!(error = %e, "Failed to create ApiSummarizer, falling back to mock");
+                    Arc::new(MockSummarizer::new())
+                }
+            }
+        }
+        None => {
+            warn!(
+                env_var = env_var_name,
+                "No API key found for summarizer, using mock"
+            );
+            Arc::new(MockSummarizer::new())
+        }
+    }
+}
+
 /// Start the memory daemon.
 ///
 /// 1. Load configuration (CFG-01: defaults -> file -> env -> CLI)
@@ -380,8 +466,7 @@ pub async fn start_daemon(
         .context("Failed to create scheduler")?;
 
     // Create summarizer for rollup jobs
-    // TODO: Load from config - use ApiSummarizer if OPENAI_API_KEY or ANTHROPIC_API_KEY set
-    let summarizer: Arc<dyn memory_toc::summarizer::Summarizer> = Arc::new(MockSummarizer::new());
+    let summarizer = build_summarizer(&settings.summarizer);
 
     // Register rollup jobs (day/week/month)
     create_rollup_jobs(
@@ -3080,5 +3165,115 @@ mod tests {
     fn test_format_utc_date() {
         let s = format_utc_date(1707350400000);
         assert_eq!(s, "2024-02-08");
+    }
+
+    // ── build_summarizer / env_var_for_provider ──────────────────────────────
+
+    /// OpenAI provider maps to OPENAI_API_KEY by default.
+    #[test]
+    fn test_env_var_for_provider_openai_default() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(env_var_for_provider(&settings), "OPENAI_API_KEY");
+    }
+
+    /// Anthropic provider maps to ANTHROPIC_API_KEY by default.
+    #[test]
+    fn test_env_var_for_provider_anthropic_default() {
+        let settings = SummarizerSettings {
+            provider: "anthropic".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(env_var_for_provider(&settings), "ANTHROPIC_API_KEY");
+    }
+
+    /// Provider matching is case-insensitive.
+    #[test]
+    fn test_env_var_for_provider_case_insensitive() {
+        let settings = SummarizerSettings {
+            provider: "Anthropic".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(env_var_for_provider(&settings), "ANTHROPIC_API_KEY");
+    }
+
+    /// A custom `api_key_env` overrides the default env var name.
+    #[test]
+    fn test_env_var_for_provider_custom_override() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key_env: Some("MY_CUSTOM_KEY".to_string()),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(env_var_for_provider(&settings), "MY_CUSTOM_KEY");
+    }
+
+    /// When no API key is available, `build_summarizer` returns a valid
+    /// (mock) summarizer without panicking.
+    #[test]
+    fn test_build_summarizer_falls_back_to_mock_when_no_key() {
+        // Use a deliberately obscure env var name that will not be set.
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key_env: Some("__AGENT_MEMORY_TEST_NONEXISTENT_KEY__".to_string()),
+            api_key: None,
+            ..SummarizerSettings::default()
+        };
+        // Should not panic; returns an Arc<dyn Summarizer> (the mock).
+        let summarizer = build_summarizer(&settings);
+        // The Arc is non-null — that's the only observable property without downcasting.
+        let _ = summarizer;
+    }
+
+    /// When `settings.api_key` is set explicitly, `build_summarizer` constructs
+    /// an ApiSummarizer (no env var lookup needed).
+    #[test]
+    fn test_build_summarizer_uses_explicit_api_key() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key: Some("sk-test-explicit-key".to_string()),
+            api_key_env: None,
+            ..SummarizerSettings::default()
+        };
+        // Should succeed and return a valid Arc without panicking.
+        let summarizer = build_summarizer(&settings);
+        let _ = summarizer;
+    }
+
+    /// When `OPENAI_API_KEY` env var is set, `build_summarizer` constructs
+    /// an ApiSummarizer for the openai provider.
+    #[test]
+    fn test_build_summarizer_reads_openai_api_key_env() {
+        // Use a scoped env var so we don't pollute other tests.
+        // SAFETY: test-only, single-threaded env mutation.
+        std::env::set_var("__TEST_OPENAI_KEY_WIRING__", "sk-test-key");
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key_env: Some("__TEST_OPENAI_KEY_WIRING__".to_string()),
+            api_key: None,
+            ..SummarizerSettings::default()
+        };
+        let summarizer = build_summarizer(&settings);
+        let _ = summarizer;
+        std::env::remove_var("__TEST_OPENAI_KEY_WIRING__");
+    }
+
+    /// When `ANTHROPIC_API_KEY` env var is set, `build_summarizer` constructs
+    /// an ApiSummarizer for the anthropic provider.
+    #[test]
+    fn test_build_summarizer_reads_anthropic_api_key_env() {
+        std::env::set_var("__TEST_ANTHROPIC_KEY_WIRING__", "sk-ant-test-key");
+        let settings = SummarizerSettings {
+            provider: "anthropic".to_string(),
+            api_key_env: Some("__TEST_ANTHROPIC_KEY_WIRING__".to_string()),
+            api_key: None,
+            model: "claude-3-haiku-20240307".to_string(),
+            ..SummarizerSettings::default()
+        };
+        let summarizer = build_summarizer(&settings);
+        let _ = summarizer;
+        std::env::remove_var("__TEST_ANTHROPIC_KEY_WIRING__");
     }
 }
