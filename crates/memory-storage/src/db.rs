@@ -459,7 +459,7 @@ impl Storage {
         }
 
         // Sort by start_time
-        nodes.sort_by(|a, b| a.start_time.cmp(&b.start_time));
+        nodes.sort_by_key(|a| a.start_time);
 
         Ok(nodes)
     }
@@ -478,7 +478,7 @@ impl Storage {
                         children.push(child);
                     }
                 }
-                children.sort_by(|a, b| a.start_time.cmp(&b.start_time));
+                children.sort_by_key(|a| a.start_time);
                 Ok(children)
             }
             None => Ok(Vec::new()),
