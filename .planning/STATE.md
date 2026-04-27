@@ -28,8 +28,6 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 Milestone v2.7 Multi-Runtime Portability — SHIPPED 2026-03-22
 All 6 phases (45-50), 11 plans complete.
 
-v3.0 planning in progress — API Summarizer Wiring feature branch open (feature/v3.0-api-summarizer-wiring).
-
 ## Decisions
 
 - Installer written in Rust (new workspace crate `memory-installer`)
@@ -63,15 +61,6 @@ v3.0 planning in progress — API Summarizer Wiring feature branch open (feature
 - [Phase 49]: Skills converter uses canonical Claude tool names (no remapping) for runtime-agnostic skills
 - [Phase 50]: Used CARGO_MANIFEST_DIR for reliable workspace root discovery in integration tests
 - [Phase 50]: Preserved memory-capture.sh for include_str! compile dependency in CopilotConverter
-
-## v3.0 In Progress
-
-- **API Summarizer Wiring** (`feature/v3.0-api-summarizer-wiring`)
-  - Added `api_key_env` field to `SummarizerSettings` for customizable env var lookup
-  - Implemented `build_summarizer()` in `crates/memory-daemon/src/commands.rs`
-  - Reads `provider`/`model`/`api_key_env` from config; constructs `ApiSummarizer` when key available
-  - Falls back to `MockSummarizer` with `warn!` log when no API key found
-  - Added `env_var_for_provider()` helper and 7 unit tests covering provider selection and key resolution
 
 ## Blockers
 
