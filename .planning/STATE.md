@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Competitive Parity & Benchmarks
-status: ready_to_plan
+status: in_progress
 stopped_at: null
-last_updated: "2026-03-21T12:00:00.000Z"
-last_activity: 2026-03-21 — Roadmap created for v3.0
+last_updated: "2026-04-27T00:00:00.000Z"
+last_activity: 2026-04-27 — Phase 51.5 (API Summarizer Wiring) merged via PR #27
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -25,12 +25,25 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 51 of 53 (Retrieval Orchestrator)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-21 — Roadmap created for v3.0
+Phase: 51.5 of 53 (API Summarizer Wiring — MERGED)
+Plan: out-of-band (no PLAN.md; pre-GSD execution)
+Status: Phase 51.5 merged; Phase 51 still pending
+Last activity: 2026-04-27 — PR #27 merged as squash commit `3a73582`
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 25% (1 of 4 phases)
+
+## Out-of-band Work
+
+### Open PRs
+
+| PR | Branch | Status | Reviewed | Notes |
+|---|---|---|---|---|
+| #25 | `feature/v3.0-cross-project-memory` | Open, CI green | Not yet | Self-describes as "v3.0 Phase 51" but local Phase 51 is Retrieval Orchestrator — phase-numbering conflict to resolve before review/merge |
+| #27 | merged 2026-04-28 as `3a73582` | Merged | — | Recorded as Phase 51.5; supersedes closed PR #26 |
+
+### Local-only Branches (not yet pushed)
+
+- `gsd/phase-{51..58}` — 7-phase stack of GSD phase work covering v3.0 (Phases 51-53), v3.1 (Phases 54-56), and v3.2 (Phases 57-58 done; 59 pending). ~80 commits total, no PRs. Pending strategic decision: per-milestone PRs vs. omnibus push vs. squash-and-rebase per phase. **Note:** the planning files on these branches describe v3.0/v3.1 as "shipped" — that reflects local execution intent, not origin/main reality.
 
 ## Performance Metrics
 
@@ -44,11 +57,12 @@ See .planning/MILESTONES.md
 
 ## Decisions
 
-- v3.0 scope: Retrieval orchestrator, simple CLI API, benchmark suite (3 phases)
+- v3.0 scope: Retrieval orchestrator, simple CLI API, benchmark suite (3 phases) + Phase 51.5 (out-of-band summarizer wiring)
 - Orchestrator wraps existing RetrievalExecutor (no changes to memory-retrieval crate)
 - CLI uses new `memory` binary (memory-daemon and hook handlers unchanged)
 - LOCOMO dataset never committed (gitignored)
 - Existing implementation plans in docs/superpowers/plans/ will be converted to GSD plans
+- Phase 51.5 inserted as a decimal phase (out-of-band insertion pattern from `/gsd:insert-phase`) since the summarizer wiring shipped before Phase 51 itself
 
 ## Blockers
 
@@ -83,6 +97,6 @@ See: .planning/MILESTONES.md for complete history
 
 ## Session Continuity
 
-**Last Session:** 2026-03-21
-**Stopped At:** Roadmap created for v3.0 milestone
+**Last Session:** 2026-04-27
+**Stopped At:** Phase 51.5 merged via PR #27; planning files synced to reflect merge and flag deferred items
 **Resume File:** None

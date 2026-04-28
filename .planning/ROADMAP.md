@@ -11,7 +11,7 @@
 - ✅ **v2.5 Semantic Dedup & Retrieval Quality** — Phases 35-38 (shipped 2026-03-10)
 - ✅ **v2.6 Cognitive Retrieval** — Phases 39-44 (shipped 2026-03-16)
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
-- **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 (in progress)
+- **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 + Phase 51.5 (in progress; Phase 51.5 merged 2026-04-28)
 
 ## Phases
 
@@ -142,6 +142,7 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 **Milestone Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
 
 - [ ] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor
+- [x] **Phase 51.5: API Summarizer Wiring** - Wire `ApiSummarizer` from config (out-of-band; merged 2026-04-28 via PR #27)
 - [ ] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands
 - [ ] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring
 
@@ -163,6 +164,16 @@ Plans:
 - [ ] 51-01-PLAN.md — Scaffold crate, core types, and query expansion
 - [ ] 51-02-PLAN.md — RRF fusion, reranker trait, and context builder
 - [ ] 51-03-PLAN.md — Wire MemoryOrchestrator and full QA
+
+### Phase 51.5: API Summarizer Wiring (Merged)
+**Goal**: Replace the heuristic-only summarizer with a config-driven `ApiSummarizer` so events can be summarized via an Anthropic/OpenAI/etc. API when configured
+**Status**: MERGED 2026-04-28 via PR #27 (squash commit `3a73582`); supersedes closed PR #26
+**Origin**: Inserted out-of-band between Phase 51 and Phase 52 — pre-dates v3.0 phase numbering
+**Key changes**:
+  1. `pick_summarizer_kind` decision split based on config presence
+  2. `ApiSummarizer` wired through summarizer factory
+  3. 16 new tests (vs 7 in PR #26) covering both kinds, config absence, and error paths
+**Plans**: 1 plan (executed pre-GSD; no PLAN.md file)
 
 ### Phase 52: Simple CLI API
 **Goal**: Users can interact with Agent Memory through a single `memory` binary that provides search, context injection, recall, add, timeline, and summary — with sensible defaults and TTY-aware output
@@ -199,7 +210,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 51 -> 52 -> 53
+Phases execute in numeric order: 51 -> 51.5 (merged out-of-band) -> 52 -> 53
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -212,8 +223,8 @@ Phases execute in numeric order: 51 -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 | 0/TBD | In progress | - |
+| v3.0 Competitive Parity | 51-53 + 51.5 | 1/TBD | In progress | Phase 51.5 merged 2026-04-28 |
 
 ---
 
-*Updated: 2026-03-22 after Phase 51 planning*
+*Updated: 2026-04-27 — Phase 51.5 (API Summarizer Wiring) merged out-of-band via PR #27*
