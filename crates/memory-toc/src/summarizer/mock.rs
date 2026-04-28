@@ -119,7 +119,7 @@ fn extract_mock_keywords(events: &[Event]) -> Vec<String> {
     }
 
     let mut sorted: Vec<_> = word_counts.into_iter().collect();
-    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted.sort_by_key(|a| std::cmp::Reverse(a.1));
 
     sorted.into_iter().take(5).map(|(w, _)| w).collect()
 }

@@ -160,7 +160,7 @@ impl StaleFilter {
                     .map(|ts| (i, ts))
             })
             .collect();
-        by_time.sort_by(|a, b| b.1.cmp(&a.1)); // newest first
+        by_time.sort_by_key(|b| std::cmp::Reverse(b.1)); // newest first
 
         // For each pair (older vs newer), check supersession
         for older_pos in (0..by_time.len()).rev() {

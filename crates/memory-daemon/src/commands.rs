@@ -30,7 +30,8 @@ use memory_service::pb::{
 };
 use memory_service::run_server_with_scheduler;
 use memory_storage::Storage;
-use memory_toc::summarizer::MockSummarizer;
+use memory_toc::summarizer::{ApiSummarizer, ApiSummarizerConfig, MockSummarizer};
+use memory_types::config::SummarizerSettings;
 use memory_types::dedup::InFlightBuffer;
 use memory_types::Settings;
 
@@ -310,6 +311,135 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
     Ok(())
 }
 
+/// Which summarizer the daemon will construct for a given settings block.
+///
+/// Separated from [`build_summarizer`] so the decision logic can be unit-tested
+/// without constructing an HTTP client or mutating process-global env vars.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SummarizerKind {
+    /// Local mock summarizer (no API call). Chosen when no key is available.
+    Mock,
+    /// OpenAI Chat Completions API.
+    OpenAi,
+    /// Anthropic Messages API.
+    Anthropic,
+}
+
+fn is_anthropic(provider: &str) -> bool {
+    provider.eq_ignore_ascii_case("anthropic")
+}
+
+fn is_openai(provider: &str) -> bool {
+    provider.eq_ignore_ascii_case("openai")
+}
+
+fn default_env_var_for_provider(provider: &str) -> &'static str {
+    if is_anthropic(provider) {
+        "ANTHROPIC_API_KEY"
+    } else {
+        "OPENAI_API_KEY"
+    }
+}
+
+/// Pure decision: which summarizer kind should we use given settings + key availability?
+///
+/// Tests should prefer this over [`build_summarizer`] because it avoids env-var
+/// mutation and HTTP-client construction, making provider-selection assertions
+/// directly observable.
+pub(crate) fn pick_summarizer_kind(
+    settings: &SummarizerSettings,
+    key_available: bool,
+) -> SummarizerKind {
+    if !key_available {
+        SummarizerKind::Mock
+    } else if is_anthropic(&settings.provider) {
+        SummarizerKind::Anthropic
+    } else {
+        SummarizerKind::OpenAi
+    }
+}
+
+/// Resolve the API key from settings.
+///
+/// Resolution order:
+/// 1. `settings.api_key` (explicit value in config) — wins unconditionally
+/// 2. Environment variable named by `settings.api_key_env` (custom override)
+/// 3. Provider-default env var (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`)
+///
+/// Note: when `api_key_env` is set, only that var is consulted — there is no
+/// further fallback to the provider default. This matches the principle that
+/// a user-provided override is intentional.
+fn resolve_api_key(settings: &SummarizerSettings) -> Option<String> {
+    if let Some(ref explicit_key) = settings.api_key {
+        return Some(explicit_key.clone());
+    }
+    let env_var = settings
+        .api_key_env
+        .as_deref()
+        .unwrap_or_else(|| default_env_var_for_provider(&settings.provider));
+    std::env::var(env_var).ok()
+}
+
+/// Return the name of the env var that will be consulted for this settings block.
+pub(crate) fn env_var_for_provider(settings: &SummarizerSettings) -> String {
+    settings
+        .api_key_env
+        .clone()
+        .unwrap_or_else(|| default_env_var_for_provider(&settings.provider).to_string())
+}
+
+/// Build a [`memory_toc::summarizer::Summarizer`] from `SummarizerSettings`.
+///
+/// Falls back to [`MockSummarizer`] with a `warn!` when no API key is found
+/// or when API client construction fails. An unrecognized provider produces
+/// a warning and is treated as OpenAI (preserving fail-open behavior).
+pub(crate) fn build_summarizer(
+    settings: &SummarizerSettings,
+) -> Arc<dyn memory_toc::summarizer::Summarizer> {
+    if !is_anthropic(&settings.provider) && !is_openai(&settings.provider) {
+        warn!(
+            provider = %settings.provider,
+            "Unknown summarizer provider, defaulting to OpenAI configuration"
+        );
+    }
+
+    let api_key = resolve_api_key(settings);
+    let kind = pick_summarizer_kind(settings, api_key.is_some());
+
+    let Some(key) = api_key else {
+        let env_var = env_var_for_provider(settings);
+        warn!(
+            env_var = %env_var,
+            kind = ?kind,
+            "No API key found for summarizer, using mock"
+        );
+        return Arc::new(MockSummarizer::new());
+    };
+
+    let config = match kind {
+        SummarizerKind::Anthropic => ApiSummarizerConfig::claude(key, &settings.model),
+        SummarizerKind::OpenAi => ApiSummarizerConfig::openai(key, &settings.model),
+        // Mock branch is handled by the `let Some(key) = ...` early return above.
+        SummarizerKind::Mock => unreachable!("Mock kind handled before key match"),
+    };
+
+    match ApiSummarizer::new(config) {
+        Ok(s) => {
+            info!(
+                provider = %settings.provider,
+                model = %settings.model,
+                kind = ?kind,
+                "Using API summarizer"
+            );
+            Arc::new(s)
+        }
+        Err(e) => {
+            warn!(error = %e, "Failed to create ApiSummarizer, falling back to mock");
+            Arc::new(MockSummarizer::new())
+        }
+    }
+}
+
 /// Start the memory daemon.
 ///
 /// 1. Load configuration (CFG-01: defaults -> file -> env -> CLI)
@@ -380,8 +510,7 @@ pub async fn start_daemon(
         .context("Failed to create scheduler")?;
 
     // Create summarizer for rollup jobs
-    // TODO: Load from config - use ApiSummarizer if OPENAI_API_KEY or ANTHROPIC_API_KEY set
-    let summarizer: Arc<dyn memory_toc::summarizer::Summarizer> = Arc::new(MockSummarizer::new());
+    let summarizer = build_summarizer(&settings.summarizer);
 
     // Register rollup jobs (day/week/month)
     create_rollup_jobs(
@@ -3080,5 +3209,234 @@ mod tests {
     fn test_format_utc_date() {
         let s = format_utc_date(1707350400000);
         assert_eq!(s, "2024-02-08");
+    }
+
+    // ── Summarizer wiring ────────────────────────────────────────────────────
+    //
+    // Tests are organized in three groups:
+    //
+    // 1. `env_var_for_provider` — provider → env var name mapping (pure)
+    // 2. `pick_summarizer_kind` — pure decision logic (no env mutation)
+    // 3. `resolve_api_key` — key resolution with precedence (uses env vars)
+    //
+    // `build_summarizer` itself is just glue between (2) and (3) plus
+    // `ApiSummarizer::new`; its behavior is verified through those layers.
+
+    // ── env_var_for_provider ─────────────────────────────────────────────────
+
+    /// OpenAI provider maps to OPENAI_API_KEY by default.
+    #[test]
+    fn test_env_var_for_provider_openai_default() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(env_var_for_provider(&settings), "OPENAI_API_KEY");
+    }
+
+    /// Anthropic provider maps to ANTHROPIC_API_KEY by default.
+    #[test]
+    fn test_env_var_for_provider_anthropic_default() {
+        let settings = SummarizerSettings {
+            provider: "anthropic".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(env_var_for_provider(&settings), "ANTHROPIC_API_KEY");
+    }
+
+    /// Provider matching is case-insensitive.
+    #[test]
+    fn test_env_var_for_provider_case_insensitive() {
+        let settings = SummarizerSettings {
+            provider: "Anthropic".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(env_var_for_provider(&settings), "ANTHROPIC_API_KEY");
+    }
+
+    /// A custom `api_key_env` overrides the default env var name.
+    #[test]
+    fn test_env_var_for_provider_custom_override() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key_env: Some("MY_CUSTOM_KEY".to_string()),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(env_var_for_provider(&settings), "MY_CUSTOM_KEY");
+    }
+
+    // ── pick_summarizer_kind (pure decision logic) ──────────────────────────
+
+    /// No key available -> Mock, regardless of provider.
+    #[test]
+    fn test_pick_kind_returns_mock_when_no_key_openai() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(pick_summarizer_kind(&settings, false), SummarizerKind::Mock);
+    }
+
+    #[test]
+    fn test_pick_kind_returns_mock_when_no_key_anthropic() {
+        let settings = SummarizerSettings {
+            provider: "anthropic".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(pick_summarizer_kind(&settings, false), SummarizerKind::Mock);
+    }
+
+    /// Key available + openai provider -> OpenAi.
+    #[test]
+    fn test_pick_kind_returns_openai_with_key() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(
+            pick_summarizer_kind(&settings, true),
+            SummarizerKind::OpenAi
+        );
+    }
+
+    /// Key available + anthropic provider -> Anthropic.
+    #[test]
+    fn test_pick_kind_returns_anthropic_with_key() {
+        let settings = SummarizerSettings {
+            provider: "anthropic".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(
+            pick_summarizer_kind(&settings, true),
+            SummarizerKind::Anthropic
+        );
+    }
+
+    /// Mixed-case "Anthropic" still matches case-insensitively.
+    #[test]
+    fn test_pick_kind_anthropic_case_insensitive() {
+        let settings = SummarizerSettings {
+            provider: "Anthropic".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(
+            pick_summarizer_kind(&settings, true),
+            SummarizerKind::Anthropic
+        );
+    }
+
+    /// Unknown providers fall through to OpenAi (build_summarizer logs a warning).
+    #[test]
+    fn test_pick_kind_unknown_provider_defaults_to_openai() {
+        let settings = SummarizerSettings {
+            provider: "google".to_string(),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(
+            pick_summarizer_kind(&settings, true),
+            SummarizerKind::OpenAi
+        );
+    }
+
+    // ── resolve_api_key (key resolution + precedence) ───────────────────────
+    //
+    // These tests use scoped env-var names that are unique per test to avoid
+    // cross-test contamination from cargo's parallel test runner.
+
+    /// An explicit `api_key` in config wins, no env var consulted.
+    #[test]
+    fn test_resolve_api_key_explicit_key_returns_value() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key: Some("sk-explicit".to_string()),
+            api_key_env: None,
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(resolve_api_key(&settings).as_deref(), Some("sk-explicit"));
+    }
+
+    /// PRECEDENCE: explicit `api_key` wins over `api_key_env`, even when the
+    /// env var is set with a different value. Regression guard for the
+    /// resolution-order claim in the PR description.
+    #[test]
+    fn test_resolve_api_key_explicit_overrides_env_var() {
+        const ENV: &str = "__TEST_RESOLVE_PRECEDENCE_OPENAI__";
+        std::env::set_var(ENV, "sk-from-env");
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key: Some("sk-from-config".to_string()),
+            api_key_env: Some(ENV.to_string()),
+            ..SummarizerSettings::default()
+        };
+        let result = resolve_api_key(&settings);
+        std::env::remove_var(ENV);
+        assert_eq!(result.as_deref(), Some("sk-from-config"));
+    }
+
+    /// Custom `api_key_env` is honored when no explicit `api_key`.
+    #[test]
+    fn test_resolve_api_key_reads_custom_env_var() {
+        const ENV: &str = "__TEST_RESOLVE_CUSTOM_ENV__";
+        std::env::set_var(ENV, "sk-from-custom-env");
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key: None,
+            api_key_env: Some(ENV.to_string()),
+            ..SummarizerSettings::default()
+        };
+        let result = resolve_api_key(&settings);
+        std::env::remove_var(ENV);
+        assert_eq!(result.as_deref(), Some("sk-from-custom-env"));
+    }
+
+    /// When `api_key_env` points at an unset variable, returns None.
+    /// (No further fallback to provider-default env var — intentional.)
+    #[test]
+    fn test_resolve_api_key_returns_none_when_custom_env_var_unset() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key: None,
+            api_key_env: Some("__TEST_RESOLVE_DEFINITELY_UNSET__".to_string()),
+            ..SummarizerSettings::default()
+        };
+        assert_eq!(resolve_api_key(&settings), None);
+    }
+
+    /// End-to-end through pick_summarizer_kind: missing key -> Mock,
+    /// regardless of what the provider says. Acts as the "fallback to mock"
+    /// guarantee the PR description claims.
+    #[test]
+    fn test_resolve_then_pick_kind_falls_back_to_mock() {
+        let settings = SummarizerSettings {
+            provider: "anthropic".to_string(),
+            api_key: None,
+            api_key_env: Some("__TEST_RESOLVE_PICK_UNSET__".to_string()),
+            ..SummarizerSettings::default()
+        };
+        let key = resolve_api_key(&settings);
+        assert_eq!(key, None);
+        assert_eq!(
+            pick_summarizer_kind(&settings, key.is_some()),
+            SummarizerKind::Mock
+        );
+    }
+
+    // ── build_summarizer smoke test ─────────────────────────────────────────
+
+    /// Smoke test: build_summarizer wires resolve+pick+construct together
+    /// without panicking on the fallback path. Behavior of each layer is
+    /// asserted by the focused tests above.
+    #[test]
+    fn test_build_summarizer_smoke_no_key_returns_arc() {
+        let settings = SummarizerSettings {
+            provider: "openai".to_string(),
+            api_key: None,
+            api_key_env: Some("__TEST_BUILD_SMOKE_UNSET__".to_string()),
+            ..SummarizerSettings::default()
+        };
+        // Just verify the call returns and the Arc is usable as the trait object.
+        let summarizer: Arc<dyn memory_toc::summarizer::Summarizer> = build_summarizer(&settings);
+        // Arc::strong_count proves we got a real allocation, not a NULL/uninit value.
+        assert_eq!(Arc::strong_count(&summarizer), 1);
     }
 }

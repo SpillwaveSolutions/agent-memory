@@ -82,7 +82,7 @@ impl AgentDiscoveryHandler {
             })
             .collect();
 
-        agents.sort_by(|a, b| b.last_seen_ms.cmp(&a.last_seen_ms));
+        agents.sort_by_key(|a| std::cmp::Reverse(a.last_seen_ms));
 
         info!(agent_count = agents.len(), "Listed agents");
 
