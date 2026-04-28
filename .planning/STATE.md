@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Competitive Parity & Benchmarks
 status: in_progress
 stopped_at: null
-last_updated: "2026-04-27T00:00:00.000Z"
-last_activity: 2026-04-27 — Phase 51.5 (API Summarizer Wiring) merged via PR #27
+last_updated: "2026-04-28T00:00:00.000Z"
+last_activity: 2026-04-28 — Phase 51 (Retrieval Orchestrator) cherry-picked from local branch; landing via PR
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 25
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 51.5 of 53 (API Summarizer Wiring — MERGED)
-Plan: out-of-band (no PLAN.md; pre-GSD execution)
-Status: Phase 51.5 merged; Phase 51 still pending
-Last activity: 2026-04-27 — PR #27 merged as squash commit `3a73582`
+Phase: 51 of 53 (Retrieval Orchestrator) — landing via PR
+Plan: 3 of 3 complete (51-01, 51-02, 51-03 all summaries land in this PR)
+Status: Phase 51 + 51.5 both done; Phase 52 next
+Last activity: 2026-04-28 — Cherry-picked 12 commits from gsd/phase-51-retrieval-orchestrator into feature branch
 
-Progress: [██░░░░░░░░] 25% (1 of 4 phases)
+Progress: [█████░░░░░] 50% (2 of 4 phases)
 
 ## Out-of-band Work
 
@@ -63,6 +63,12 @@ See .planning/MILESTONES.md
 - LOCOMO dataset never committed (gitignored)
 - Existing implementation plans in docs/superpowers/plans/ will be converted to GSD plans
 - Phase 51.5 inserted as a decimal phase (out-of-band insertion pattern from `/gsd:insert-phase`) since the summarizer wiring shipped before Phase 51 itself
+- [Phase 51]: RerankMode defaults to Heuristic (no LLM cost by default)
+- [Phase 51]: RankedResult uses f64 for fusion precision, SearchResult uses f32
+- [Phase 51]: RRF deduplicates by doc_id, keeping first-seen SearchResult
+- [Phase 51]: HeuristicReranker trims to top 10 (MAX_RESULTS const)
+- [Phase 51]: Token estimation: chars * 0.75 + 50 overhead
+- [Phase 51]: MemoryOrchestrator accepts Box<dyn Reranker> via with_reranker() for test injection
 
 ## Blockers
 
@@ -91,12 +97,12 @@ See: .planning/MILESTONES.md for complete history
 
 ## Cumulative Stats
 
-- ~56,400 LOC Rust across 15 crates
-- 50 phases, 146 plans across 9 milestones
-- 46+ E2E tests + 144 bats CLI tests
+- ~56,400 LOC Rust across 15 crates + memory-orchestrator (new in Phase 51)
+- 51 phases (50 + Phase 51), 150 plans across 9 milestones (counting Phase 51's 3 plans + 51.5)
+- 46+ E2E tests + 144 bats CLI tests + new orchestrator unit tests
 
 ## Session Continuity
 
-**Last Session:** 2026-04-27
-**Stopped At:** Phase 51.5 merged via PR #27; planning files synced to reflect merge and flag deferred items
+**Last Session:** 2026-04-28
+**Stopped At:** Phase 51 cherry-picked from gsd/phase-51 branch; awaiting PR merge
 **Resume File:** None
