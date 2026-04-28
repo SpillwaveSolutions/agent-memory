@@ -18,6 +18,7 @@ members = [
     "crates/memory-types",
     "crates/memory-vector",
     "crates/memory-installer",
+    "crates/memory-orchestrator",
 ]
 
 [workspace.package]
@@ -41,6 +42,7 @@ memory-toc = { path = "crates/memory-toc" }
 memory-topics = { path = "crates/memory-topics" }
 memory-types = { path = "crates/memory-types" }
 memory-vector = { path = "crates/memory-vector" }
+memory-orchestrator = { path = "crates/memory-orchestrator" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }

@@ -141,7 +141,7 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 
 **Milestone Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
 
-- [ ] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor
+- [x] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor (executed 2026-03-22; landing on main via PR)
 - [x] **Phase 51.5: API Summarizer Wiring** - Wire `ApiSummarizer` from config (out-of-band; merged 2026-04-28 via PR #27)
 - [ ] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands
 - [ ] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring
@@ -161,9 +161,9 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 **Plans**: 3 plans
 
 Plans:
-- [ ] 51-01-PLAN.md — Scaffold crate, core types, and query expansion
-- [ ] 51-02-PLAN.md — RRF fusion, reranker trait, and context builder
-- [ ] 51-03-PLAN.md — Wire MemoryOrchestrator and full QA
+- [x] 51-01-PLAN.md — Scaffold crate, core types, and query expansion (completed 2026-03-22)
+- [x] 51-02-PLAN.md — RRF fusion, reranker trait, and context builder (completed 2026-03-22)
+- [x] 51-03-PLAN.md — Wire MemoryOrchestrator and full QA (completed 2026-03-22)
 
 ### Phase 51.5: API Summarizer Wiring (Merged)
 **Goal**: Replace the heuristic-only summarizer with a config-driven `ApiSummarizer` so events can be summarized via an Anthropic/OpenAI/etc. API when configured
@@ -223,8 +223,8 @@ Phases execute in numeric order: 51 -> 51.5 (merged out-of-band) -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 + 51.5 | 1/TBD | In progress | Phase 51.5 merged 2026-04-28 |
+| v3.0 Competitive Parity | 51-53 + 51.5 | 4/TBD | In progress | Phase 51.5 merged 2026-04-28; Phase 51 landing |
 
 ---
 
-*Updated: 2026-04-27 — Phase 51.5 (API Summarizer Wiring) merged out-of-band via PR #27*
+*Updated: 2026-04-28 — Phase 51 implementation cherry-picked from gsd/phase-51 branch; landing via PR*
