@@ -149,7 +149,39 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
+| v3.0 Cross-Project Unified Memory | 51 | 1/1 | In Progress | — |
 
 ---
 
-*Updated: 2026-03-22 after v2.7 milestone complete*
+## v3.0 Cross-Project Unified Memory (Phase 51+)
+
+> Branch: `feature/v3.0-cross-project-memory`
+
+### Phase 51: Cross-Project Federation Core (1/1 plan) — COMPLETE 2026-04-10
+
+- [x] 51-01: Cross-project federated query (proto fields, config, `FederatedQueryHandler`, opt-in flag, e2e tests)
+
+**Deliverables:**
+- `proto/memory.proto`: `all_projects` flag on `RouteQueryRequest`, `project` attribution on `RetrievalResult`
+- `CrossProjectConfig` in `memory-types/config.rs` with `registered: Vec<PathBuf>`
+- `Storage::open_read_only()` in `memory-storage`
+- `memory-service/src/federated.rs`: pure `federated_query` function with fail-open, TOC search fallback, project attribution
+- `RetrievalHandler::with_registered_projects()` builder; `all_projects=true` opt-in in `route_query`
+- E2E tests: merged results, attribution, fail-open, default unchanged
+- 9 unit tests + 4 e2e tests — all passing
+
+### Phase 52: Cross-Project Indexing (planned)
+
+- [ ] 52-01: Expose `registered_projects` in config.toml loading and daemon startup wiring
+- [ ] 52-02: CLI flag `--all-projects` for `memory-daemon query`
+- [ ] 52-03: BM25/vector index fan-out for registered stores (optional, perf optimization)
+
+### Phase 53: Cross-Project UX (planned)
+
+- [ ] 53-01: Plugin adapter updates to pass `all_projects=true` when requested
+- [ ] 53-02: Attribution display in query responses
+- [ ] 53-03: `list_projects` RPC for registered store discovery
+
+---
+
+*Updated: 2026-04-10 after v3.0 Phase 51 implementation*

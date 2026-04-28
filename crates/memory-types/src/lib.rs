@@ -34,8 +34,9 @@ pub mod usage;
 
 // Re-export main types at crate root
 pub use config::{
-    Bm25LifecycleSettings, DedupConfig, EpisodicConfig, LifecycleConfig, MultiAgentMode,
-    NoveltyConfig, Settings, StalenessConfig, SummarizerSettings, VectorLifecycleSettings,
+    Bm25LifecycleSettings, CrossProjectConfig, DedupConfig, EpisodicConfig, LifecycleConfig,
+    MultiAgentMode, NoveltyConfig, Settings, StalenessConfig, SummarizerSettings,
+    VectorLifecycleSettings,
 };
 pub use dedup::{BufferEntry, InFlightBuffer};
 pub use episode::{Action, ActionResult, Episode, EpisodeStatus};
