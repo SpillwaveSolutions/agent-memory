@@ -90,11 +90,8 @@ pub async fn run(args: TimelineArgs, global: &GlobalArgs) -> Result<()> {
 
     match client.get_events(from_ms, to_ms, 100).await {
         Ok(result) => {
-            let mut events: Vec<serde_json::Value> = result
-                .events
-                .iter()
-                .map(map_proto_event)
-                .collect();
+            let mut events: Vec<serde_json::Value> =
+                result.events.iter().map(map_proto_event).collect();
 
             // Client-side entity filtering if requested
             if let Some(ref entity) = args.entity {
@@ -107,11 +104,7 @@ pub async fn run(args: TimelineArgs, global: &GlobalArgs) -> Result<()> {
                 });
             }
 
-            let total_tokens: usize = result
-                .events
-                .iter()
-                .map(|e| estimate_tokens(&e.text))
-                .sum();
+            let total_tokens: usize = result.events.iter().map(|e| estimate_tokens(&e.text)).sum();
 
             let envelope = JsonEnvelope::ok("timeline", json!(events)).with_meta(Meta {
                 retrieval_ms: 0,
