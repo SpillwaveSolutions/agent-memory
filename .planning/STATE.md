@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Competitive Parity & Benchmarks
 status: in_progress
 stopped_at: null
-last_updated: "2026-04-28T00:00:00.000Z"
-last_activity: 2026-04-28 — Phase 51 (Retrieval Orchestrator) cherry-picked from local branch; landing via PR
+last_updated: "2026-05-12T00:00:00.000Z"
+last_activity: 2026-05-12 — Phase 52 (Simple CLI API) rebased onto main and opening PR
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 50
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 7
+  percent: 75
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v3.0 Phase 51 — Retrieval Orchestrator
+**Current focus:** v3.0 Phase 52 — Simple CLI API (PR review)
 
 ## Current Position
 
-Phase: 51 of 53 (Retrieval Orchestrator) — landing via PR
-Plan: 3 of 3 complete (51-01, 51-02, 51-03 all summaries land in this PR)
-Status: Phase 51 + 51.5 both done; Phase 52 next
-Last activity: 2026-04-28 — Cherry-picked 12 commits from gsd/phase-51-retrieval-orchestrator into feature branch
+Phase: 52 of 53 (Simple CLI API) — opening PR
+Plan: 3 of 3 complete (52-01 scaffold, 52-02 read-path, 52-03 write/query commands)
+Status: Phase 51 + 51.5 + 52 done; Phase 53 (Benchmark Suite) next
+Last activity: 2026-05-12 — Rebased gsd/phase-52-simple-cli-api onto post-Phase-51 main; opening PR
 
-Progress: [█████░░░░░] 50% (2 of 4 phases)
+Progress: [████████░░] 75% (3 of 4 phases)
 
 ## Out-of-band Work
 
@@ -38,12 +38,13 @@ Progress: [█████░░░░░] 50% (2 of 4 phases)
 
 | PR | Branch | Status | Reviewed | Notes |
 |---|---|---|---|---|
-| #25 | `feature/v3.0-cross-project-memory` | Open, CI green | Not yet | Self-describes as "v3.0 Phase 51" but local Phase 51 is Retrieval Orchestrator — phase-numbering conflict to resolve before review/merge |
+| #25 | `feature/v3.0-cross-project-memory` | Open, CI green | Not yet | Recorded as Phase 53.5 (decimal-phase pattern, mirrors 51.5); rebased onto main 2026-05-08 |
 | #27 | merged 2026-04-28 as `3a73582` | Merged | — | Recorded as Phase 51.5; supersedes closed PR #26 |
+| #28 | merged 2026-04-28 as `85f3303` | Merged | — | Phase 51 Retrieval Orchestrator |
 
-### Local-only Branches (not yet pushed)
+### Local-only Branches (still stacked, pending PRs)
 
-- `gsd/phase-{51..58}` — 7-phase stack of GSD phase work covering v3.0 (Phases 51-53), v3.1 (Phases 54-56), and v3.2 (Phases 57-58 done; 59 pending). ~80 commits total, no PRs. Pending strategic decision: per-milestone PRs vs. omnibus push vs. squash-and-rebase per phase. **Note:** the planning files on these branches describe v3.0/v3.1 as "shipped" — that reflects local execution intent, not origin/main reality.
+- `gsd/phase-{53..58}` — 6-phase stack of GSD work covering remaining v3.0 (Phase 53 Benchmark Suite), v3.1 (Phases 54-56), and v3.2 (Phases 57-58). Each branch backed up to origin 2026-05-12 (no PRs). Pending strategic decision: per-milestone PRs vs. per-phase. **Note:** the planning files on these branches describe v3.0/v3.1 as "shipped" — that reflects local execution intent, not origin/main reality.
 
 ## Performance Metrics
 
@@ -69,6 +70,9 @@ See .planning/MILESTONES.md
 - [Phase 51]: HeuristicReranker trims to top 10 (MAX_RESULTS const)
 - [Phase 51]: Token estimation: chars * 0.75 + 50 overhead
 - [Phase 51]: MemoryOrchestrator accepts Box<dyn Reranker> via with_reranker() for test injection
+- [Phase 52]: All CLI commands route through gRPC (no direct RocksDB access) — daemon stays single source of truth
+- [Phase 52]: JsonEnvelope output pattern: ok/error/context_ok constructors, TTY detection via IsTerminal
+- [Phase 52]: New `memory-cli` crate (binary name: `memory`) added to workspace — separate from `memory-daemon`
 
 ## Blockers
 
@@ -97,12 +101,12 @@ See: .planning/MILESTONES.md for complete history
 
 ## Cumulative Stats
 
-- ~56,400 LOC Rust across 15 crates + memory-orchestrator (new in Phase 51)
-- 51 phases (50 + Phase 51), 150 plans across 9 milestones (counting Phase 51's 3 plans + 51.5)
-- 46+ E2E tests + 144 bats CLI tests + new orchestrator unit tests
+- ~58,000 LOC Rust across 16 crates (memory-orchestrator from Phase 51, memory-cli from Phase 52)
+- 52 phases (Phase 1-52), 153 plans across 9 milestones (counting Phase 51's 3 plans + 51.5 + 52's 3 plans)
+- 46+ E2E tests + 144 bats CLI tests + orchestrator unit tests + memory-cli unit tests
 
 ## Session Continuity
 
-**Last Session:** 2026-04-28
-**Stopped At:** Phase 51 cherry-picked from gsd/phase-51 branch; awaiting PR merge
+**Last Session:** 2026-05-12
+**Stopped At:** Phase 52 rebased onto main; opening PR
 **Resume File:** None
