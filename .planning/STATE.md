@@ -4,13 +4,13 @@ milestone_name: Competitive Parity & Benchmarks
 status: in_progress
 stopped_at: null
 last_updated: "2026-05-14T00:00:00.000Z"
-last_activity: 2026-05-14 — Phase 52 merged via PR #29; Phase 53.5 (cross-project) re-rebased for merge
+last_activity: 2026-05-14 — Phase 53 (Benchmark Suite) rebased onto main; opening PR closes v3.0
 progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
-  percent: 75
+  total_phases: 5
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -20,30 +20,35 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v3.0 Phase 52 — Simple CLI API (PR review)
+**Current focus:** v3.0 Phase 53 — Benchmark Suite (PR review; closes v3.0)
 
 ## Current Position
 
-Phase: 53.5 of 53 (cross-project federation, out-of-band) — landing via PR #25
-Plan: 1 of 1 complete (53.5-01 cross-project federated query)
-Status: Phase 51 + 51.5 + 52 merged; Phase 53.5 (cross-project) merging next; Phase 53 (Benchmark Suite) still pending
-Last activity: 2026-05-14 — Phase 52 merged via PR #29; PR #25 re-rebased onto post-Phase-52 main
+Phase: 53 of 53 (Benchmark Suite) — opening PR
+Plan: 3 of 3 complete (53-01 foundation, 53-02 runner/scorer/CLI, 53-03 LOCOMO adapter)
+Status: Phase 51 + 51.5 + 52 + 53.5 merged; Phase 53 (Benchmark Suite) PR opens; v3.0 fully shipped on merge
+Last activity: 2026-05-14 — Rebased gsd/phase-53-benchmark-suite onto post-Phase-53.5 main; opening PR
 
-Progress: [████████░░] 75% (3 of 4 phases)
+Progress: [██████████] 100% (4 of 4 phases; Phase 53 PR pending)
 
 ## Out-of-band Work
 
 ### Open PRs
 
-| PR | Branch | Status | Reviewed | Notes |
-|---|---|---|---|---|
-| #25 | `feature/v3.0-cross-project-memory` | Open, CI green | Not yet | Recorded as Phase 53.5 (decimal-phase pattern, mirrors 51.5); rebased onto main 2026-05-08 |
-| #27 | merged 2026-04-28 as `3a73582` | Merged | — | Recorded as Phase 51.5; supersedes closed PR #26 |
-| #28 | merged 2026-04-28 as `85f3303` | Merged | — | Phase 51 Retrieval Orchestrator |
+(none — Phase 53 PR opening shortly)
 
-### Local-only Branches (still stacked, pending PRs)
+### Recently Merged
 
-- `gsd/phase-{53..58}` — 6-phase stack of GSD work covering remaining v3.0 (Phase 53 Benchmark Suite), v3.1 (Phases 54-56), and v3.2 (Phases 57-58). Each branch backed up to origin 2026-05-12 (no PRs). Pending strategic decision: per-milestone PRs vs. per-phase. **Note:** the planning files on these branches describe v3.0/v3.1 as "shipped" — that reflects local execution intent, not origin/main reality.
+| PR | What | Merged |
+|---|---|---|
+| #25 | Phase 53.5: cross-project federated query | 2026-05-14 |
+| #29 | Phase 52: Simple CLI API | 2026-05-14 |
+| #28 | Phase 51: Retrieval Orchestrator | 2026-04-28 |
+| #27 | Phase 51.5: API summarizer wiring | 2026-04-27 |
+
+### Local-only Branches (still stacked)
+
+- `gsd/phase-{54..58}` — 5-phase stack of GSD work covering v3.1 (Phases 54-56: export/backup/import) and v3.2 (Phases 57-58: runtime registration). Each branch backed up to origin 2026-05-12 (no PRs). Pending strategic decision: per-milestone PRs vs. per-phase. **Note:** the planning files on these branches describe v3.0/v3.1 as "shipped" — that reflects local execution intent, not origin/main reality.
 
 ## Performance Metrics
 
@@ -77,6 +82,9 @@ See .planning/MILESTONES.md
 - [Phase 53.5]: Project attribution stored in `metadata["project"]` — same convention as `metadata["agent"]` from v2.1
 - [Phase 53.5]: `federated_query` is a pure function — matches existing `enrich_with_salience` pattern
 - [Phase 53.5]: `open_read_only` uses `DB::open_cf_for_read_only` from rocksdb 0.22 with `create_if_missing(false)`
+- [Phase 53]: New `memory-bench` crate with TOML fixture loader, runner/scorer/report/baseline modules, and LOCOMO adapter
+- [Phase 53]: Benchmark dataset (LOCOMO) gitignored — adapter loads from local path; never committed
+- [Phase 53]: CI benchmark smoke test added to verify the harness runs (not the full LOCOMO score)
 
 ## Blockers
 
@@ -105,9 +113,9 @@ See: .planning/MILESTONES.md for complete history
 
 ## Cumulative Stats
 
-- ~58,400 LOC Rust across 16 crates (memory-orchestrator from Phase 51, memory-cli from Phase 52) + federated module in memory-service (Phase 53.5)
-- 52 phases (Phase 1-52 + 53.5), 154 plans across 9 milestones
-- 50+ E2E tests + 144 bats CLI tests + orchestrator + memory-cli + 9 federated unit tests + 4 cross-project e2e tests
+- ~60,000 LOC Rust across 17 crates (memory-orchestrator, memory-cli, memory-bench all new in v3.0)
+- 53 phases (Phase 1-53 + 51.5 + 53.5), 157 plans across 9 milestones
+- 50+ E2E tests + 144 bats CLI tests + orchestrator + memory-cli + memory-bench tests + 9 federated unit tests + 4 cross-project e2e tests + CI benchmark smoke test
 
 ## Session Continuity
 
