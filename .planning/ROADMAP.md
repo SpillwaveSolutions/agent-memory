@@ -224,8 +224,29 @@ Phases execute in numeric order: 51 -> 51.5 (merged out-of-band) -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 + 51.5 | 4/TBD | In progress | Phase 51 merged 2026-04-28; Phase 52 (CLI API) in PR review |
+| v3.0 Competitive Parity | 51-53 + 51.5, 53.5 | 5/TBD | In progress | Phase 51 + 51.5 + 52 merged; Phase 53.5 (cross-project) in PR review |
 
 ---
 
-*Updated: 2026-05-12 — Phase 52 (Simple CLI API) opening PR*
+## v3.0 Cross-Project Federation (out-of-band)
+
+> Branch: `feature/v3.0-cross-project-memory` (PR #25)
+
+### Phase 53.5: Cross-Project Federation Core (1/1 plan) — COMPLETE 2026-04-10
+
+Out-of-band insertion (mirrors Phase 51.5 pattern). Originally planned as Phase 51 before the Retrieval Orchestrator took that slot; renumbered to a decimal phase to preserve v3.0's documented Competitive Parity scope (Phases 51-53).
+
+- [x] 53.5-01: Cross-project federated query (proto fields, config, fail-open federation, opt-in flag, e2e tests)
+
+**Deliverables:**
+- `proto/memory.proto`: `all_projects` flag on `RouteQueryRequest`, `project` attribution on `RetrievalResult`
+- `CrossProjectConfig` in `memory-types/config.rs` with `registered: Vec<PathBuf>`
+- `Storage::open_read_only()` in `memory-storage`
+- `memory-service/src/federated.rs`: pure `federated_query` function with fail-open, TOC search fallback, project attribution
+- `RetrievalHandler::with_registered_projects()` builder; `all_projects=true` opt-in in `route_query`
+- E2E tests: merged results, attribution, fail-open, default unchanged
+- 9 unit tests + 4 e2e tests — all passing
+
+---
+
+*Updated: 2026-05-14 — Phase 52 merged via PR #29; Phase 53.5 (cross-project federation) under review via PR #25*

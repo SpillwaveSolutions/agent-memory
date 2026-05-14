@@ -308,6 +308,7 @@ impl MemoryClient {
             mode_override: None,
             limit,
             agent_filter,
+            all_projects: false,
         });
         let response = self.inner.route_query(request).await?;
         Ok(response.into_inner())

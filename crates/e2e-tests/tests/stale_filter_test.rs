@@ -102,6 +102,7 @@ fn make_query() -> Request<RouteQueryRequest> {
         mode_override: None,
         limit: 20,
         agent_filter: None,
+        all_projects: false,
     })
 }
 

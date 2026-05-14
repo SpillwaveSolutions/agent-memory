@@ -979,6 +979,9 @@ message RouteQueryRequest {
     // Phase 18: Filter results by agent (e.g., "claude", "opencode")
     // Empty/absent means return all agents
     optional string agent_filter = 6;
+    // v3.0: Query across all registered project stores (opt-in, default false)
+    // When true, fans out to all registered_projects and merges results.
+    bool all_projects = 7;
 }
 
 // A single retrieval result
@@ -991,6 +994,9 @@ message RetrievalResult {
     map<string, string> metadata = 6;
     // Phase 18: Source agent that produced this result
     optional string agent = 7;
+    // v3.0: Source project path (set when all_projects=true cross-project query)
+    // Empty/absent means the current (primary) project store
+    optional string project = 8;
 }
 
 // Explainability payload for retrieval decisions

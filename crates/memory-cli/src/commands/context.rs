@@ -54,6 +54,7 @@ mod tests {
             source_layer: 3,
             metadata: HashMap::new(),
             agent: None,
+            project: None,
         }
     }
 

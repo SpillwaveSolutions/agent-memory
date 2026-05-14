@@ -12,6 +12,7 @@
 
 pub mod agents;
 pub mod episodes;
+pub mod federated;
 pub mod hybrid;
 pub mod ingest;
 pub mod novelty;
