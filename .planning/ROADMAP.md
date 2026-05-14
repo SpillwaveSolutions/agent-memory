@@ -141,9 +141,9 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 
 **Milestone Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
 
-- [x] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor (executed 2026-03-22; landing on main via PR)
+- [x] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor (merged 2026-04-28 via PR #28)
 - [x] **Phase 51.5: API Summarizer Wiring** - Wire `ApiSummarizer` from config (out-of-band; merged 2026-04-28 via PR #27)
-- [ ] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands
+- [x] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands (PR in review 2026-05-12)
 - [ ] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring
 
 ## Phase Details
@@ -185,11 +185,12 @@ Plans:
   3. Running `memory add "note"` writes an event via gRPC; exits non-zero with a clear error when the daemon is not running
   4. Output is human-readable in a terminal and JSON when piped (TTY detection), and all commands exit 0 on success / non-zero on hard failure
   5. Running `memory context` returns structured context suitable for prompt injection, including `meta.tokens_estimated` in the JSON envelope
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 52-01: TBD
-- [ ] 52-02: TBD
+- [ ] 52-01-PLAN.md — Scaffold crate, CLI structs, JsonEnvelope, client helper, route_query RPC
+- [ ] 52-02-PLAN.md — Search, context, and recall commands (read path via gRPC)
+- [ ] 52-03-PLAN.md — Add, timeline, summary commands and full QA verification
 
 ### Phase 53: Benchmark Suite
 **Goal**: Users can measure and compare Agent Memory retrieval quality with reproducible benchmarks and a publishable LOCOMO score
@@ -223,8 +224,8 @@ Phases execute in numeric order: 51 -> 51.5 (merged out-of-band) -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 + 51.5 | 4/TBD | In progress | Phase 51.5 merged 2026-04-28; Phase 51 landing |
+| v3.0 Competitive Parity | 51-53 + 51.5 | 4/TBD | In progress | Phase 51 merged 2026-04-28; Phase 52 (CLI API) in PR review |
 
 ---
 
-*Updated: 2026-04-28 — Phase 51 implementation cherry-picked from gsd/phase-51 branch; landing via PR*
+*Updated: 2026-05-12 — Phase 52 (Simple CLI API) opening PR*

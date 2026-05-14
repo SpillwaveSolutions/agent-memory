@@ -20,16 +20,16 @@ Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roa
 
 ### CLI API (CLI)
 
-- [ ] **CLI-01**: New `memory` binary with `search`, `context`, `recall`, `add`, `timeline`, `summary` subcommands
-- [ ] **CLI-02**: `memory search "query" --format=json` returns JSON envelope with results, meta, confidence
-- [ ] **CLI-03**: `memory recall` delegates to search with `--rerank=llm --top=10`
-- [ ] **CLI-04**: `memory add` writes via gRPC MemoryClient — exits non-zero with clear error if daemon not running
-- [ ] **CLI-05**: TTY detection: JSON when piped, human-readable when interactive
-- [ ] **CLI-06**: `memory context` returns structured context for prompt injection
-- [ ] **CLI-07**: `memory timeline` and `memory summary` query TOC by entity/range
-- [ ] **CLI-08**: `memory-daemon` binary and existing skill hooks unchanged
-- [ ] **CLI-09**: All commands exit 0 on success, non-zero on hard failure
-- [ ] **CLI-10**: `meta.tokens_estimated` included in JSON envelope for context budget decisions
+- [x] **CLI-01**: New `memory` binary with `search`, `context`, `recall`, `add`, `timeline`, `summary` subcommands
+- [x] **CLI-02**: `memory search "query" --format=json` returns JSON envelope with results, meta, confidence
+- [x] **CLI-03**: `memory recall` delegates to search with `--rerank=llm --top=10`
+- [x] **CLI-04**: `memory add` writes via gRPC MemoryClient — exits non-zero with clear error if daemon not running
+- [x] **CLI-05**: TTY detection: JSON when piped, human-readable when interactive
+- [x] **CLI-06**: `memory context` returns structured context for prompt injection
+- [x] **CLI-07**: `memory timeline` and `memory summary` query TOC by entity/range
+- [x] **CLI-08**: `memory-daemon` binary and existing skill hooks unchanged
+- [x] **CLI-09**: All commands exit 0 on success, non-zero on hard failure
+- [x] **CLI-10**: `meta.tokens_estimated` included in JSON envelope for context budget decisions
 
 ### Benchmark Suite (BENCH)
 
@@ -71,16 +71,16 @@ Requirements for the Competitive Parity & Benchmarks milestone. Each maps to roa
 | ORCH-06 | Phase 51 | Complete |
 | ORCH-07 | Phase 51 | Complete |
 | ORCH-08 | Phase 51 | Complete |
-| CLI-01 | Phase 52 | Pending |
-| CLI-02 | Phase 52 | Pending |
-| CLI-03 | Phase 52 | Pending |
-| CLI-04 | Phase 52 | Pending |
-| CLI-05 | Phase 52 | Pending |
-| CLI-06 | Phase 52 | Pending |
-| CLI-07 | Phase 52 | Pending |
-| CLI-08 | Phase 52 | Pending |
-| CLI-09 | Phase 52 | Pending |
-| CLI-10 | Phase 52 | Pending |
+| CLI-01 | Phase 52 | Complete |
+| CLI-02 | Phase 52 | Complete |
+| CLI-03 | Phase 52 | Complete |
+| CLI-04 | Phase 52 | Complete |
+| CLI-05 | Phase 52 | Complete |
+| CLI-06 | Phase 52 | Complete |
+| CLI-07 | Phase 52 | Complete |
+| CLI-08 | Phase 52 | Complete |
+| CLI-09 | Phase 52 | Complete |
+| CLI-10 | Phase 52 | Complete |
 | BENCH-01 | Phase 53 | Pending |
 | BENCH-02 | Phase 53 | Pending |
 | BENCH-03 | Phase 53 | Pending |

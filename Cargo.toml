@@ -19,6 +19,7 @@ members = [
     "crates/memory-vector",
     "crates/memory-installer",
     "crates/memory-orchestrator",
+    "crates/memory-cli",
 ]
 
 [workspace.package]
