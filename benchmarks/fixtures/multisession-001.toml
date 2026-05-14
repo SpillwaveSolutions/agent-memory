@@ -1,0 +1,7 @@
+[[test]]
+id = "multi-001"
+description = "Connect a decision from session A with an outcome from session B"
+setup = ["sessions/session-a.jsonl", "sessions/session-b.jsonl", "sessions/session-c.jsonl"]
+query = "what was the outcome of the approach we chose last week?"
+expected_contains = ["performance", "latency"]
+max_tokens = 600

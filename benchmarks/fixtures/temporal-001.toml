@@ -1,0 +1,15 @@
+[[test]]
+id = "temporal-001"
+description = "Recall an architectural decision made in a prior session"
+setup = ["sessions/auth-decision.jsonl"]
+query = "what authentication approach did we decide on?"
+expected_contains = ["JWT", "token"]
+max_tokens = 500
+
+[[test]]
+id = "temporal-002"
+description = "Recall a specific bug fix from two sessions ago"
+setup = ["sessions/bug-fix.jsonl", "sessions/follow-up.jsonl"]
+query = "how did we fix the null pointer exception?"
+expected_contains = ["null check", "Option"]
+max_tokens = 400

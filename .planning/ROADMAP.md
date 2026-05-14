@@ -143,8 +143,9 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 
 - [x] **Phase 51: Retrieval Orchestrator** - Query expansion, RRF fusion, LLM reranking, and context building as a new crate wrapping RetrievalExecutor (merged 2026-04-28 via PR #28)
 - [x] **Phase 51.5: API Summarizer Wiring** - Wire `ApiSummarizer` from config (out-of-band; merged 2026-04-28 via PR #27)
-- [x] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands (PR in review 2026-05-12)
-- [ ] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring
+- [x] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands (merged 2026-05-14 via PR #29)
+- [x] **Phase 53.5: Cross-Project Federation** - Federated query across multiple project stores (out-of-band; merged 2026-05-14 via PR #25)
+- [x] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring (PR in review 2026-05-14)
 
 ## Phase Details
 
@@ -202,11 +203,12 @@ Plans:
   3. Running `memory benchmark --compare` reads `benchmarks/baselines.toml` and prints a side-by-side competitor comparison table
   4. Benchmark output is available in both JSON and Markdown report formats
   5. CI runs the benchmark suite without blocking (LOCOMO skipped when `--dataset` flag is absent); `locomo-data/` is gitignored
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 53-01: TBD
-- [ ] 53-02: TBD
+- [ ] 53-01-PLAN.md — Scaffold crate, fixture format, TOML loader, and benchmark data files
+- [ ] 53-02-PLAN.md — Runner, scorer, report, baseline comparison, and CLI wiring
+- [ ] 53-03-PLAN.md — LOCOMO adapter and full QA verification
 
 ## Progress
 
@@ -224,13 +226,13 @@ Phases execute in numeric order: 51 -> 51.5 (merged out-of-band) -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 + 51.5, 53.5 | 5/TBD | In progress | Phase 51 + 51.5 + 52 merged; Phase 53.5 (cross-project) in PR review |
+| v3.0 Competitive Parity | 51-53 + 51.5, 53.5 | 6/TBD | In progress | Phase 51 + 51.5 + 52 + 53.5 merged; Phase 53 (Benchmark Suite) in PR review |
 
 ---
 
 ## v3.0 Cross-Project Federation (out-of-band)
 
-> Branch: `feature/v3.0-cross-project-memory` (PR #25)
+> Merged via PR #25 (2026-05-14)
 
 ### Phase 53.5: Cross-Project Federation Core (1/1 plan) — COMPLETE 2026-04-10
 
@@ -249,4 +251,4 @@ Out-of-band insertion (mirrors Phase 51.5 pattern). Originally planned as Phase 
 
 ---
 
-*Updated: 2026-05-14 — Phase 52 merged via PR #29; Phase 53.5 (cross-project federation) under review via PR #25*
+*Updated: 2026-05-14 — Phase 53 (Benchmark Suite) opening PR to close v3.0*

@@ -1,0 +1,6 @@
+{"role":"user","content":"We need to choose between Redis and PostgreSQL for our caching layer. What do you think?"}
+{"role":"assistant","content":"For a caching layer, Redis is the standard choice. It offers sub-millisecond reads, built-in TTL support, and pub/sub for cache invalidation. PostgreSQL could work with UNLOGGED tables but adds complexity."}
+{"role":"user","content":"What about consistency guarantees?"}
+{"role":"assistant","content":"Redis is eventually consistent in cluster mode, but for caching that's usually fine since we treat cache misses as normal. If you need strong consistency, you'd still read from PostgreSQL as the source of truth."}
+{"role":"user","content":"Let's go with Redis for caching. We'll keep PostgreSQL as the primary store."}
+{"role":"assistant","content":"Agreed. I'll set up Redis with a 15-minute default TTL and implement cache-aside pattern: read from Redis first, fall back to PostgreSQL, then populate the cache. We'll add cache invalidation on writes."}
