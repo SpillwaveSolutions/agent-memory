@@ -94,6 +94,7 @@ mod tests {
             source_layer: layer,
             metadata: HashMap::new(),
             agent: Some("test-agent".to_string()),
+            project: None,
         }
     }
 
