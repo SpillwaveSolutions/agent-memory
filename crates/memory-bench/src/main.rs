@@ -160,11 +160,7 @@ fn run_tests(
     let pass_count = hits.iter().filter(|&&h| h).count();
     let accuracy = scorer::compute_accuracy(&hits);
     let recall_at_5 = scorer::compute_recall_at_k(&hits, test_count);
-    let token_usage_avg = if test_count > 0 {
-        total_tokens / test_count
-    } else {
-        0
-    };
+    let token_usage_avg = total_tokens.checked_div(test_count).unwrap_or(0);
     let latency_p50_ms = scorer::percentile(&latencies, 50.0);
     let latency_p95_ms = scorer::percentile(&latencies, 95.0);
     let compression_ratio = if compression_ratios.is_empty() {
