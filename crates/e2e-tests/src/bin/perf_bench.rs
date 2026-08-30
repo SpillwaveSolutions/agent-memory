@@ -693,8 +693,8 @@ async fn build_vector_index(
         ));
     }
 
-    let mut vector_id = 1_u64;
     for (idx, (text, agent, timestamp_ms)) in texts.iter().enumerate() {
+        let vector_id = idx as u64 + 1;
         let embedder_clone = embedder.clone();
         let text_owned = text.clone();
         let embedding = tokio::task::spawn_blocking(move || embedder_clone.embed(&text_owned))
@@ -714,7 +714,6 @@ async fn build_vector_index(
         let entry = VectorEntry::new(vector_id, DocType::TocNode, doc_id, *timestamp_ms, text)
             .with_agent(agent.clone());
         metadata.put(&entry).map_err(|e| e.to_string())?;
-        vector_id += 1;
     }
 
     let index_lock = Arc::new(std::sync::RwLock::new(hnsw_index));
