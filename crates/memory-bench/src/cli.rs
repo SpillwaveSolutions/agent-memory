@@ -10,6 +10,14 @@ pub struct Cli {
     /// Path to memory binary (default: searches PATH).
     #[arg(long, global = true, default_value = "memory")]
     pub memory_bin: String,
+
+    /// Retrieval backend: `mock` (isolated in-process) or `cli` (running daemon).
+    #[arg(long, global = true, default_value = "mock")]
+    pub backend: String,
+
+    /// gRPC endpoint for `--backend cli`.
+    #[arg(long, global = true, default_value = "http://127.0.0.1:50051")]
+    pub endpoint: String,
 }
 
 /// Available benchmark subcommands.
@@ -50,26 +58,41 @@ pub enum Commands {
         /// Output file for JSON results.
         #[arg(long)]
         output: Option<String>,
-        /// Compare against competitor baselines.
+        /// Compare against competitor baselines (labeled, incommensurable).
         #[arg(long)]
         compare: bool,
         /// Path to baselines TOML file.
         #[arg(long, default_value = "benchmarks/baselines.toml")]
         baselines: String,
     },
-    /// Run LOCOMO adapter benchmark.
+    /// Run LOCOMO adapter. Substring mode is `context_hit_rate`, not a LOCOMO score.
     Locomo {
-        /// Path to LOCOMO dataset directory.
+        /// Path to LOCOMO dataset file or directory (`locomo10.json`).
         #[arg(long)]
         dataset: String,
         /// Output file for JSON results.
         #[arg(long)]
         output: Option<String>,
-        /// Compare against competitor baselines.
+        /// `mock` (context_hit_rate) or `llm-judge` (locomo_llm_judge).
+        #[arg(long, default_value = "mock")]
+        scorer: String,
+        /// Top-k retrieved snippets passed to the generator/judge.
+        #[arg(long, default_value_t = 5)]
+        top: usize,
+        /// Compare against competitor baselines. Refused for mock scorer.
         #[arg(long)]
         compare: bool,
         /// Path to baselines TOML file.
         #[arg(long, default_value = "benchmarks/baselines.toml")]
         baselines: String,
+    },
+    /// CI smoke: 1-conversation fixture + mock backend + mock judge.
+    Smoke {
+        /// Path to the 1-conversation fixture (real locomo10.json shape).
+        #[arg(long, default_value = "benchmarks/fixtures/locomo-smoke.json")]
+        dataset: String,
+        /// Output file for JSON results.
+        #[arg(long)]
+        output: Option<String>,
     },
 }

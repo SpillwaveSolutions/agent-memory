@@ -1,0 +1,6 @@
+{"role":"user","content":"What caused yesterday's 14-minute checkout outage?"}
+{"role":"assistant","content":"A Karpenter node roll deleted the checkout pods before the new nodes were Ready. We had no PodDisruptionBudget."}
+{"role":"user","content":"Fix?"}
+{"role":"assistant","content":"Add a PDB minAvailable=2 on checkout, and pin Karpenter disruption to `WhenEmpty`. Also page on PDB-blocked evictions."}
+{"role":"user","content":"This is why the Kubernetes migration needed a PDB before the EKS cutover."}
+{"role":"assistant","content":"Agreed. The outage is the evidence that Karpenter without a PDB is unsafe."}

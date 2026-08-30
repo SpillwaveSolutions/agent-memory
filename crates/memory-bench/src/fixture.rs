@@ -20,10 +20,28 @@ pub struct TestCase {
     pub setup: Vec<String>,
     /// The query to run against the memory system.
     pub query: String,
-    /// Case-insensitive substrings that the response should contain.
+    /// Case-insensitive substrings that the response should contain (accuracy).
+    #[serde(default)]
     pub expected_contains: Vec<String>,
+    /// Labeled relevant items for recall@k. Independent of `expected_contains`.
+    #[serde(default)]
+    pub relevant: Vec<String>,
+    /// k for recall@k (default 5).
+    #[serde(default = "default_k")]
+    pub k: usize,
+    /// Optional category label (temporal / multi / compress).
+    #[serde(default)]
+    pub category: Option<String>,
     /// Maximum token budget for the response.
+    #[serde(default = "default_max_tokens")]
     pub max_tokens: usize,
+}
+
+fn default_k() -> usize {
+    5
+}
+fn default_max_tokens() -> usize {
+    500
 }
 
 impl Fixture {
@@ -87,24 +105,16 @@ description = "recall a decision"
 setup = ["sessions/auth.jsonl"]
 query = "what auth did we pick?"
 expected_contains = ["JWT"]
+relevant = ["JWT", "refresh token rotation"]
 max_tokens = 500
-
-[[test]]
-id = "t-002"
-description = "recall a bug fix"
-setup = ["sessions/bug.jsonl"]
-query = "how was the bug fixed?"
-expected_contains = ["Option"]
-max_tokens = 400
 "#
         )
         .unwrap();
 
         let fixture = Fixture::load(&path).unwrap();
-        assert_eq!(fixture.tests.len(), 2);
-        assert_eq!(fixture.tests[0].id, "t-001");
-        assert_eq!(fixture.tests[1].id, "t-002");
-        assert_eq!(fixture.tests[0].max_tokens, 500);
+        assert_eq!(fixture.tests.len(), 1);
+        assert_eq!(fixture.tests[0].relevant.len(), 2);
+        assert_eq!(fixture.tests[0].k, 5);
     }
 
     #[test]
@@ -165,7 +175,6 @@ max_tokens = 100
     fn test_load_dir_collects_all_fixtures() {
         let dir = tempfile::tempdir().unwrap();
 
-        // Create first fixture file
         let path1 = dir.path().join("a.toml");
         let mut f1 = std::fs::File::create(&path1).unwrap();
         write!(
@@ -182,7 +191,6 @@ max_tokens = 100
         )
         .unwrap();
 
-        // Create second fixture file
         let path2 = dir.path().join("b.toml");
         let mut f2 = std::fs::File::create(&path2).unwrap();
         write!(

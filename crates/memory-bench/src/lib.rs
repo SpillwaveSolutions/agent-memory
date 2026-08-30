@@ -1,5 +1,6 @@
 pub mod baseline;
 pub mod fixture;
+pub mod judge;
 pub mod locomo;
 pub mod report;
 pub mod runner;

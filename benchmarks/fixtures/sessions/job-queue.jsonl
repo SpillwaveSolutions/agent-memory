@@ -1,0 +1,6 @@
+{"role":"user","content":"Redis lists or Postgres SKIP LOCKED for the background job queue?"}
+{"role":"assistant","content":"Postgres SKIP LOCKED. We already have Postgres, and we need transactional enqueue with the order row."}
+{"role":"user","content":"What about throughput?"}
+{"role":"assistant","content":"We measured 4k jobs/sec on SKIP LOCKED vs 11k on Redis lists. We do 200 jobs/sec peak, so Postgres wins on operational simplicity."}
+{"role":"user","content":"Decision: Postgres SKIP LOCKED for the job queue, not Redis lists."}
+{"role":"assistant","content":"I'll add the jobs table and a worker in the API repo."}

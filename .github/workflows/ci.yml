@@ -193,7 +193,6 @@ jobs:
   benchmark-smoke:
     name: Benchmark Suite Smoke Test
     runs-on: ubuntu-24.04
-    continue-on-error: true
     needs: [test]
     steps:
       - uses: actions/checkout@v4
@@ -213,19 +212,27 @@ jobs:
         with:
           shared-key: "bench-smoke"
 
-      - name: Build memory-bench
-        run: cargo build -p memory-bench
+      - name: Test memory-bench
+        run: cargo test -p memory-bench
 
-      - name: Smoke test (help only — no daemon required)
+      - name: Smoke locomo adapter (1 conversation, mock judge)
         run: |
-          cargo run -p memory-bench -- --help
-          cargo run -p memory-bench -- all --help
-          cargo run -p memory-bench -- locomo --help
+          cargo run -p memory-bench -- smoke --output /tmp/locomo-smoke.json
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("/tmp/locomo-smoke.json"))
+          assert d["conversations"] == 1, d
+          assert d["total_questions"] >= 1, d
+          assert d["metric"] == "context_hit_rate", d
+          assert "locomo_llm_judge" != d["metric"]
+          print("smoke ok", d["metric"], "questions", d["total_questions"])
+          PY
+
 
   # Summary job that depends on all other jobs
   ci-success:
     name: CI Success
-    needs: [fmt, clippy, test, build, doc, e2e]
+    needs: [fmt, clippy, test, build, doc, e2e, benchmark-smoke]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -236,7 +243,8 @@ jobs:
              [[ "${{ needs.test.result }}" != "success" ]] || \
              [[ "${{ needs.build.result }}" != "success" ]] || \
              [[ "${{ needs.doc.result }}" != "success" ]] || \
-             [[ "${{ needs.e2e.result }}" != "success" ]]; then
+             [[ "${{ needs.e2e.result }}" != "success" ]] || \
+             [[ "${{ needs.benchmark-smoke.result }}" != "success" ]]; then
             echo "One or more jobs failed"
             exit 1
           fi

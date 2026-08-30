@@ -1,7 +1,5 @@
-//! `memory add` command -- ingest a new memory event via gRPC.
-
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde_json::json;
 use ulid::Ulid;
 
@@ -22,13 +20,38 @@ fn kind_to_event_type(kind: &str) -> EventType {
     }
 }
 
+fn parse_role(role: Option<&str>) -> EventRole {
+    match role.map(|s| s.to_ascii_lowercase()) {
+        Some(s) if s == "assistant" => EventRole::Assistant,
+        Some(s) if s == "system" => EventRole::System,
+        Some(s) if s == "tool" => EventRole::Tool,
+        _ => EventRole::User,
+    }
+}
+
+fn parse_timestamp(raw: Option<&str>) -> Result<DateTime<Utc>> {
+    match raw {
+        None => Ok(Utc::now()),
+        Some(s) => DateTime::parse_from_rfc3339(s)
+            .map(|dt| dt.with_timezone(&Utc))
+            .map_err(|e| anyhow::anyhow!("invalid --timestamp {s:?}: {e} (want RFC3339)")),
+    }
+}
+
 /// Build an `Event` from CLI arguments.
-fn build_event(content: &str, kind: &str, agent: Option<&str>) -> Event {
+fn build_event(
+    content: &str,
+    kind: &str,
+    agent: Option<&str>,
+    timestamp: DateTime<Utc>,
+    session_id: Option<&str>,
+    role: EventRole,
+) -> Event {
     let event_id = Ulid::new().to_string();
-    let session_id = format!("cli-{}", Ulid::new());
-    let timestamp = Utc::now();
+    let session_id = session_id
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("cli-{}", Ulid::new()));
     let event_type = kind_to_event_type(kind);
-    let role = EventRole::User;
 
     let event = Event::new(
         event_id,
@@ -58,7 +81,15 @@ pub async fn run(args: AddArgs, global: &GlobalArgs) -> Result<()> {
         }
     };
 
-    let event = build_event(&args.content, &args.kind, args.agent.as_deref());
+    let timestamp = parse_timestamp(args.timestamp.as_deref())?;
+    let event = build_event(
+        &args.content,
+        &args.kind,
+        args.agent.as_deref(),
+        timestamp,
+        args.session_id.as_deref(),
+        parse_role(args.role.as_deref()),
+    );
     let event_id = event.event_id.clone();
 
     match client.ingest(event).await {
@@ -157,7 +188,7 @@ mod tests {
 
     #[test]
     fn test_build_event_episodic_no_agent() {
-        let event = build_event("hello", "episodic", None);
+        let event = build_event("hello", "episodic", None, Utc::now(), None, EventRole::User);
         assert!(!event.event_id.is_empty());
         assert!(event.session_id.starts_with("cli-"));
         assert!(matches!(event.event_type, EventType::UserMessage));
@@ -168,7 +199,14 @@ mod tests {
 
     #[test]
     fn test_build_event_tool_result_with_agent() {
-        let event = build_event("note", "tool_result", Some("claude"));
+        let event = build_event(
+            "note",
+            "tool_result",
+            Some("claude"),
+            Utc::now(),
+            None,
+            EventRole::User,
+        );
         assert!(matches!(event.event_type, EventType::ToolResult));
         assert_eq!(event.agent.as_deref(), Some("claude"));
         assert_eq!(event.text, "note");
@@ -176,9 +214,33 @@ mod tests {
 
     #[test]
     fn test_build_event_generates_unique_ids() {
-        let e1 = build_event("a", "episodic", None);
-        let e2 = build_event("b", "episodic", None);
+        let e1 = build_event("a", "episodic", None, Utc::now(), None, EventRole::User);
+        let e2 = build_event("b", "episodic", None, Utc::now(), None, EventRole::User);
         assert_ne!(e1.event_id, e2.event_id);
         assert_ne!(e1.session_id, e2.session_id);
+    }
+
+    #[test]
+    fn test_build_event_honors_session_and_timestamp() {
+        let ts = DateTime::parse_from_rfc3339("2023-05-08T13:56:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let event = build_event(
+            "hey",
+            "episodic",
+            None,
+            ts,
+            Some("locomo-session-1"),
+            EventRole::Assistant,
+        );
+        assert_eq!(event.session_id, "locomo-session-1");
+        assert_eq!(event.timestamp, ts);
+        assert!(matches!(event.role, EventRole::Assistant));
+    }
+
+    #[test]
+    fn test_parse_timestamp_rejects_garbage() {
+        let err = parse_timestamp(Some("yesterday")).unwrap_err().to_string();
+        assert!(err.contains("RFC3339"), "{err}");
     }
 }

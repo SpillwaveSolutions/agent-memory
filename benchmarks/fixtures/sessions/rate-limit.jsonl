@@ -1,0 +1,6 @@
+{"role":"user","content":"What rate limits did we set on the public API?"}
+{"role":"assistant","content":"120 requests per minute per API key, burst 30. Checkout endpoints are 20/min. Health checks are unlimited."}
+{"role":"user","content":"Where is it enforced?"}
+{"role":"assistant","content":"Envoy local rate-limit filter plus a Redis token bucket for the checkout path. 429 with Retry-After."}
+{"role":"user","content":"Decision: 120 rpm default, 20 rpm checkout, Envoy plus Redis token bucket."}
+{"role":"assistant","content":"Config is in infra/envoy/ratelimit.yaml."}

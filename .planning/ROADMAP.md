@@ -12,7 +12,7 @@
 - ✅ **v2.6 Cognitive Retrieval** — Phases 39-44 (shipped 2026-03-16)
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
 - **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 + Phase 51.5 (in progress; Phase 51.5 merged 2026-04-28)
-- **v3.1 Make It True** — Phases 54-58 (in progress; Phase 54 merged 2026-08-30, Phase 55 merged 2026-08-30, Phase 54.5 executing)
+- **v3.1 Make It True** — Phases 54-58 (in progress; Phases 54, 54.5, 55 merged 2026-08-30, Phase 56 executing)
 
 ## Phases
 
@@ -267,20 +267,27 @@ Close the claim/reality gap, then open the shop window. No new capabilities.
 - [x] 54-05: Honest daemon flags + attach indexes
 - [x] 54-06: Lock-poisoning recover_lock policy
 
-### Phase 54.5: Truth leaks + CI pin (in execution 2026-08-30)
+### Phase 54.5: Truth leaks + CI pin — COMPLETE 2026-08-30 (PR #35)
 
-- [ ] CI: pin rust-toolchain 1.97; allow `result_large_err` on generated proto
-- [ ] Explainability reports what actually ran
-- [ ] LLM rerank order survives salience; BM25 events carry text
-- [ ] Shared HNSW handle; concurrent fan-out; no per-event grip scan
+- [x] CI: pin rust-toolchain 1.97; allow `result_large_err` on generated proto
+- [x] Explainability reports what actually ran
+- [x] LLM rerank order survives salience; BM25 events carry text
+- [x] Shared HNSW handle; concurrent fan-out; no per-event grip scan
 
-### Phase 55: Performance Truth — COMPLETE 2026-08-30 (PR #33)
+### Phase 55: Performance Truth (2/2 plans) — COMPLETE 2026-08-30 (PR #33)
 
-### Phase 56: Honest Benchmarks (PR #34 open)
+- [x] 55-01: Split setup vs query (64.6s was toc_build)
+- [x] 55-02: Honest percentiles (n≥10 / n≥30)
+
+### Phase 56: Honest Benchmarks (3/3 plans) — IN EXECUTION 2026-08-30
+
+- [x] 56-01: Custom harness (real recall@k, content compression, fail-loud, isolation, ≥25 fixtures)
+- [x] 56-02: LOCOMO adapter v2 (real schema, mock vs llm-judge)
+- [x] 56-03: Smoke artifacts + HOLD comparison marketing
 
 ### Phase 57: Shop Window & Positioning (0/3)
 
 ### Phase 58: Launch (side quest)
 
-*Updated: 2026-08-30 — Phase 54.5 truth-leaks + CI pin in execution*
+*Updated: 2026-08-30 — Phase 54.5 merged (#35); Phase 56 Honest Benchmarks in execution*
 

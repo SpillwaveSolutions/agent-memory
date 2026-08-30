@@ -1,0 +1,6 @@
+{"role":"user","content":"Do we build our own feature-flag service or buy one?"}
+{"role":"assistant","content":"Buy Unleash self-hosted. Building our own delayed the last two launches. Budget is $400/month."}
+{"role":"user","content":"What about LaunchDarkly?"}
+{"role":"assistant","content":"LaunchDarkly is 8x the cost at our seat count. Unleash self-hosted is the call."}
+{"role":"user","content":"Decision: Unleash self-hosted for feature flags, not LaunchDarkly, not a homegrown service."}
+{"role":"assistant","content":"I'll provision the Unleash Postgres and wire the SDK this week."}

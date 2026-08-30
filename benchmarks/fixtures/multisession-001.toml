@@ -1,7 +1,109 @@
 [[test]]
 id = "multi-001"
+category = "multi"
 description = "Connect a decision from session A with an outcome from session B"
-setup = ["sessions/session-a.jsonl", "sessions/session-b.jsonl", "sessions/session-c.jsonl"]
+setup = ["sessions/session-a.jsonl", "sessions/session-b.jsonl", "sessions/session-c.jsonl", "sessions/distractor-cooking.jsonl"]
 query = "what was the outcome of the approach we chose last week?"
-expected_contains = ["performance", "latency"]
+expected_contains = ["latency"]
+relevant = ["95% cache hit", "3ms", "Redis"]
+k = 5
 max_tokens = 600
+
+[[test]]
+id = "multi-002"
+category = "multi"
+description = "Connect the Kubernetes migration plan with the later outage"
+setup = ["sessions/k8s-migration.jsonl", "sessions/incident.jsonl", "sessions/distractor-sports.jsonl"]
+query = "why did the Kubernetes cutover hurt checkout?"
+expected_contains = ["PodDisruptionBudget"]
+relevant = ["PodDisruptionBudget", "Karpenter", "WhenEmpty"]
+k = 5
+max_tokens = 600
+
+[[test]]
+id = "multi-003"
+category = "multi"
+description = "Connect the bug fix with the follow-up deploy"
+setup = ["sessions/bug-fix.jsonl", "sessions/follow-up.jsonl", "sessions/distractor-travel.jsonl"]
+query = "did the avatar null pointer fix actually ship?"
+expected_contains = ["deployed"]
+relevant = ["deployed yesterday", "Option<String>"]
+k = 5
+max_tokens = 500
+
+[[test]]
+id = "multi-004"
+category = "multi"
+description = "Auth decision still findable among distractors and a later cache session"
+setup = ["sessions/auth-decision.jsonl", "sessions/session-a.jsonl", "sessions/distractor-cooking.jsonl", "sessions/distractor-sports.jsonl"]
+query = "what did we decide for API authentication?"
+expected_contains = ["JWT"]
+relevant = ["JWT", "refresh token rotation"]
+k = 5
+max_tokens = 500
+
+[[test]]
+id = "multi-005"
+category = "multi"
+description = "Tracing RFC plus later incident should not confuse Tempo with Karpenter"
+setup = ["sessions/tracing.jsonl", "sessions/incident.jsonl", "sessions/distractor-travel.jsonl"]
+query = "where do we send OpenTelemetry traces?"
+expected_contains = ["Tempo"]
+relevant = ["Grafana Tempo", "OTLP"]
+k = 5
+max_tokens = 500
+
+[[test]]
+id = "multi-006"
+category = "multi"
+description = "Feature flags vs job queue — keep Unleash distinct from SKIP LOCKED"
+setup = ["sessions/feature-flags.jsonl", "sessions/job-queue.jsonl", "sessions/distractor-cooking.jsonl"]
+query = "what did we buy instead of building feature flags?"
+expected_contains = ["Unleash"]
+relevant = ["Unleash self-hosted"]
+k = 5
+max_tokens = 500
+
+[[test]]
+id = "multi-007"
+category = "multi"
+description = "On-call plus rate limits — Avery is not a rate-limit number"
+setup = ["sessions/oncall.jsonl", "sessions/rate-limit.jsonl", "sessions/distractor-sports.jsonl"]
+query = "when is the on-call handoff?"
+expected_contains = ["Friday"]
+relevant = ["Friday 16:00 CT", "api-primary"]
+k = 5
+max_tokens = 500
+
+[[test]]
+id = "multi-008"
+category = "multi"
+description = "Redis cache outcome still beats the original Postgres UNLOGGED alternative"
+setup = ["sessions/session-a.jsonl", "sessions/session-c.jsonl", "sessions/distractor-travel.jsonl"]
+query = "was Redis the right caching call versus PostgreSQL UNLOGGED tables?"
+expected_contains = ["14x"]
+relevant = ["14x latency improvement", "UNLOGGED"]
+k = 5
+max_tokens = 500
+
+[[test]]
+id = "multi-009"
+category = "multi"
+description = "Job queue throughput numbers survive a distractor-heavy setup"
+setup = ["sessions/job-queue.jsonl", "sessions/distractor-cooking.jsonl", "sessions/distractor-sports.jsonl", "sessions/distractor-travel.jsonl"]
+query = "how many jobs per second did SKIP LOCKED measure?"
+expected_contains = ["4k"]
+relevant = ["4k jobs/sec", "11k"]
+k = 5
+max_tokens = 500
+
+[[test]]
+id = "multi-010"
+category = "multi"
+description = "Checkout rate limit is not the default 120 rpm"
+setup = ["sessions/rate-limit.jsonl", "sessions/session-b.jsonl", "sessions/distractor-cooking.jsonl"]
+query = "what is the checkout endpoint rate limit?"
+expected_contains = ["20"]
+relevant = ["20/min", "checkout"]
+k = 5
+max_tokens = 500

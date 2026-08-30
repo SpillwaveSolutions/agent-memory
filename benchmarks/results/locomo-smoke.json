@@ -1,0 +1,115 @@
+{
+  "metric": "context_hit_rate",
+  "judge": "mock",
+  "temperature": null,
+  "model": null,
+  "dataset": "benchmarks/fixtures/locomo-smoke.json",
+  "isolation": "per-conversation temp store",
+  "conversations": 1,
+  "total_questions": 4,
+  "overall_score": 0.5,
+  "by_type": {
+    "temporal": {
+      "total": 1,
+      "correct": 1,
+      "score": 1.0
+    },
+    "adversarial": {
+      "total": 1,
+      "correct": 0,
+      "score": 0.0
+    },
+    "multi_hop": {
+      "total": 1,
+      "correct": 0,
+      "score": 0.0
+    },
+    "single_hop": {
+      "total": 1,
+      "correct": 1,
+      "score": 1.0
+    }
+  },
+  "per_conversation": [
+    {
+      "sample_id": "smoke-001",
+      "total_questions": 4,
+      "correct": 2,
+      "score": 0.5,
+      "by_type": {
+        "single_hop": {
+          "total": 1,
+          "correct": 1,
+          "score": 1.0
+        },
+        "adversarial": {
+          "total": 1,
+          "correct": 0,
+          "score": 0.0
+        },
+        "multi_hop": {
+          "total": 1,
+          "correct": 0,
+          "score": 0.0
+        },
+        "temporal": {
+          "total": 1,
+          "correct": 1,
+          "score": 1.0
+        }
+      },
+      "questions": [
+        {
+          "question": "When did Caroline go to the LGBTQ support group?",
+          "gold": "7 May 2023",
+          "category": "temporal",
+          "category_id": 2,
+          "predicted": "[D1:3 @ 1:56 pm on 8 May, 2023] Caroline: I went to a LGBTQ support group on 7 May 2023 and it was so powerful.\n[D1:1 @ 1:56 pm on 8 May, 2023] Caroline: Hey Mel! Good to see you! How have you been?\n[D1:2 @ 1:56 pm on 8 May, 2023] Melanie: Hey Caroline! Swamped with the kids and work. What's new with you?\n[D1:4 @ 1:56 pm on 8 May, 2023] Melanie: That's amazing. At work we finally picked JWT with refresh token rotation for the API.\n[D1:5 @ 1:56 pm on 8 May, 2023] Caroline: Nice. We chose Redis fo",
+          "correct": true,
+          "rationale": "gold substring present in context or predicted text (context_hit_rate)",
+          "latency_ms": 0,
+          "context_tokens": 136
+        },
+        {
+          "question": "What caching layer did they choose?",
+          "gold": "Redis",
+          "category": "single_hop",
+          "category_id": 4,
+          "predicted": "[D1:5 @ 1:56 pm on 8 May, 2023] Caroline: Nice. We chose Redis for the caching layer with a 15-minute TTL.\n[D1:2 @ 1:56 pm on 8 May, 2023] Melanie: Hey Caroline! Swamped with the kids and work. What's new with you?\n[D1:1 @ 1:56 pm on 8 May, 2023] Caroline: Hey Mel! Good to see you! How have you been?\n[D1:3 @ 1:56 pm on 8 May, 2023] Caroline: I went to a LGBTQ support group on 7 May 2023 and it was so powerful.\n[D1:4 @ 1:56 pm on 8 May, 2023] Melanie: That's amazing. At work we finally picked JWT",
+          "correct": true,
+          "rationale": "gold substring present in context or predicted text (context_hit_rate)",
+          "latency_ms": 0,
+          "context_tokens": 136
+        },
+        {
+          "question": "What is Melanie's dog named?",
+          "gold": "Biscuit",
+          "category": "adversarial",
+          "category_id": 5,
+          "predicted": "[D2:1 @ 4:04 pm on 20 January, 2023] Melanie: I painted a sunrise back in 2022. Nothing to do with dogs.\n[D1:2 @ 1:56 pm on 8 May, 2023] Melanie: Hey Caroline! Swamped with the kids and work. What's new with you?\n[D1:4 @ 1:56 pm on 8 May, 2023] Melanie: That's amazing. At work we finally picked JWT with refresh token rotation for the API.\n[D1:5 @ 1:56 pm on 8 May, 2023] Caroline: Nice. We chose Redis for the caching layer with a 15-minute TTL.\n[D1:1 @ 1:56 pm on 8 May, 2023] Caroline: Hey Mel! G",
+          "correct": false,
+          "rationale": "gold substring absent (context_hit_rate miss)",
+          "latency_ms": 0,
+          "context_tokens": 134
+        },
+        {
+          "question": "Which two systems did they combine for auth and cache?",
+          "gold": "JWT and Redis",
+          "category": "multi_hop",
+          "category_id": 1,
+          "predicted": "[D1:2 @ 1:56 pm on 8 May, 2023] Melanie: Hey Caroline! Swamped with the kids and work. What's new with you?\n[D1:3 @ 1:56 pm on 8 May, 2023] Caroline: I went to a LGBTQ support group on 7 May 2023 and it was so powerful.\n[D1:4 @ 1:56 pm on 8 May, 2023] Melanie: That's amazing. At work we finally picked JWT with refresh token rotation for the API.\n[D1:5 @ 1:56 pm on 8 May, 2023] Caroline: Nice. We chose Redis for the caching layer with a 15-minute TTL.\n[D1:1 @ 1:56 pm on 8 May, 2023] Caroline: Hey",
+          "correct": false,
+          "rationale": "gold substring absent (context_hit_rate miss)",
+          "latency_ms": 0,
+          "context_tokens": 136
+        }
+      ]
+    }
+  ],
+  "caveats": [
+    "one isolated mock store per conversation (no cross-conversation bleed)",
+    "metric is 'context_hit_rate' — do not quote as a published LOCOMO leaderboard number unless scorer is llm-judge with a pinned model",
+    "dataset license is CC BY-NC 4.0; verify LICENSE.txt before commercial use",
+    "mock scorer is substring context_hit_rate over token-overlap retrieval; not comparable to Mem0/MemMachine LLM-judge numbers"
+  ]
+}

@@ -1,14 +1,17 @@
-# Manually-maintained competitor benchmark scores.
-# Sources listed per entry.
+# Manually-maintained competitor numbers.
+# Each row names its metric. These are NOT commensurable with each other
+# or with Agent-Memory's custom-harness expected_contains accuracy.
 
 [memmachine]
 # Source: https://memmachine.ai/blog/2025/12/memmachine-v0.2-delivers-top-scores-and-efficiency-on-locomo-benchmark/
 locomo_score = 0.91
 token_reduction = 0.80
 latency_improvement = 0.75
+metric = "LOCOMO LLM-judge (their paper)"
 
 [mem0]
 # Source: https://mem0.ai/research
 accuracy_vs_openai_memory = 0.26
 token_reduction = 0.90
 latency_reduction = 0.91
+metric = "relative delta vs OpenAI memory"
