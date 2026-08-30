@@ -57,8 +57,8 @@ pub struct SearchArgs {
     #[arg(long, default_value_t = 10)]
     pub top: usize,
 
-    /// Rerank mode (e.g., "heuristic", "llm").
-    #[arg(long)]
+    /// Rerank mode: "heuristic" or "llm".
+    #[arg(long, value_parser = ["heuristic", "llm"])]
     pub rerank: Option<String>,
 
     /// Output format override.
@@ -163,6 +163,17 @@ mod tests {
             }
             _ => panic!("Expected Search command"),
         }
+    }
+
+    #[test]
+    fn test_parse_search_rejects_unknown_rerank() {
+        let err = Cli::try_parse_from(["memory", "search", "hello", "--rerank", "cross-encoder"])
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid value") || msg.contains("possible values"),
+            "unexpected clap error: {msg}"
+        );
     }
 
     #[test]

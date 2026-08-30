@@ -93,8 +93,9 @@ jobs:
           cargo generate-lockfile
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.97"
           targets: ${{ matrix.target }}
 
       - name: Install cross

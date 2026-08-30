@@ -264,10 +264,9 @@ impl RetrievalHandler {
             return Err(Status::invalid_argument("Query is required"));
         }
 
-        // Get stop conditions (honored by the fallback executor inside the orchestrator
-        // via StopConditions::default today; parsed here so the proto field is not dropped
-        // silently if we thread it through later).
-        let _stop_conditions = req
+        // Get stop conditions and execution mode — both are forwarded into
+        // the orchestrator so the proto fields are not echo-only.
+        let stop_conditions = req
             .stop_conditions
             .map(|sc| proto_to_stop_conditions(&sc))
             .unwrap_or_default();
@@ -314,8 +313,14 @@ impl RetrievalHandler {
         ));
 
         let requested_rerank = match req.rerank_mode.as_deref() {
+            None | Some("") => RerankMode::Heuristic,
+            Some(mode) if mode.eq_ignore_ascii_case("heuristic") => RerankMode::Heuristic,
             Some(mode) if mode.eq_ignore_ascii_case("llm") => RerankMode::Llm,
-            _ => RerankMode::Heuristic,
+            Some(other) => {
+                return Err(Status::invalid_argument(format!(
+                    "unknown rerank_mode '{other}'; expected 'heuristic' or 'llm'"
+                )));
+            }
         };
         let (rerank_mode, reranker): (RerankMode, Box<dyn Reranker>) = match requested_rerank {
             RerankMode::Llm => {
@@ -348,7 +353,7 @@ impl RetrievalHandler {
         };
         let orchestrator = MemoryOrchestrator::with_reranker(executor, orch_config, reranker);
         let output = orchestrator
-            .query_ranked(&req.query)
+            .query_ranked_with(&req.query, &stop_conditions, mode)
             .await
             .map_err(|e| Status::internal(format!("orchestrator error: {e}")))?;
 
@@ -373,8 +378,12 @@ impl RetrievalHandler {
             enriched_results
         };
 
-        // Apply combined ranking (salience + usage decay) after stale filter
-        let ranking_config = RankingConfig::default();
+        // Apply combined ranking (salience + usage decay) after stale filter.
+        // LLM order is preserved: salience may adjust scores but must not re-sort.
+        let ranking_config = RankingConfig {
+            preserve_order: orch_rerank_mode == "llm",
+            ..Default::default()
+        };
         let ranked_results = apply_combined_ranking(filtered_results, &ranking_config);
 
         let total_time_ms = start.elapsed().as_millis() as u64;
@@ -608,7 +617,7 @@ impl LayerExecutor for SimpleLayerExecutor {
                             doc_id: r.doc_id,
                             doc_type: format!("{:?}", r.doc_type).to_lowercase(),
                             score: r.score,
-                            text_preview: r.keywords.unwrap_or_default(),
+                            text_preview: r.text,
                             source_layer: CrateLayer::BM25,
                             metadata: build_metadata(
                                 r.timestamp_ms,
@@ -676,7 +685,7 @@ impl LayerExecutor for SimpleLayerExecutor {
                                     doc_id: r.doc_id,
                                     doc_type: format!("{:?}", r.doc_type).to_lowercase(),
                                     score: r.score,
-                                    text_preview: r.keywords.unwrap_or_default(),
+                                    text_preview: r.text,
                                     source_layer: CrateLayer::BM25,
                                     metadata: build_metadata(
                                         r.timestamp_ms,
@@ -1359,5 +1368,118 @@ mod tests {
         );
         // First of LLM should be last of heuristic (full reverse of two hits).
         assert_eq!(llm_ids.first(), heuristic_ids.last());
+        assert!(
+            llm_resp.results.iter().all(|r| !r.text_preview.is_empty()),
+            "BM25 event hits must carry a text preview for LLM rerank"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unknown_rerank_mode_is_rejected() {
+        let (handler, _temp) = create_test_handler();
+        let err = handler
+            .route_query(Request::new(RouteQueryRequest {
+                query: "what is rust?".to_string(),
+                intent_override: None,
+                stop_conditions: None,
+                mode_override: None,
+                limit: 10,
+                agent_filter: None,
+                all_projects: false,
+                rerank_mode: Some("cross-encoder".into()),
+                expand_query: false,
+            }))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), tonic::Code::InvalidArgument);
+        assert!(err.message().contains("rerank_mode"));
+    }
+
+    #[tokio::test]
+    async fn test_layers_attempted_omits_unavailable_indexes() {
+        let (handler, _temp) = create_test_handler();
+        let resp = handler
+            .route_query(Request::new(RouteQueryRequest {
+                query: "what is rust?".to_string(),
+                intent_override: None,
+                stop_conditions: None,
+                mode_override: None,
+                limit: 10,
+                agent_filter: None,
+                all_projects: false,
+                rerank_mode: None,
+                expand_query: false,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        // No BM25/vector/topics attached: only Agentic is supported.
+        assert_eq!(resp.layers_attempted, vec![ProtoLayer::Agentic as i32]);
+    }
+
+    struct BrokenCompleter;
+
+    #[async_trait]
+    impl Completer for BrokenCompleter {
+        async fn complete(&self, _prompt: &str) -> anyhow::Result<String> {
+            anyhow::bail!("network down");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_llm_fail_open_reports_heuristic() {
+        use chrono::Utc;
+        use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
+        use memory_types::{Event, EventRole, EventType};
+
+        let temp_dir = TempDir::new().unwrap();
+        let index_path = temp_dir.path().join("search");
+        std::fs::create_dir_all(&index_path).unwrap();
+        let index = SearchIndex::open_or_create(SearchIndexConfig::new(&index_path)).unwrap();
+        let indexer = SearchIndexer::new(&index).unwrap();
+        indexer
+            .index_event(&Event::new(
+                "alpha-event".into(),
+                "s".into(),
+                Utc::now(),
+                EventType::UserMessage,
+                EventRole::User,
+                "zebra unique token alpha document".into(),
+            ))
+            .unwrap();
+        indexer.commit().unwrap();
+        let searcher = Arc::new(TeleportSearcher::new(&index).unwrap());
+        let storage = Arc::new(Storage::open(temp_dir.path()).unwrap());
+        let handler = RetrievalHandler::with_services(
+            storage,
+            Some(searcher),
+            None,
+            None,
+            Default::default(),
+        )
+        .with_completer(Arc::new(BrokenCompleter));
+
+        let resp = handler
+            .route_query(Request::new(RouteQueryRequest {
+                query: "zebra unique token".to_string(),
+                intent_override: None,
+                stop_conditions: None,
+                mode_override: None,
+                limit: 10,
+                agent_filter: None,
+                all_projects: false,
+                rerank_mode: Some("llm".into()),
+                expand_query: false,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert_eq!(
+            resp.explanation
+                .as_ref()
+                .and_then(|e| e.rerank_mode.as_deref()),
+            Some("heuristic"),
+            "completer failure must not report rerank=llm"
+        );
     }
 }

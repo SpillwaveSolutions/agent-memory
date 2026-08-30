@@ -26,6 +26,9 @@ pub mod topics;
 pub mod vector;
 
 pub mod pb {
+    // tonic::Status is ≥176 bytes; generated gRPC stubs trip clippy::result_large_err
+    // (Rust 1.98+). We do not control the generated signatures.
+    #![allow(clippy::result_large_err)]
     tonic::include_proto!("memory");
 
     pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("memory_descriptor");

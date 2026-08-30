@@ -21,6 +21,9 @@ pub struct TeleportResult {
     pub doc_type: DocType,
     /// BM25 relevance score
     pub score: f32,
+    /// Indexed body text (truncated). Events have no keywords, so callers
+    /// must use this field — not `keywords` — as the preview.
+    pub text: String,
     /// Keywords from the document (if stored)
     pub keywords: Option<String>,
     /// Timestamp in milliseconds
@@ -152,6 +155,16 @@ impl TeleportSearcher {
                 .map(|s| s.to_string())
                 .filter(|s| !s.is_empty());
 
+            let text_raw = doc
+                .get_first(self.schema.text)
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let text = if text_raw.is_empty() {
+                keywords.clone().unwrap_or_default()
+            } else {
+                truncate_preview(text_raw, 240)
+            };
+
             let timestamp_ms = doc
                 .get_first(self.schema.timestamp_ms)
                 .and_then(|v| v.as_str())
@@ -169,6 +182,7 @@ impl TeleportSearcher {
                 doc_id,
                 doc_type,
                 score,
+                text,
                 keywords,
                 timestamp_ms,
                 agent,
@@ -289,6 +303,16 @@ impl TeleportSearcher {
 // - QueryParser is used within methods that hold the appropriate locks
 unsafe impl Send for TeleportSearcher {}
 unsafe impl Sync for TeleportSearcher {}
+
+fn truncate_preview(s: &str, max_chars: usize) -> String {
+    let mut iter = s.chars();
+    let preview: String = iter.by_ref().take(max_chars).collect();
+    if iter.next().is_some() {
+        format!("{preview}...")
+    } else {
+        preview
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -501,6 +525,34 @@ mod tests {
         let results = searcher.search_toc("rust", 10).unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].keywords.is_some());
+    }
+
+    #[test]
+    fn test_event_search_returns_text_preview() {
+        use memory_types::{Event, EventRole, EventType};
+
+        let (_temp_dir, index) = setup_index();
+        let indexer = SearchIndexer::new(&index).unwrap();
+        indexer
+            .index_event(&Event::new(
+                "evt-1".into(),
+                "s".into(),
+                Utc::now(),
+                EventType::UserMessage,
+                EventRole::User,
+                "zebra unique token event body".into(),
+            ))
+            .unwrap();
+        indexer.commit().unwrap();
+
+        let searcher = TeleportSearcher::new(&index).unwrap();
+        let results = searcher
+            .search("zebra unique", SearchOptions::new().with_limit(10))
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].doc_id, "evt-1");
+        assert!(results[0].text.contains("zebra unique token"));
+        assert!(results[0].keywords.is_none());
     }
 
     #[test]

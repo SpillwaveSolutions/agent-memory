@@ -24,6 +24,9 @@ pub struct RankingConfig {
     pub decay_factor: f32,
     /// Minimum score floor as fraction of original similarity (0.0-1.0).
     pub score_floor: f32,
+    /// When true, apply score multipliers but do not re-sort.
+    /// Used after LLM rerank so salience cannot undo the model order.
+    pub preserve_order: bool,
 }
 
 impl Default for RankingConfig {
@@ -33,6 +36,7 @@ impl Default for RankingConfig {
             usage_decay_enabled: false, // Off by default until validated
             decay_factor: 0.15,
             score_floor: 0.50,
+            preserve_order: false,
         }
     }
 }
@@ -82,12 +86,13 @@ pub fn apply_combined_ranking(
         result.score = combined.max(floor);
     }
 
-    // Re-sort by adjusted score
-    results.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    if !config.preserve_order {
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
 
     results
 }
@@ -170,6 +175,7 @@ mod tests {
             usage_decay_enabled: true,
             decay_factor: 0.15,
             score_floor: 0.50,
+            preserve_order: false,
         };
 
         // Very low salience + high usage: combined would be very low
@@ -194,6 +200,7 @@ mod tests {
             usage_decay_enabled: true,
             decay_factor: 0.15,
             score_floor: 0.50,
+            preserve_order: false,
         };
 
         let results = vec![make_result("test", 0.8, 0.7, 3)];
@@ -227,5 +234,22 @@ mod tests {
             (ranked[0].score - 0.8).abs() < f32::EPSILON,
             "Score should be unchanged when both disabled"
         );
+    }
+
+    #[test]
+    fn test_preserve_order_skips_resort() {
+        let config = RankingConfig {
+            salience_enabled: true,
+            preserve_order: true,
+            ..Default::default()
+        };
+        let results = vec![
+            make_result("low_sal", 0.8, 0.0, 0),
+            make_result("high_sal", 0.8, 1.0, 0),
+        ];
+        let ranked = apply_combined_ranking(results, &config);
+        assert_eq!(ranked[0].doc_id, "low_sal");
+        assert_eq!(ranked[1].doc_id, "high_sal");
+        assert!(ranked[1].score > ranked[0].score);
     }
 }

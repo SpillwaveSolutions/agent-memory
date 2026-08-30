@@ -678,8 +678,11 @@ impl LayerExecutor for MockLayerExecutor {
         Ok(results.into_iter().take(limit).collect())
     }
 
-    fn supports(&self, _layer: RetrievalLayer) -> bool {
-        true // Mock supports all layers
+    fn supports(&self, layer: RetrievalLayer) -> bool {
+        // Only layers that were explicitly configured are "available".
+        self.results.contains_key(&layer)
+            || self.fail_layers.contains(&layer)
+            || self.delays.contains_key(&layer)
     }
 }
 

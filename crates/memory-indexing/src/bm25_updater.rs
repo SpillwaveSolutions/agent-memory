@@ -96,10 +96,9 @@ impl Bm25IndexUpdater {
                     }
                 }
 
-                if let Some(grip) = self.find_grip_for_event(&entry.event_id)? {
-                    self.index_grip(&grip)?;
-                    indexed = true;
-                }
+                // Grips are indexed by rebuild / index_grip_direct when the TOC
+                // rollup creates them. Do not scan every grip per outbox entry
+                // (that is O(grips) per event and dominates drain time).
 
                 if indexed {
                     Ok(true)
@@ -114,14 +113,6 @@ impl Bm25IndexUpdater {
                 }
             }
         }
-    }
-
-    /// Find a grip that references this event (start or end id).
-    fn find_grip_for_event(&self, event_id: &str) -> Result<Option<Grip>, IndexingError> {
-        let grips = crate::rebuild::iter_all_grips(&self.storage)?;
-        Ok(grips
-            .into_iter()
-            .find(|g| g.event_id_start == event_id || g.event_id_end == event_id))
     }
 
     /// Process a batch of outbox entries.

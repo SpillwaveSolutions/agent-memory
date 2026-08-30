@@ -40,6 +40,21 @@ impl VectorTeleportHandler {
         }
     }
 
+    /// Shared HNSW handle (same lock the prune job must mutate).
+    pub fn index_handle(&self) -> Arc<std::sync::RwLock<HnswIndex>> {
+        Arc::clone(&self.index)
+    }
+
+    /// Shared metadata store handle.
+    pub fn metadata_arc(&self) -> Arc<VectorMetadata> {
+        Arc::clone(&self.metadata)
+    }
+
+    /// Shared embedder.
+    pub fn embedder(&self) -> Arc<CandleEmbedder> {
+        Arc::clone(&self.embedder)
+    }
+
     /// Get a reference to the vector metadata store.
     pub fn metadata(&self) -> &Arc<VectorMetadata> {
         &self.metadata

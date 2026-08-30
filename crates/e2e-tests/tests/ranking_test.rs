@@ -126,6 +126,7 @@ fn test_score_floor_prevents_collapse() {
         usage_decay_enabled: true,
         decay_factor: 0.15,
         score_floor: 0.50,
+        ..Default::default()
     };
 
     // Worst case: low salience + extremely high access count
@@ -157,6 +158,7 @@ fn test_combined_ranking_composition() {
         usage_decay_enabled: true,
         decay_factor: 0.15,
         score_floor: 0.50,
+        ..Default::default()
     };
 
     // High-salience but heavily used vs low-salience but fresh
