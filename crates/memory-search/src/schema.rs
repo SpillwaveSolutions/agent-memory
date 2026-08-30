@@ -55,7 +55,7 @@ pub struct SearchSchema {
     pub doc_id: Field,
     /// TOC level for toc_node: "year", "month", etc. (STRING)
     pub level: Field,
-    /// Searchable text: title+bullets for TOC, excerpt for grip (TEXT)
+    /// Searchable text: title+bullets for TOC, excerpt for grip, body for event (TEXT | STORED)
     pub text: Field,
     /// Keywords/tags (TEXT | STORED)
     pub keywords: Field,
@@ -114,7 +114,7 @@ impl SearchSchema {
 /// - doc_type: STRING | STORED - "toc_node" or "grip"
 /// - doc_id: STRING | STORED - node_id or grip_id
 /// - level: STRING - TOC level (for filtering)
-/// - text: TEXT - searchable content
+/// - text: TEXT | STORED - searchable content (also the LLM-rerank preview)
 /// - keywords: TEXT | STORED - keywords/tags
 /// - timestamp_ms: STRING | STORED - for recency info
 pub fn build_teleport_schema() -> SearchSchema {
@@ -129,8 +129,10 @@ pub fn build_teleport_schema() -> SearchSchema {
     // TOC level (for toc_node only): "year", "month", "week", "day", "segment"
     let level = schema_builder.add_text_field("level", STRING | STORED);
 
-    // Searchable text content (title + bullets for TOC, excerpt for grip)
-    let text = schema_builder.add_text_field("text", TEXT);
+    // Searchable text content (title + bullets for TOC, excerpt for grip, body for event).
+    // STORED so BM25 hits expose a preview — events have empty keywords, so the
+    // LLM reranker must read this field rather than keywords.
+    let text = schema_builder.add_text_field("text", TEXT | STORED);
 
     // Keywords (indexed and stored for retrieval)
     let keywords = schema_builder.add_text_field("keywords", TEXT | STORED);
@@ -165,6 +167,11 @@ mod tests {
         assert!(schema.schema.get_field("doc_type").is_ok());
         assert!(schema.schema.get_field("doc_id").is_ok());
         assert!(schema.schema.get_field("text").is_ok());
+        let text_entry = schema.schema.get_field_entry(schema.text);
+        assert!(
+            text_entry.is_stored(),
+            "text must be STORED so event hits have a preview"
+        );
     }
 
     #[test]

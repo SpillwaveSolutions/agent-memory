@@ -8,6 +8,7 @@
 //!   — never warn-and-fallback.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -57,6 +58,14 @@ impl RerankedResult {
 pub trait Reranker: Send + Sync {
     /// Rerank fused results, returning a sorted and potentially trimmed list.
     async fn rerank(&self, query: &str, results: Vec<FusedResult>) -> Result<Vec<RerankedResult>>;
+
+    /// Label of the strategy that actually produced the last `rerank` output.
+    ///
+    /// LLM fail-open reports `"heuristic"` so explainability cannot claim a
+    /// rerank that did not run.
+    fn mode_name(&self) -> &'static str {
+        "heuristic"
+    }
 }
 
 /// LLM text completion used by [`LlmReranker`].
@@ -118,6 +127,7 @@ impl Reranker for HeuristicReranker {
 pub struct LlmReranker {
     completer: Arc<dyn Completer>,
     max_results: usize,
+    fell_back: AtomicBool,
 }
 
 impl LlmReranker {
@@ -126,6 +136,7 @@ impl LlmReranker {
         Self {
             completer,
             max_results: max_results.max(1),
+            fell_back: AtomicBool::new(false),
         }
     }
 
@@ -151,24 +162,19 @@ Include every doc_id exactly once, most relevant first."#
         )
     }
 
-    fn parse_order(text: &str, fallback: &[FusedResult]) -> Vec<String> {
+    fn parse_order(text: &str) -> Option<Vec<String>> {
         let json_str = extract_json_object(text);
-        let parsed: serde_json::Value = match serde_json::from_str(&json_str) {
-            Ok(v) => v,
-            Err(_) => {
-                return fallback.iter().map(|r| r.inner.doc_id.clone()).collect();
-            }
-        };
-        if let Some(arr) = parsed.get("order").and_then(|v| v.as_array()) {
-            let ids: Vec<String> = arr
-                .iter()
-                .filter_map(|v| v.as_str().map(ToOwned::to_owned))
-                .collect();
-            if !ids.is_empty() {
-                return ids;
-            }
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).ok()?;
+        let arr = parsed.get("order")?.as_array()?;
+        let ids: Vec<String> = arr
+            .iter()
+            .filter_map(|v| v.as_str().map(ToOwned::to_owned))
+            .collect();
+        if ids.is_empty() {
+            None
+        } else {
+            Some(ids)
         }
-        fallback.iter().map(|r| r.inner.doc_id.clone()).collect()
     }
 }
 
@@ -185,7 +191,16 @@ fn extract_json_object(text: &str) -> String {
 
 #[async_trait]
 impl Reranker for LlmReranker {
+    fn mode_name(&self) -> &'static str {
+        if self.fell_back.load(Ordering::Relaxed) {
+            "heuristic"
+        } else {
+            "llm"
+        }
+    }
+
     async fn rerank(&self, query: &str, results: Vec<FusedResult>) -> Result<Vec<RerankedResult>> {
+        self.fell_back.store(false, Ordering::Relaxed);
         if results.is_empty() {
             return Ok(Vec::new());
         }
@@ -194,12 +209,19 @@ impl Reranker for LlmReranker {
             Ok(text) => text,
             Err(e) => {
                 tracing::warn!(error = %e, "LLM rerank failed; keeping RRF order");
+                self.fell_back.store(true, Ordering::Relaxed);
                 return HeuristicReranker::new(self.max_results)
                     .rerank(query, results)
                     .await;
             }
         };
-        let order = Self::parse_order(&response, &results);
+        let Some(order) = Self::parse_order(&response) else {
+            tracing::warn!("LLM rerank returned unparseable order; keeping RRF order");
+            self.fell_back.store(true, Ordering::Relaxed);
+            return HeuristicReranker::new(self.max_results)
+                .rerank(query, results)
+                .await;
+        };
         let mut by_id: HashMap<String, FusedResult> = results
             .into_iter()
             .map(|r| (r.inner.doc_id.clone(), r))
@@ -237,6 +259,10 @@ pub struct CrossEncoderReranker;
 
 #[async_trait]
 impl Reranker for CrossEncoderReranker {
+    fn mode_name(&self) -> &'static str {
+        "cross-encoder"
+    }
+
     async fn rerank(
         &self,
         _query: &str,
@@ -311,6 +337,7 @@ mod tests {
         let reranked = reranker.rerank("q", results).await.unwrap();
         assert_eq!(reranked[0].doc_id, "b");
         assert_eq!(reranked[1].doc_id, "a");
+        assert_eq!(reranker.mode_name(), "llm");
     }
 
     struct BrokenCompleter;
@@ -329,5 +356,28 @@ mod tests {
         let reranked = reranker.rerank("q", results).await.unwrap();
         assert_eq!(reranked[0].doc_id, "a");
         assert_eq!(reranked[1].doc_id, "b");
+        assert_eq!(
+            reranker.mode_name(),
+            "heuristic",
+            "fail-open must not claim llm ran"
+        );
+    }
+
+    struct GarbageCompleter;
+
+    #[async_trait]
+    impl Completer for GarbageCompleter {
+        async fn complete(&self, _prompt: &str) -> Result<String> {
+            Ok("not json".to_string())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_llm_reranker_fail_open_on_unparseable_order() {
+        let results = vec![make_fused("a", 0.9), make_fused("b", 0.5)];
+        let reranker = LlmReranker::new(Arc::new(GarbageCompleter), 10);
+        let reranked = reranker.rerank("q", results).await.unwrap();
+        assert_eq!(reranked[0].doc_id, "a");
+        assert_eq!(reranker.mode_name(), "heuristic");
     }
 }

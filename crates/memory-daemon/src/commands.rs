@@ -168,7 +168,11 @@ async fn register_indexing_job(
 /// Both jobs use per-level retention configured in lifecycle settings.
 /// BM25 pruning is DISABLED by default (per PRD append-only philosophy).
 /// Vector pruning is ENABLED by default.
-async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Result<()> {
+async fn register_prune_jobs(
+    scheduler: &SchedulerService,
+    db_path: &Path,
+    shared_vector: Option<Arc<VectorTeleportHandler>>,
+) -> Result<()> {
     use memory_embeddings::EmbeddingModel;
     use memory_scheduler::{
         register_bm25_prune_job, register_bm25_rebuild_job, register_vector_prune_job,
@@ -244,9 +248,30 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
         info!("Search index not found, skipping BM25 prune job registration");
     }
 
-    // Register vector prune job if vector index exists
-    if vector_dir.exists() {
-        // Try to create embedder
+    // Register vector prune job, sharing the query-path HNSW handle when
+    // available so prune mutations are visible without a daemon restart.
+    if let Some(vh) = shared_vector {
+        let pipeline = Arc::new(VectorIndexPipeline::new(
+            vh.embedder(),
+            vh.index_handle(),
+            vh.metadata_arc(),
+            VectorPipelineConfig::default(),
+        ));
+        let vector_job = VectorPruneJob::with_prune_fn(
+            VectorPruneJobConfig::default(),
+            move |age_days, level| {
+                let p = Arc::clone(&pipeline);
+                async move {
+                    p.prune_level(age_days, level.as_deref())
+                        .map_err(|e| e.to_string())
+                }
+            },
+        );
+        register_vector_prune_job(scheduler, vector_job)
+            .await
+            .context("Failed to register vector prune job")?;
+        info!("Vector prune job registered (shared HNSW handle)");
+    } else if vector_dir.exists() {
         match memory_embeddings::CandleEmbedder::load_default() {
             Ok(embedder) => {
                 let embedder = Arc::new(embedder);
@@ -255,8 +280,6 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
                 match HnswIndex::open_or_create(hnsw_config) {
                     Ok(hnsw_index) => {
                         let hnsw_index = Arc::new(RwLock::new(hnsw_index));
-
-                        // Open metadata store
                         let metadata_path = vector_dir.join("metadata");
                         if metadata_path.exists() {
                             match VectorMetadata::open(&metadata_path) {
@@ -268,8 +291,6 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
                                         metadata,
                                         VectorPipelineConfig::default(),
                                     ));
-
-                                    // Create prune job with callback
                                     let vector_job = VectorPruneJob::with_prune_fn(
                                         VectorPruneJobConfig::default(),
                                         move |age_days, level| {
@@ -280,11 +301,9 @@ async fn register_prune_jobs(scheduler: &SchedulerService, db_path: &Path) -> Re
                                             }
                                         },
                                     );
-
                                     register_vector_prune_job(scheduler, vector_job)
                                         .await
                                         .context("Failed to register vector prune job")?;
-
                                     info!("Vector prune job registered");
                                 }
                                 Err(e) => {
@@ -468,6 +487,7 @@ fn build_api_summarizer(settings: &SummarizerSettings) -> Option<Arc<ApiSummariz
 
 /// Open BM25/vector/topic indexes if present so RouteQuery is not agentic-only.
 fn open_query_indexes(storage: &Arc<Storage>, db_path: &Path) -> QueryIndexBundle {
+    use memory_embeddings::EmbeddingModel;
     use memory_search::{SearchIndex, SearchIndexConfig, TeleportSearcher};
     use memory_topics::TopicStorage;
     use memory_vector::{HnswConfig, HnswIndex, VectorMetadata};
@@ -497,7 +517,8 @@ fn open_query_indexes(storage: &Arc<Storage>, db_path: &Path) -> QueryIndexBundl
     if vector_dir.exists() {
         match memory_embeddings::CandleEmbedder::load_default() {
             Ok(embedder) => {
-                let hnsw_config = HnswConfig::new(384, &vector_dir);
+                let dim = embedder.info().dimension;
+                let hnsw_config = HnswConfig::new(dim, &vector_dir);
                 match HnswIndex::open_or_create(hnsw_config) {
                     Ok(hnsw) => {
                         let meta_path = vector_dir.join("metadata");
@@ -620,6 +641,10 @@ pub async fn start_daemon(
         .await
         .context("Failed to register compaction job")?;
 
+    // Attach live indexes before prune/dedup so they share one HNSW handle.
+    let mut indexes = open_query_indexes(&storage, &db_path);
+    indexes.api_summarizer = build_api_summarizer(&settings.summarizer);
+
     // Register indexing job if search index exists
     // The indexing pipeline processes outbox entries into search indexes
     if let Err(e) = register_indexing_job(&scheduler, storage.clone(), &db_path).await {
@@ -629,7 +654,7 @@ pub async fn start_daemon(
 
     // Register lifecycle prune jobs if indexes exist
     // These jobs prune old documents/vectors based on per-level retention policies
-    if let Err(e) = register_prune_jobs(&scheduler, &db_path).await {
+    if let Err(e) = register_prune_jobs(&scheduler, &db_path, indexes.vector.clone()).await {
         warn!("Prune jobs not fully registered: {}", e);
     }
 
@@ -640,60 +665,56 @@ pub async fn start_daemon(
 
     // Create NoveltyChecker for dedup gate (DEDUP-02, DEDUP-03)
     let novelty_checker = if settings.dedup.enabled {
-        match memory_embeddings::CandleEmbedder::load_default() {
-            Ok(embedder) => {
-                let adapter = Arc::new(CandleEmbedderAdapter::new(embedder))
+        let dim = indexes
+            .vector
+            .as_ref()
+            .map(|vh| vh.get_status().dimension.max(0) as usize)
+            .filter(|d| *d > 0)
+            .unwrap_or(memory_embeddings::EMBEDDING_DIM);
+        match indexes.vector.as_ref() {
+            Some(vh) => {
+                let adapter = Arc::new(CandleEmbedderAdapter::from_arc(vh.embedder()))
                     as Arc<dyn memory_service::novelty::EmbedderTrait>;
                 let buffer = Arc::new(RwLock::new(InFlightBuffer::new(
                     settings.dedup.buffer_capacity,
-                    384,
+                    dim,
                 )));
-
-                // Try to open HNSW index for cross-session dedup (DEDUP-02)
-                let vector_dir = PathBuf::from(&settings.db_path).join("vector");
-                let hnsw_opt = if vector_dir.exists() {
-                    let hnsw_config = memory_vector::HnswConfig::new(384, &vector_dir);
-                    match memory_vector::HnswIndex::open_or_create(hnsw_config) {
-                        Ok(hnsw) => {
-                            info!("HNSW index loaded for cross-session dedup");
-                            Some(Arc::new(std::sync::RwLock::new(hnsw)))
-                        }
-                        Err(e) => {
-                            warn!("Failed to open HNSW for dedup, using buffer-only: {e}");
-                            None
-                        }
-                    }
-                } else {
-                    info!("No vector index found, using buffer-only dedup");
-                    None
-                };
-
-                let has_hnsw = hnsw_opt.is_some();
-                let checker = if let Some(hnsw_index) = hnsw_opt {
-                    NoveltyChecker::with_composite_index(
-                        Some(adapter),
-                        buffer,
-                        hnsw_index,
-                        settings.dedup.clone(),
-                    )
-                } else {
-                    NoveltyChecker::with_in_flight_buffer(
-                        Some(adapter),
-                        buffer,
-                        settings.dedup.clone(),
-                    )
-                };
-
+                let checker = NoveltyChecker::with_composite_index(
+                    Some(adapter),
+                    buffer,
+                    vh.index_handle(),
+                    settings.dedup.clone(),
+                );
                 info!(
-                    "Dedup gate enabled (threshold: {}, buffer: {}, hnsw: {})",
-                    settings.dedup.threshold, settings.dedup.buffer_capacity, has_hnsw
+                    "Dedup gate enabled (threshold: {}, buffer: {}, hnsw: shared)",
+                    settings.dedup.threshold, settings.dedup.buffer_capacity
                 );
                 Some(Arc::new(checker))
             }
-            Err(e) => {
-                warn!("Failed to load CandleEmbedder for dedup, disabling: {e}");
-                None
-            }
+            None => match memory_embeddings::CandleEmbedder::load_default() {
+                Ok(embedder) => {
+                    let adapter = Arc::new(CandleEmbedderAdapter::new(embedder))
+                        as Arc<dyn memory_service::novelty::EmbedderTrait>;
+                    let buffer = Arc::new(RwLock::new(InFlightBuffer::new(
+                        settings.dedup.buffer_capacity,
+                        dim,
+                    )));
+                    let checker = NoveltyChecker::with_in_flight_buffer(
+                        Some(adapter),
+                        buffer,
+                        settings.dedup.clone(),
+                    );
+                    info!(
+                        "Dedup gate enabled (threshold: {}, buffer: {}, hnsw: false)",
+                        settings.dedup.threshold, settings.dedup.buffer_capacity
+                    );
+                    Some(Arc::new(checker))
+                }
+                Err(e) => {
+                    warn!("Failed to load CandleEmbedder for dedup, disabling: {e}");
+                    None
+                }
+            },
         }
     } else {
         tracing::debug!("Dedup gate disabled by config");
@@ -745,9 +766,7 @@ pub async fn start_daemon(
         settings.staleness.max_penalty
     );
 
-    // Attach live indexes so RouteQuery is not agentic-only.
-    let mut indexes = open_query_indexes(&storage, &db_path);
-    indexes.api_summarizer = build_api_summarizer(&settings.summarizer);
+    // Indexes already opened above so prune/dedup share the HNSW handle.
 
     // Start server with scheduler
     let result = run_server_with_scheduler(
@@ -1766,8 +1785,8 @@ fn handle_index_stats(
 
     if vector_path.exists() {
         // Try to get dimension from an existing index
-        // Default to 384 for all-MiniLM-L6-v2
-        let dimension = 384;
+        // Use the embedder's native dimension (all-MiniLM-L6-v2 = EMBEDDING_DIM).
+        let dimension = memory_embeddings::EMBEDDING_DIM;
         let hnsw_config = HnswConfig::new(dimension, vector_path);
 
         match HnswIndex::open_or_create(hnsw_config) {
@@ -2127,6 +2146,7 @@ async fn teleport_search(query: &str, doc_type: &str, limit: usize, addr: &str) 
         let type_str = match result.doc_type {
             1 => "TOC",
             2 => "Grip",
+            3 => "Event",
             _ => "?",
         };
 

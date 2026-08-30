@@ -38,7 +38,7 @@ jobs:
           echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2

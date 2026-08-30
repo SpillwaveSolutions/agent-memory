@@ -36,7 +36,7 @@ pub struct HnswConfig {
 impl Default for HnswConfig {
     fn default() -> Self {
         Self {
-            dimension: 384, // all-MiniLM-L6-v2
+            dimension: memory_embeddings::EMBEDDING_DIM,
             connectivity: 16,
             expansion_add: 200,
             expansion_search: 100,

@@ -21,7 +21,7 @@ pub mod candle;
 pub mod error;
 pub mod model;
 
-pub use crate::candle::CandleEmbedder;
+pub use crate::candle::{CandleEmbedder, EMBEDDING_DIM};
 pub use cache::{get_or_download_model, ModelCache, ModelPaths, DEFAULT_MODEL_REPO, MODEL_FILES};
 pub use error::EmbeddingError;
 pub use model::{Embedding, EmbeddingModel, ModelInfo};

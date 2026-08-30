@@ -63,7 +63,10 @@ pub async fn handle_teleport_search(
                 DocType::Event => TeleportDocType::Event as i32,
             },
             score: r.score,
-            keywords: r.keywords,
+            keywords: r
+                .keywords
+                .filter(|k| !k.is_empty())
+                .or_else(|| (!r.text.is_empty()).then_some(r.text)),
             timestamp_ms: r.timestamp_ms,
             agent: r.agent,
         })

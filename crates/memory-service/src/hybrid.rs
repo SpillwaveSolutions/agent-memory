@@ -149,7 +149,7 @@ impl HybridSearchHandler {
                 doc_id: r.doc_id,
                 doc_type: r.doc_type.as_str().to_string(),
                 score: r.score,
-                text_preview: r.keywords.unwrap_or_default(),
+                text_preview: r.text,
                 timestamp_ms: r.timestamp_ms.unwrap_or(0),
                 agent: r.agent,
             })

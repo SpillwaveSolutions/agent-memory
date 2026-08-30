@@ -1,0 +1,6 @@
+# Pin the toolchain so a new stable Clippy lint cannot redden main overnight.
+# Bump deliberately (and run clippy) rather than tracking floating `stable`.
+[toolchain]
+channel = "1.97"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

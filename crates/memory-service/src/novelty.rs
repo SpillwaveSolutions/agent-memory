@@ -119,6 +119,11 @@ impl CandleEmbedderAdapter {
             embedder: Arc::new(embedder),
         }
     }
+
+    /// Wrap an already-shared embedder (query path / prune job).
+    pub fn from_arc(embedder: Arc<CandleEmbedder>) -> Self {
+        Self { embedder }
+    }
 }
 
 #[async_trait::async_trait]
