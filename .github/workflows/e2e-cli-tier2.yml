@@ -1,12 +1,11 @@
-name: E2E CLI Tests (Tier 1)
+name: E2E CLI Tests (Tier 2)
 
-# Tier 1 runtimes are the supported surface (see README "Supported surface").
-# They gate every PR. Tier 2 runtimes run on a schedule in e2e-cli-tier2.yml.
+# Tier 2 runtimes are best-effort (see README "Supported surface"). They are not
+# a PR gate; this schedule exists so they cannot rot silently between releases.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  schedule:
+    # Mondays 06:00 UTC
+    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 env:
@@ -14,14 +13,14 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  e2e-cli:
-    name: E2E CLI Tier 1 - ${{ matrix.cli }} (${{ matrix.os }})
+  e2e-cli-tier2:
+    name: E2E CLI Tier 2 - ${{ matrix.cli }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     environment: e2e-cli
     strategy:
       fail-fast: false
       matrix:
-        cli: [claude-code, codex]
+        cli: [gemini, copilot]
         os: [ubuntu-24.04, macos-latest]
 
     steps:
@@ -93,7 +92,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: junit-${{ matrix.cli }}-${{ matrix.os }}
+          name: junit-tier2-${{ matrix.cli }}-${{ matrix.os }}
           path: tests/cli/.runs/report.xml
           if-no-files-found: ignore
           retention-days: 14
@@ -102,7 +101,7 @@ jobs:
         if: failure() || steps.bats_run.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: failure-artifacts-${{ matrix.cli }}-${{ matrix.os }}
+          name: failure-artifacts-tier2-${{ matrix.cli }}-${{ matrix.os }}
           path: |
             tests/cli/.runs/
             e2e-cli-results.txt
@@ -112,7 +111,7 @@ jobs:
       - name: Report summary
         if: always()
         run: |
-          echo "## E2E CLI Results (Tier 1): ${{ matrix.cli }} (${{ matrix.os }})" >> $GITHUB_STEP_SUMMARY
+          echo "## E2E CLI Results (Tier 2): ${{ matrix.cli }} (${{ matrix.os }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f e2e-cli-results.txt ]; then
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -129,8 +128,8 @@ jobs:
           exit 1
 
   matrix-report:
-    name: CLI Matrix Report (Tier 1)
-    needs: [e2e-cli]
+    name: CLI Matrix Report (Tier 2)
+    needs: [e2e-cli-tier2]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -141,19 +140,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: junit-reports
-          pattern: junit-*
+          pattern: junit-tier2-*
           merge-multiple: false
 
       - name: Generate matrix report
         run: |
           chmod +x scripts/cli-matrix-report.sh
-          scripts/cli-matrix-report.sh junit-reports >> $GITHUB_STEP_SUMMARY
+          scripts/cli-matrix-report.sh junit-reports "gemini copilot" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload matrix report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cli-matrix-report
+          name: cli-matrix-report-tier2
           path: junit-reports/
           if-no-files-found: ignore
           retention-days: 14

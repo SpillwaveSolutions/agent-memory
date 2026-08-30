@@ -4,7 +4,7 @@
 //! Returns `Option<&'static str>` -- `None` means the tool is excluded for that runtime.
 //!
 //! **MCP tools (`mcp__*`):** Callers must check `tool_name.starts_with("mcp__")` before
-//! calling `map_tool`. MCP tools pass through unchanged for Claude/OpenCode and are
+//! calling `map_tool`. MCP tools pass through unchanged for Claude and are
 //! excluded (None) for Gemini/Codex/Copilot. This keeps `map_tool` simple with a
 //! static return type.
 
@@ -45,19 +45,6 @@ pub fn map_tool(runtime: Runtime, claude_name: &str) -> Option<&'static str> {
         (Runtime::Skills, "TodoWrite") => Some("TodoWrite"),
         (Runtime::Skills, "AskUserQuestion") => Some("AskUserQuestion"),
         (Runtime::Skills, "Task") => Some("Task"),
-
-        // OpenCode: lowercase equivalents
-        (Runtime::OpenCode, "Read") => Some("read"),
-        (Runtime::OpenCode, "Write") => Some("write"),
-        (Runtime::OpenCode, "Edit") => Some("edit"),
-        (Runtime::OpenCode, "Bash") => Some("bash"),
-        (Runtime::OpenCode, "Grep") => Some("grep"),
-        (Runtime::OpenCode, "Glob") => Some("glob"),
-        (Runtime::OpenCode, "WebSearch") => Some("websearch"),
-        (Runtime::OpenCode, "WebFetch") => Some("webfetch"),
-        (Runtime::OpenCode, "TodoWrite") => Some("todowrite"),
-        (Runtime::OpenCode, "AskUserQuestion") => Some("question"),
-        (Runtime::OpenCode, "Task") => Some("task"),
 
         // Gemini: snake_case / Gemini-specific names; Task excluded
         (Runtime::Gemini, "Read") => Some("read_file"),
@@ -132,24 +119,6 @@ mod tests {
     // --- Individual mapping tests ---
 
     #[test]
-    fn opencode_read() {
-        assert_eq!(map_tool(Runtime::OpenCode, "Read"), Some("read"));
-    }
-
-    #[test]
-    fn opencode_write() {
-        assert_eq!(map_tool(Runtime::OpenCode, "Write"), Some("write"));
-    }
-
-    #[test]
-    fn opencode_ask_user_question() {
-        assert_eq!(
-            map_tool(Runtime::OpenCode, "AskUserQuestion"),
-            Some("question")
-        );
-    }
-
-    #[test]
     fn gemini_read() {
         assert_eq!(map_tool(Runtime::Gemini, "Read"), Some("read_file"));
     }
@@ -186,20 +155,10 @@ mod tests {
 
     #[test]
     fn unknown_tool_returns_none() {
-        assert_eq!(map_tool(Runtime::OpenCode, "UnknownTool"), None);
+        assert_eq!(map_tool(Runtime::Claude, "UnknownTool"), None);
     }
 
     // --- Exhaustive coverage tests ---
-
-    #[test]
-    fn all_11_tools_return_some_for_opencode() {
-        for tool in KNOWN_TOOLS {
-            assert!(
-                map_tool(Runtime::OpenCode, tool).is_some(),
-                "OpenCode should map tool '{tool}'"
-            );
-        }
-    }
 
     #[test]
     fn gemini_maps_10_returns_none_for_task() {
@@ -259,7 +218,6 @@ mod tests {
     fn unknown_tool_none_for_all_runtimes() {
         for runtime in [
             Runtime::Claude,
-            Runtime::OpenCode,
             Runtime::Gemini,
             Runtime::Codex,
             Runtime::Copilot,

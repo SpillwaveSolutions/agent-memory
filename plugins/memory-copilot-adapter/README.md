@@ -8,7 +8,7 @@ plugin files from the canonical source.
 Install plugins for this runtime using the installer:
 
 ```bash
-memory-installer --agent copilot --project
+memory-installer install --agent copilot --project
 ```
 
 See `crates/memory-installer/` for details.

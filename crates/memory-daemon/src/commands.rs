@@ -115,8 +115,9 @@ fn is_process_running(_pid: u32) -> bool {
 /// 2. Create an indexing pipeline with the BM25 updater
 /// 3. Register the pipeline with the scheduler
 ///
-/// If the search index doesn't exist, returns an error. Users should
-/// run `rebuild-indexes` first to initialize the search index.
+/// The search index directory is created by [`start_daemon`] before this runs,
+/// so a missing directory here means the path is not writable rather than a
+/// first-run store; that is an error, not a skip.
 async fn register_indexing_job(
     scheduler: &SchedulerService,
     storage: Arc<Storage>,
@@ -616,6 +617,21 @@ pub async fn start_daemon(
 
     let storage = Storage::open(&db_path).context("Failed to open storage")?;
     let storage = Arc::new(storage);
+
+    // A fresh store has no index directories, and both the outbox indexing job
+    // and the prune jobs only register when their directory already exists.
+    // Without this, a first-run daemon accepts events and then answers every
+    // query with an empty result set and no error -- see Phase 57 quickstart
+    // verification. Create the directories so indexing starts on the first
+    // outbox drain.
+    for sub in ["search", "vector"] {
+        let index_dir = db_path.join(sub);
+        if !index_dir.exists() {
+            fs::create_dir_all(&index_dir)
+                .with_context(|| format!("Failed to create index directory {index_dir:?}"))?;
+            info!("Created index directory {:?}", index_dir);
+        }
+    }
 
     // Create scheduler
     info!("Initializing scheduler...");
@@ -1354,14 +1370,18 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
                     events.last().map(|(k, _)| k.timestamp_ms).unwrap_or(0)
                 );
                 println!();
-                println!("To actually rebuild, run without --dry-run");
+                println!("Note: offline TOC rebuild is not implemented; running");
+                println!("without --dry-run reports this and exits non-zero.");
             } else {
-                // TODO: Full TOC rebuild would require integrating with memory-toc
-                // For now, just report what would be done
-                println!();
-                println!("TOC rebuild not yet fully implemented.");
-                println!("This would require re-running segmentation and summarization.");
-                println!("Events are intact and can be manually processed.");
+                // Offline rebuild would have to re-run segmentation and
+                // summarization outside the daemon. It is not implemented, so
+                // say so and fail rather than printing a TODO and exiting 0.
+                anyhow::bail!(
+                    "offline TOC rebuild is not implemented; TOC nodes are produced by the \
+                     daemon's scheduled rollup jobs (toc_rollup_day / _week / _month) -- run \
+                     `memory-daemon start --foreground` and check `memory-daemon scheduler status`. \
+                     Your events are intact in the event log."
+                );
             }
         }
 

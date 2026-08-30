@@ -17,7 +17,8 @@
 
 **Known Gaps:**
 
-- OC-01–06: OpenCode converter is a stub (deferred — OpenCode runtime format still evolving)
+- OC-01–06: OpenCode converter is a stub (deferred — OpenCode runtime format still evolving).
+  **Closed in v3.1 Phase 57 by removing the stub**; OpenCode is no longer a supported runtime.
 
 **Stats:**
 

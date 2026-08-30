@@ -62,7 +62,7 @@ Install the adapters for your agents:
 | Agent | Adapter Location | Install |
 |-------|-----------------|---------|
 | Claude Code | Built-in (hooks.yaml) | [Setup Guide](../plugins/memory-query-plugin/README.md) |
-| OpenCode | `plugins/memory-opencode-plugin/` | [Setup Guide](../plugins/memory-opencode-plugin/README.md) |
+| OpenCode | Removed in v3.1 -- the converter was a stub | [Supported surface](../README.md#supported-surface) |
 | Gemini CLI | `plugins/memory-gemini-adapter/` | [Setup Guide](../plugins/memory-gemini-adapter/README.md) |
 | Copilot CLI | `plugins/memory-copilot-adapter/` | [Setup Guide](../plugins/memory-copilot-adapter/README.md) |
 

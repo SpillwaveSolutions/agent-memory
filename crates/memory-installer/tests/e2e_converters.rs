@@ -510,54 +510,52 @@ fn skills_full_bundle() {
 }
 
 // ---------------------------------------------------------------------------
-// 6. OpenCode stub (MIG-01)
+// 6. No stub converters ship (Phase 57 supported-surface tiering)
 // ---------------------------------------------------------------------------
 
+/// The OpenCode converter used to be a registered `Runtime` whose methods all
+/// returned empty, so `memory-installer --agent opencode` reported success and
+/// wrote nothing. Phase 57 removed it rather than shipping empty methods.
+///
+/// This test guards the rule that replaced it: every runtime the installer
+/// offers on its command line actually converts something.
 #[test]
-fn opencode_stub() {
+fn every_offered_runtime_converts_something() {
+    use clap::ValueEnum;
+
     let bundle = canonical_bundle();
     let cfg = InstallConfig {
-        scope: InstallScope::Project(PathBuf::from("/tmp/opencode-test")),
+        scope: InstallScope::Project(PathBuf::from("/tmp/no-stub-test")),
         dry_run: false,
         source_root: PathBuf::from("/src"),
     };
 
-    let converter = select_converter(Runtime::OpenCode);
-
-    // Converter name
-    assert_eq!(converter.name(), "opencode");
-
-    // All convert methods return empty
-    for cmd in &bundle.commands {
-        assert!(
-            converter.convert_command(cmd, &cfg).is_empty(),
-            "OpenCode convert_command should return empty"
-        );
-    }
-    for agent in &bundle.agents {
-        assert!(
-            converter.convert_agent(agent, &cfg).is_empty(),
-            "OpenCode convert_agent should return empty"
-        );
-    }
-    for skill in &bundle.skills {
-        assert!(
-            converter.convert_skill(skill, &cfg).is_empty(),
-            "OpenCode convert_skill should return empty"
-        );
-    }
-    for hook in &bundle.hooks {
-        assert!(
-            converter.convert_hook(hook, &cfg).is_none(),
-            "OpenCode convert_hook should return None"
-        );
-    }
-
-    // generate_guidance returns empty
+    let variants = Runtime::value_variants();
     assert!(
-        converter.generate_guidance(&bundle, &cfg).is_empty(),
-        "OpenCode generate_guidance should return empty"
+        !variants.is_empty(),
+        "installer must offer at least one runtime"
     );
+
+    for runtime in variants {
+        let converter = select_converter(*runtime);
+
+        assert_ne!(
+            converter.name(),
+            "opencode",
+            "the OpenCode stub was removed in Phase 57; re-adding it needs a real converter"
+        );
+
+        let produced: usize = bundle
+            .commands
+            .iter()
+            .map(|cmd| converter.convert_command(cmd, &cfg).len())
+            .sum();
+        assert!(
+            produced > 0,
+            "{} converter produced no files for the canonical bundle -- stub converters must not be offered",
+            converter.name()
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
