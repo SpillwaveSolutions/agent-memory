@@ -1,5 +1,7 @@
 # Pin the toolchain so a new stable Clippy lint cannot redden main overnight.
 # Bump deliberately (and run clippy) rather than tracking floating `stable`.
+# CI must pass the same version as `toolchain:` to dtolnay/rust-toolchain@master
+# — that action does not read this file.
 [toolchain]
 channel = "1.97"
 components = ["clippy", "rustfmt"]
