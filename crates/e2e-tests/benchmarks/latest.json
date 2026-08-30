@@ -1,90 +1,200 @@
 {
+  "schema_version": 2,
   "tier": "medium",
   "mode": "warm",
-  "iterations": 3,
-  "generated_at": "2026-02-12T22:54:26.421854+00:00",
+  "iterations": 30,
+  "generated_at": "2026-08-30T17:30:20.020121488+00:00",
+  "corpus": {
+    "tier": "medium",
+    "event_count": 240,
+    "kind": "synthetic"
+  },
+  "hardware": {
+    "os": "linux",
+    "arch": "x86_64"
+  },
+  "caveats": [
+    "Query steps (toc, bm25, vector, topics, route_query) exclude index build, rollup, and model load.",
+    "toc_build is ingest-time MockSummarizer rollup + grip extract + parent-node writes — not TOC navigation.",
+    "vector_index includes Candle embedding of TOC bullets; vector_model_load is a one-shot process cost.",
+    "bm25_index is Tantivy add+commit; bm25 is search only.",
+    "p90 is omitted when samples < 10; p99 is omitted when samples < 30.",
+    "Warm mode: one setup, one discarded warmup query, then N query samples. Cold mode: new store per iteration.",
+    "The 2026-02-12 latest.json (single.toc p50 ≈ 64.6s, samples=3) measured toc_build, not navigation."
+  ],
   "steps": {
     "multi.bm25": {
-      "p50_ms": 247.449792,
-      "p90_ms": 272.2425584,
-      "p99_ms": 277.82093084,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 0.483851,
+      "p50_ms": 0.54589,
+      "max_ms": 0.77776,
+      "p90_ms": 0.7100496000000001,
+      "p99_ms": 0.7694660000000001
+    },
+    "multi.bm25_index": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 36.470154,
+      "p50_ms": 36.470154,
+      "max_ms": 36.470154
     },
     "multi.ingest": {
-      "p50_ms": 5.928333,
-      "p90_ms": 6.059933,
-      "p99_ms": 6.089543,
-      "samples": 3,
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 7.424409,
+      "p50_ms": 7.424409,
+      "max_ms": 7.424409,
       "throughput_eps": {
-        "p50_eps": 40483.555832643004,
-        "p90_eps": 42793.15075162424,
-        "p99_eps": 43312.809608395015
+        "p50_eps": 32325.805326727015
       }
     },
     "multi.route_query": {
-      "p50_ms": 2.649959,
-      "p90_ms": 3.5665246,
-      "p99_ms": 3.7727518600000005,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 4049.173186,
+      "p50_ms": 4132.33117,
+      "max_ms": 4325.8467869999995,
+      "p90_ms": 4280.6318161,
+      "p99_ms": 4315.107096649999
     },
     "multi.toc": {
-      "p50_ms": 64732.548124999994,
-      "p90_ms": 67491.81369139999,
-      "p99_ms": 68112.64844384,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 0.124988,
+      "p50_ms": 0.133424,
+      "max_ms": 0.39839600000000003,
+      "p90_ms": 0.25150680000000014,
+      "p99_ms": 0.38815001000000005
+    },
+    "multi.toc_build": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 76080.044033,
+      "p50_ms": 76080.044033,
+      "max_ms": 76080.044033
     },
     "multi.topics": {
-      "p50_ms": 1.911084,
-      "p90_ms": 2.5866504,
-      "p99_ms": 2.7386528400000003,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 0.952573,
+      "p50_ms": 0.9773555,
+      "max_ms": 1.3731030000000002,
+      "p90_ms": 1.0532016,
+      "p99_ms": 1.3067916000000004
+    },
+    "multi.topics_index": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 0.659691,
+      "p50_ms": 0.659691,
+      "max_ms": 0.659691
     },
     "multi.vector": {
-      "p50_ms": 7371.707375,
-      "p90_ms": 7406.2679078,
-      "p99_ms": 7414.044027680001,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 4039.865536,
+      "p50_ms": 4125.625587500001,
+      "max_ms": 4363.622512,
+      "p90_ms": 4220.3446183999995,
+      "p99_ms": 4325.90451141
+    },
+    "multi.vector_index": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 12404.261658,
+      "p50_ms": 12404.261658,
+      "max_ms": 12404.261658
     },
     "single.bm25": {
-      "p50_ms": 244.622458,
-      "p90_ms": 248.543858,
-      "p99_ms": 249.42617299999998,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 0.489686,
+      "p50_ms": 0.5718055,
+      "max_ms": 0.784316,
+      "p90_ms": 0.6986046,
+      "p99_ms": 0.78242172
+    },
+    "single.bm25_index": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 35.651951000000004,
+      "p50_ms": 35.651951000000004,
+      "max_ms": 35.651951000000004
     },
     "single.ingest": {
-      "p50_ms": 5.789834,
-      "p90_ms": 5.8585004,
-      "p99_ms": 5.87395034,
-      "samples": 3,
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 7.487451,
+      "p50_ms": 7.487451,
+      "max_ms": 7.487451,
       "throughput_eps": {
-        "p50_eps": 41451.96563493876,
-        "p90_eps": 41738.658416329185,
-        "p99_eps": 41803.16429214203
+        "p50_eps": 32053.632137292116
       }
     },
     "single.route_query": {
-      "p50_ms": 2.3347089999999997,
-      "p90_ms": 3.0054418000000003,
-      "p99_ms": 3.15635668,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 3997.107029,
+      "p50_ms": 4145.490836499999,
+      "max_ms": 4545.48542,
+      "p90_ms": 4255.6684171,
+      "p99_ms": 4477.30165182
     },
     "single.toc": {
-      "p50_ms": 64576.70849999999,
-      "p90_ms": 65290.7832,
-      "p99_ms": 65451.450007499996,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 0.12359099999999999,
+      "p50_ms": 0.131057,
+      "max_ms": 0.19964700000000002,
+      "p90_ms": 0.1645027,
+      "p99_ms": 0.19096237000000005
+    },
+    "single.toc_build": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 76713.96927,
+      "p50_ms": 76713.96927,
+      "max_ms": 76713.96927
     },
     "single.topics": {
-      "p50_ms": 1.894125,
-      "p90_ms": 2.5051586000000006,
-      "p99_ms": 2.64264116,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 0.950542,
+      "p50_ms": 0.9737655000000001,
+      "max_ms": 1.260793,
+      "p90_ms": 1.0380472,
+      "p99_ms": 1.2210076100000002
+    },
+    "single.topics_index": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 0.606363,
+      "p50_ms": 0.606363,
+      "max_ms": 0.606363
     },
     "single.vector": {
-      "p50_ms": 7171.025874999999,
-      "p90_ms": 7752.5308749999995,
-      "p99_ms": 7883.3695,
-      "samples": 3
+      "kind": "query",
+      "samples": 30,
+      "min_ms": 4019.133486,
+      "p50_ms": 4152.4782495,
+      "max_ms": 4357.285152,
+      "p90_ms": 4256.1035859,
+      "p99_ms": 4333.7802982
+    },
+    "single.vector_index": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 12589.213063000001,
+      "p50_ms": 12589.213063000001,
+      "max_ms": 12589.213063000001
+    },
+    "vector_model_load": {
+      "kind": "setup",
+      "samples": 1,
+      "min_ms": 155.725372,
+      "p50_ms": 155.725372,
+      "max_ms": 155.725372
     }
   },
   "comparison": {

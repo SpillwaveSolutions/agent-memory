@@ -12,7 +12,7 @@
 - ✅ **v2.6 Cognitive Retrieval** — Phases 39-44 (shipped 2026-03-16)
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
 - **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 + Phase 51.5 (in progress; Phase 51.5 merged 2026-04-28)
-- **v3.1 Make It True** — Phases 54-58 (in progress; Phase 54 Integration Truth executing)
+- **v3.1 Make It True** — Phases 54-58 (in progress; Phase 54 merged 2026-08-30, Phase 55 executing)
 
 ## Phases
 
