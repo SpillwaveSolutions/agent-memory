@@ -91,6 +91,18 @@ pub struct AddArgs {
     /// Agent identifier.
     #[arg(long)]
     pub agent: Option<String>,
+
+    /// RFC3339 timestamp for the event (default: now). Required for temporal ingest.
+    #[arg(long)]
+    pub timestamp: Option<String>,
+
+    /// Session identifier (default: generated). Same id groups a conversation session.
+    #[arg(long)]
+    pub session_id: Option<String>,
+
+    /// Role: user, assistant, system, tool (default: user).
+    #[arg(long)]
+    pub role: Option<String>,
 }
 
 /// Arguments for the `timeline` subcommand.

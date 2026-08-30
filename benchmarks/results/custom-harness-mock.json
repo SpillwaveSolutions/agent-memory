@@ -1,0 +1,24 @@
+{
+  "backend": "mock",
+  "accuracy": 0.88,
+  "recall_at_k": 0.86,
+  "k": 5,
+  "token_usage_avg": 146,
+  "latency_p50_ms": 0,
+  "latency_p95_ms": 0,
+  "compression_ratio": 0.7112538219110017,
+  "test_count": 25,
+  "pass_count": 22,
+  "failed_ids": [
+    "compress-001",
+    "compress-003",
+    "multi-004"
+  ],
+  "caveats": [
+    "accuracy is expected_contains over this fixture suite, not LOCOMO",
+    "recall@k uses labeled relevant items in top-k, not accuracy under another name",
+    "compression_ratio compares retrieved tokens to setup file contents (not path strings)",
+    "each test ran against a fresh store (mock isolation; cli shares the daemon unless you restart it)",
+    "backend=mock uses in-process token-overlap retrieval; not a production quality number"
+  ]
+}

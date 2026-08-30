@@ -1,0 +1,6 @@
+{"role":"user","content":"Should we fly or drive to Tucson next month?"}
+{"role":"assistant","content":"Drive. Two days each way, stop in Las Cruces. Flights into TUS are $420 this month."}
+{"role":"user","content":"Where do we stay?"}
+{"role":"assistant","content":"The usual casita near Campbell. Pack hiking shoes for Sabino Canyon."}
+{"role":"user","content":"Remind me this is a family trip, not a work decision."}
+{"role":"assistant","content":"Family trip to Tucson, drive, casita, Sabino Canyon. No bearing on the API stack."}

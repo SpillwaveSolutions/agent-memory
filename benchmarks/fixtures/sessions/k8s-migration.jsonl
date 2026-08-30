@@ -1,0 +1,6 @@
+{"role":"user","content":"Should we migrate the API from ECS to Kubernetes this quarter?"}
+{"role":"assistant","content":"Yes. The plan is a blue-green cutover to EKS in the week of 12 February 2026. We'll keep ECS as fallback for two weeks."}
+{"role":"user","content":"What about cluster autoscaling?"}
+{"role":"assistant","content":"Use Karpenter on EKS with a 30-second node provision target. Cap the node pool at 40 m6i.xlarge instances."}
+{"role":"user","content":"Decision: we are migrating to Kubernetes / EKS with Karpenter, not staying on ECS."}
+{"role":"assistant","content":"Logged. Migration owner is platform-team; rollback is `kubectl` scale to zero plus ECS service restore."}

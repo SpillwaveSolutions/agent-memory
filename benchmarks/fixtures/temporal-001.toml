@@ -1,15 +1,109 @@
 [[test]]
 id = "temporal-001"
+category = "temporal"
 description = "Recall an architectural decision made in a prior session"
-setup = ["sessions/auth-decision.jsonl"]
+setup = ["sessions/auth-decision.jsonl", "sessions/distractor-cooking.jsonl"]
 query = "what authentication approach did we decide on?"
-expected_contains = ["JWT", "token"]
+expected_contains = ["JWT"]
+relevant = ["JWT", "refresh token rotation"]
+k = 5
 max_tokens = 500
 
 [[test]]
 id = "temporal-002"
+category = "temporal"
 description = "Recall a specific bug fix from two sessions ago"
-setup = ["sessions/bug-fix.jsonl", "sessions/follow-up.jsonl"]
+setup = ["sessions/bug-fix.jsonl", "sessions/follow-up.jsonl", "sessions/distractor-sports.jsonl"]
 query = "how did we fix the null pointer exception?"
-expected_contains = ["null check", "Option"]
+expected_contains = ["Option"]
+relevant = ["Option<String>", "DEFAULT_AVATAR_URL"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "temporal-003"
+category = "temporal"
+description = "Recall the Kubernetes migration date"
+setup = ["sessions/k8s-migration.jsonl", "sessions/distractor-travel.jsonl"]
+query = "when are we cutting over to Kubernetes?"
+expected_contains = ["EKS"]
+relevant = ["EKS", "Karpenter", "12 February 2026"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "temporal-004"
+category = "temporal"
+description = "Recall the tracing library decision"
+setup = ["sessions/tracing.jsonl", "sessions/distractor-cooking.jsonl"]
+query = "which tracing library did we standardize on?"
+expected_contains = ["OpenTelemetry"]
+relevant = ["OpenTelemetry", "Grafana Tempo", "5%"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "temporal-005"
+category = "temporal"
+description = "Recall the feature-flag vendor choice"
+setup = ["sessions/feature-flags.jsonl", "sessions/distractor-sports.jsonl"]
+query = "did we buy LaunchDarkly or something else for flags?"
+expected_contains = ["Unleash"]
+relevant = ["Unleash", "LaunchDarkly"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "temporal-006"
+category = "temporal"
+description = "Recall who is first on-call"
+setup = ["sessions/oncall.jsonl", "sessions/distractor-travel.jsonl"]
+query = "who is primary on-call the week of 3 March?"
+expected_contains = ["Avery"]
+relevant = ["Avery", "PagerDuty", "Friday 16:00"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "temporal-007"
+category = "temporal"
+description = "Recall the job-queue storage decision"
+setup = ["sessions/job-queue.jsonl", "sessions/distractor-cooking.jsonl"]
+query = "are we using Redis lists for the job queue?"
+expected_contains = ["SKIP LOCKED"]
+relevant = ["Postgres SKIP LOCKED", "Redis lists"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "temporal-008"
+category = "temporal"
+description = "Recall public API rate limits"
+setup = ["sessions/rate-limit.jsonl", "sessions/distractor-sports.jsonl"]
+query = "what is the default API rate limit per key?"
+expected_contains = ["120"]
+relevant = ["120 requests per minute", "20/min"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "temporal-009"
+category = "temporal"
+description = "Recall Redis caching TTL from the original decision"
+setup = ["sessions/session-a.jsonl", "sessions/distractor-travel.jsonl"]
+query = "what TTL did we pick for Redis cache?"
+expected_contains = ["15-minute"]
+relevant = ["15-minute default TTL", "cache-aside"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "temporal-010"
+category = "temporal"
+description = "Recall the avatar null-pointer root cause"
+setup = ["sessions/bug-fix.jsonl", "sessions/distractor-cooking.jsonl"]
+query = "why did the user profile handler crash?"
+expected_contains = ["avatar"]
+relevant = ["get_avatar_url", "Option<String>"]
+k = 5
 max_tokens = 400

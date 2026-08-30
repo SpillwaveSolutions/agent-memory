@@ -1,0 +1,71 @@
+[
+  {
+    "sample_id": "smoke-001",
+    "qa": [
+      {
+        "question": "When did Caroline go to the LGBTQ support group?",
+        "answer": "7 May 2023",
+        "evidence": ["D1:3"],
+        "category": 2
+      },
+      {
+        "question": "What caching layer did they choose?",
+        "answer": "Redis",
+        "evidence": ["D1:5"],
+        "category": 4
+      },
+      {
+        "question": "What is Melanie's dog named?",
+        "answer": "Biscuit",
+        "evidence": [],
+        "category": 5
+      },
+      {
+        "question": "Which two systems did they combine for auth and cache?",
+        "answer": "JWT and Redis",
+        "evidence": ["D1:4", "D1:5"],
+        "category": 1
+      }
+    ],
+    "conversation": {
+      "speaker_a": "Caroline",
+      "speaker_b": "Melanie",
+      "session_1_date_time": "1:56 pm on 8 May, 2023",
+      "session_1": [
+        {
+          "speaker": "Caroline",
+          "dia_id": "D1:1",
+          "text": "Hey Mel! Good to see you! How have you been?"
+        },
+        {
+          "speaker": "Melanie",
+          "dia_id": "D1:2",
+          "text": "Hey Caroline! Swamped with the kids and work. What's new with you?"
+        },
+        {
+          "speaker": "Caroline",
+          "dia_id": "D1:3",
+          "text": "I went to a LGBTQ support group on 7 May 2023 and it was so powerful."
+        },
+        {
+          "speaker": "Melanie",
+          "dia_id": "D1:4",
+          "text": "That's amazing. At work we finally picked JWT with refresh token rotation for the API."
+        },
+        {
+          "speaker": "Caroline",
+          "dia_id": "D1:5",
+          "text": "Nice. We chose Redis for the caching layer with a 15-minute TTL."
+        }
+      ],
+      "session_2_date_time": "4:04 pm on 20 January, 2023",
+      "session_2": [
+        {
+          "speaker": "Melanie",
+          "dia_id": "D2:1",
+          "text": "I painted a sunrise back in 2022. Nothing to do with dogs."
+        }
+      ]
+    }
+  }
+]

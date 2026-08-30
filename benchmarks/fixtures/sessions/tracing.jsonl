@@ -1,0 +1,6 @@
+{"role":"user","content":"Which tracing library should we standardize on?"}
+{"role":"assistant","content":"OpenTelemetry SDK with the OTLP exporter to Grafana Tempo. Do not add a second vendor SDK."}
+{"role":"user","content":"Sampling?"}
+{"role":"assistant","content":"Parent-based sampler, 5% head sample in prod, 100% on the checkout service."}
+{"role":"user","content":"Decision: OpenTelemetry plus Tempo, 5% head sample."}
+{"role":"assistant","content":"I'll write the tracing RFC tonight."}

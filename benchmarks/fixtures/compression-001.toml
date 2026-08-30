@@ -1,7 +1,54 @@
 [[test]]
 id = "compress-001"
-description = "Verify context is compressed vs raw session dump"
+category = "compress"
+description = "Verify context is compressed vs raw long-session dump"
 setup = ["sessions/long-session.jsonl"]
 query = "summarize the key decisions from this project"
-expected_contains = ["decision", "architecture"]
+expected_contains = ["RabbitMQ"]
+relevant = ["RabbitMQ", "Handlebars", "digest mode"]
+k = 5
 max_tokens = 800
+
+[[test]]
+id = "compress-002"
+category = "compress"
+description = "Long session plus distractors still compresses vs full file contents"
+setup = ["sessions/long-session.jsonl", "sessions/distractor-cooking.jsonl", "sessions/distractor-travel.jsonl"]
+query = "how do we handle notification delivery failures?"
+expected_contains = ["Dead letter"]
+relevant = ["Dead letter queue", "circuit breakers"]
+k = 5
+max_tokens = 800
+
+[[test]]
+id = "compress-003"
+category = "compress"
+description = "Auth + cache + k8s corpus is larger than retrieved snippets"
+setup = ["sessions/auth-decision.jsonl", "sessions/session-a.jsonl", "sessions/k8s-migration.jsonl", "sessions/long-session.jsonl"]
+query = "what did we decide about JWT expiry?"
+expected_contains = ["15 minutes"]
+relevant = ["15 minutes", "7 days"]
+k = 5
+max_tokens = 600
+
+[[test]]
+id = "compress-004"
+category = "compress"
+description = "Incident writeup retrieved from a mixed ops corpus"
+setup = ["sessions/incident.jsonl", "sessions/k8s-migration.jsonl", "sessions/oncall.jsonl", "sessions/long-session.jsonl"]
+query = "what PDB did we add after the checkout outage?"
+expected_contains = ["minAvailable"]
+relevant = ["minAvailable=2", "WhenEmpty"]
+k = 5
+max_tokens = 600
+
+[[test]]
+id = "compress-005"
+category = "compress"
+description = "Feature-flag decision retrieved from a fat mixed corpus"
+setup = ["sessions/feature-flags.jsonl", "sessions/job-queue.jsonl", "sessions/tracing.jsonl", "sessions/long-session.jsonl", "sessions/distractor-sports.jsonl"]
+query = "why did we reject LaunchDarkly?"
+expected_contains = ["cost"]
+relevant = ["8x the cost", "Unleash"]
+k = 5
+max_tokens = 600

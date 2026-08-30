@@ -148,3 +148,98 @@ debug run is ~4 s because each search embeds the query string with Candle on
 CPU; that is a real query-path cost in this profile, not embedder init. Do
 not quote it as production HNSW latency — re-run `--release` before
 publishing a product number.
+
+
+---
+
+# Retrieval-quality benchmarks (Phase 56)
+
+`perf_bench` (above) measures **latency**. `memory-bench` measures **retrieval
+quality**. They are different tools. This section is the methodology for the
+quality harness. No number here is a published LOCOMO leaderboard score
+unless its `metric` field is exactly `locomo_llm_judge` and a pinned model
+id is recorded.
+
+## Custom TOML-fixture harness
+
+```bash
+cargo run -p memory-bench -- all --backend mock --output benchmarks/results/custom-harness-mock.json
+```
+
+`--backend mock` (default) uses an isolated in-process token-overlap store
+**per test**. That is a pipeline number, not production retrieval quality.
+`--backend cli` shells out to a running `memory` daemon; `memory add` /
+`memory search` failures abort the run (a dead daemon is not accuracy 0.0).
+
+Metrics:
+
+| Metric | What it is |
+|--------|------------|
+| `accuracy` | fraction of tests whose retrieved text contains at least one `expected_contains` string |
+| `recall_at_k` | fraction of **labeled `relevant` items** found in the top-k ranked texts. Not equal to accuracy. Omitted when no test supplies `relevant`. |
+| `compression_ratio` | `1 - context_tokens / raw_tokens` where `raw_tokens` is `ceil(chars/4)` of setup **file contents** (not path-string lengths) |
+| `latency_p50_ms` / `p95` | search latency |
+
+`--compare` prints competitor rows with a **Metric** column. MemMachine's
+0.91 is `LOCOMO LLM-judge (their paper)`. Mem0's +26% is `relative delta vs
+OpenAI memory`. Those rows are not commensurable with fixture `accuracy`.
+
+## LOCOMO adapter v2
+
+Real schema (`data/locomo10.json` from [snap-research/locomo](https://github.com/snap-research/locomo)):
+
+- top-level JSON array
+- each sample: `sample_id`, `conversation` (`speaker_a`/`speaker_b`, `session_N` + `session_N_date_time`), `qa[]` with `question`, `answer` (string **or** number), integer `category`, `evidence[]`
+
+Category map (from `task_eval/evaluation.py` + inspection of `category: 2` "When did…" items): `1=multi_hop`, `2=temporal`, `3=open_domain`, `4=single_hop`, `5=adversarial`.
+
+Download (prints `LICENSE.txt`, CC BY-NC 4.0, before the data file):
+
+```bash
+./benchmarks/scripts/download-locomo.sh locomo-data
+```
+
+`locomo-data/` is gitignored. Do not commit the dataset.
+
+One **isolated store per `sample_id`**. Sessions are ingested with their
+parsed timestamps (`1:56 pm on 8 May, 2023`) and speakers.
+
+### Scorers
+
+| `--scorer` | `metric` in results.json | When to use |
+|------------|--------------------------|-------------|
+| `mock` (default) | `context_hit_rate` | CI smoke. Gold-answer substring in retrieved context. **Not a LOCOMO score.** `--compare` is refused. |
+| `llm-judge` | `locomo_llm_judge` | Retrieve → generate answer → judge at temperature 0. Requires `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`. Model id is recorded. |
+
+```bash
+# CI / local smoke (committed fixture, 1 conversation, mock judge)
+cargo run -p memory-bench -- smoke --output benchmarks/results/locomo-smoke.json
+
+# Full dataset, still not a LOCOMO score
+cargo run -p memory-bench -- locomo --dataset locomo-data --scorer mock
+
+# The only path that may be labeled locomo_llm_judge
+cargo run -p memory-bench -- locomo --dataset locomo-data --scorer llm-judge --output benchmarks/results/locomo-$(date -u +%F).json
+```
+
+`memory add --timestamp RFC3339 --session-id ID --role user|assistant` exists
+so a live-daemon LOCOMO run can preserve session time.
+
+## Decision gate (2026-08-30)
+
+**HOLD comparison marketing.** This phase commits:
+
+1. `benchmarks/results/locomo-smoke.json` — 1-conversation fixture, `metric=context_hit_rate`, mock retrieval. Pipeline evidence, not a leaderboard number.
+2. `benchmarks/results/custom-harness-mock.json` — ≥25 fixtures, `backend=mock`. Pipeline evidence.
+
+No `locomo_llm_judge` artifact is committed because no API key was used for a
+full `locomo10.json` run. Until that artifact exists, README/docs must not
+claim a LOCOMO score, and `--compare` must not imply Agent-Memory "beats"
+Mem0/MemMachine.
+
+## Smoke fixture
+
+`benchmarks/fixtures/locomo-smoke.json` is a 1-conversation file in the real
+schema (including a numeric `answer` in the v2 tests). It is not a subset of
+the official dataset; it exists so CI can execute parse → ingest → retrieve →
+score without downloading CC-BY-NC data.

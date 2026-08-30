@@ -1,0 +1,6 @@
+{"role":"user","content":"How should we rotate on-call starting next month?"}
+{"role":"assistant","content":"One week primary, one week secondary, handoff Friday 16:00 CT. PagerDuty schedule name is `api-primary`."}
+{"role":"user","content":"Who is first up?"}
+{"role":"assistant","content":"Avery is primary the week of 3 March 2026. Jordan is secondary."}
+{"role":"user","content":"Decision: weekly PagerDuty rotation, Avery first, Friday 16:00 CT handoff."}
+{"role":"assistant","content":"Calendar invite sent."}
