@@ -107,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "Successfully ingested {} events for session {}",
         conversation.len(),
-        &session_id
+        session_id
     );
     println!();
     println!("You can now query the events using:");

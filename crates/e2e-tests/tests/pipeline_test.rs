@@ -107,6 +107,8 @@ async fn test_full_pipeline_ingest_toc_grip_route_query() {
             limit: 10,
             agent_filter: None,
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();
@@ -123,7 +125,11 @@ async fn test_full_pipeline_ingest_toc_grip_route_query() {
     // Verify explanation is present with tier and intent
     let explanation = resp.explanation.expect("Explanation should be present");
     assert!(explanation.tier > 0, "Explanation should have a tier");
-    // Intent field is an enum (0 is unspecified, any value is valid)
+    assert_eq!(
+        explanation.fusion_stage, "rank_fusion",
+        "RouteQuery must run the orchestrator fusion stage"
+    );
+    assert!(explanation.why_winner.contains("rank_fusion"));
 
     // 13. Verify structural content: doc_ids exist, text_preview is non-empty
     for result in &resp.results {

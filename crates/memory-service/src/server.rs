@@ -16,7 +16,7 @@ use memory_scheduler::SchedulerService;
 use memory_storage::Storage;
 use memory_types::config::StalenessConfig;
 
-use crate::ingest::MemoryServiceImpl;
+use crate::ingest::{MemoryServiceImpl, QueryIndexBundle};
 use crate::novelty::NoveltyChecker;
 use crate::pb::{memory_service_server::MemoryServiceServer, FILE_DESCRIPTOR_SET};
 
@@ -120,6 +120,7 @@ pub async fn run_server_with_scheduler<F>(
     shutdown_signal: F,
     novelty_checker: Option<Arc<NoveltyChecker>>,
     staleness_config: StalenessConfig,
+    indexes: QueryIndexBundle,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     F: std::future::Future<Output = ()> + Send + 'static,
@@ -149,10 +150,11 @@ where
 
     // Main service implementation with scheduler
     let mut memory_service =
-        MemoryServiceImpl::with_scheduler(storage, scheduler.clone(), staleness_config);
+        MemoryServiceImpl::with_scheduler(storage, scheduler.clone(), staleness_config.clone());
     if let Some(checker) = novelty_checker {
         memory_service.set_novelty_checker(checker);
     }
+    memory_service.attach_indexes(indexes, staleness_config);
 
     info!("gRPC server ready on {}", addr);
 

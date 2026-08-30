@@ -184,16 +184,21 @@ impl<E: EmbeddingModel> VectorIndexUpdater<E> {
             OutboxAction::IndexEvent => {
                 debug!(event_id = %entry.event_id, "Processing index event for vector");
 
-                // Try to find a grip for this event
                 if let Some(grip) = self.find_grip_for_event(&entry.event_id)? {
                     return self.index_grip(&grip);
                 }
 
-                debug!(event_id = %entry.event_id, "No grip found for event, skipping");
+                tracing::warn!(
+                    event_id = %entry.event_id,
+                    "Vector IndexEvent produced no documents (no grip yet); skipping"
+                );
                 Ok(false)
             }
             OutboxAction::UpdateToc => {
-                debug!(event_id = %entry.event_id, "Skipping TOC update action");
+                tracing::warn!(
+                    event_id = %entry.event_id,
+                    "Vector UpdateToc is a no-op (vectors come from TOC/grip rebuild); skipping"
+                );
                 Ok(false)
             }
         }

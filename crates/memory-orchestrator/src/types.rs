@@ -25,8 +25,8 @@ pub struct OrchestratorConfig {
     pub rerank_mode: RerankMode,
     /// Whether to expand the query into multiple variants before search.
     pub expand_query: bool,
-    /// Reciprocal Rank Fusion constant (higher = more weight to lower-ranked docs).
-    pub rrf_k: f64,
+    /// Rank-fusion damping constant (higher = more weight to lower-ranked docs).
+    pub fusion_k: f64,
 }
 
 impl Default for OrchestratorConfig {
@@ -35,7 +35,7 @@ impl Default for OrchestratorConfig {
             top_k: 10,
             rerank_mode: RerankMode::Heuristic,
             expand_query: false,
-            rrf_k: 60.0,
+            fusion_k: 60.0,
         }
     }
 }
@@ -87,9 +87,9 @@ mod tests {
     }
 
     #[test]
-    fn test_orchestrator_config_rrf_k() {
+    fn test_orchestrator_config_fusion_k() {
         let config = OrchestratorConfig::default();
-        assert!((config.rrf_k - 60.0).abs() < f64::EPSILON);
+        assert!((config.fusion_k - 60.0).abs() < f64::EPSILON);
     }
 
     #[test]

@@ -14,6 +14,7 @@ memory-embeddings = { workspace = true }
 memory-vector = { workspace = true }
 memory-topics = { workspace = true }
 memory-retrieval = { workspace = true }
+memory-orchestrator = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 tonic-health = { workspace = true }

@@ -29,9 +29,15 @@ pub struct Cli {
 pub enum Commands {
     /// Start the memory daemon
     Start {
-        /// Run in foreground (don't daemonize)
+        /// Run in the foreground. Accepted for compatibility; this is the only
+        /// supported mode (background daemonization is not implemented).
         #[arg(short, long)]
         foreground: bool,
+
+        /// Request background daemonization. Not implemented — exits non-zero
+        /// with guidance to use a process manager (systemd, launchd).
+        #[arg(long)]
+        background: bool,
 
         /// Override gRPC port
         #[arg(short, long)]
@@ -631,7 +637,32 @@ mod tests {
     fn test_cli_start_foreground() {
         let cli = Cli::parse_from(["memory-daemon", "start", "--foreground"]);
         match cli.command {
-            Commands::Start { foreground, .. } => assert!(foreground),
+            Commands::Start {
+                foreground,
+                background,
+                ..
+            } => {
+                assert!(foreground);
+                assert!(!background);
+            }
+            _ => panic!("Expected Start command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_start_default_is_not_background() {
+        let cli = Cli::parse_from(["memory-daemon", "start"]);
+        match cli.command {
+            Commands::Start { background, .. } => assert!(!background),
+            _ => panic!("Expected Start command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_start_background_flag() {
+        let cli = Cli::parse_from(["memory-daemon", "start", "--background"]);
+        match cli.command {
+            Commands::Start { background, .. } => assert!(background),
             _ => panic!("Expected Start command"),
         }
     }

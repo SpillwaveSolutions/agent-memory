@@ -8,7 +8,7 @@ description = "Background job scheduler for agent-memory daemon"
 
 [features]
 default = ["jobs"]
-jobs = ["memory-toc", "memory-storage", "memory-types", "memory-search", "memory-indexing", "memory-vector"]
+jobs = ["memory-toc", "memory-storage", "memory-search", "memory-indexing", "memory-vector"]
 
 [dependencies]
 # Cron scheduling
@@ -37,10 +37,12 @@ uuid = "1.11"
 # Random number generation for jitter
 rand = "0.8"
 
+# Core (always required)
+memory-types = { workspace = true }
+
 # Job dependencies (optional, enabled by default)
 memory-toc = { path = "../memory-toc", optional = true }
 memory-storage = { path = "../memory-storage", optional = true }
-memory-types = { path = "../memory-types", optional = true }
 memory-search = { path = "../memory-search", optional = true }
 memory-indexing = { path = "../memory-indexing", optional = true }
 memory-vector = { path = "../memory-vector", optional = true }

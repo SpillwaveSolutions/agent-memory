@@ -100,9 +100,7 @@ impl InFlightBuffer {
 
     /// Clear all entries, resetting the buffer to empty.
     pub fn clear(&mut self) {
-        for entry in &mut self.entries {
-            *entry = None;
-        }
+        self.entries.fill(None);
         self.head = 0;
         self.count = 0;
     }

@@ -184,6 +184,8 @@ async fn test_route_query_empty_query() {
             limit: 10,
             agent_filter: None,
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await;
 

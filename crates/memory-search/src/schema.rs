@@ -13,6 +13,8 @@ use crate::SearchError;
 pub enum DocType {
     TocNode,
     Grip,
+    /// Raw ingested event (Phase 54: outbox-driven BM25 indexing).
+    Event,
 }
 
 impl DocType {
@@ -20,6 +22,7 @@ impl DocType {
         match self {
             DocType::TocNode => "toc_node",
             DocType::Grip => "grip",
+            DocType::Event => "event",
         }
     }
 
@@ -28,6 +31,7 @@ impl DocType {
         match s {
             "toc_node" => Some(DocType::TocNode),
             "grip" => Some(DocType::Grip),
+            "event" => Some(DocType::Event),
             _ => None,
         }
     }
@@ -167,6 +171,7 @@ mod tests {
     fn test_doc_type_conversion() {
         assert_eq!(DocType::TocNode.as_str(), "toc_node");
         assert_eq!(DocType::parse("grip"), Some(DocType::Grip));
+        assert_eq!(DocType::parse("event"), Some(DocType::Event));
         assert_eq!(DocType::parse("invalid"), None);
         // Test FromStr trait
         assert_eq!("toc_node".parse::<DocType>().unwrap(), DocType::TocNode);

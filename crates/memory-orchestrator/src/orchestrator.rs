@@ -15,9 +15,24 @@ use memory_retrieval::{
 
 use crate::context_builder::ContextBuilder;
 use crate::expand::expand_query;
-use crate::fusion::rrf_fuse;
+use crate::fusion::fuse;
 use crate::rerank::{HeuristicReranker, Reranker};
 use crate::types::{MemoryContext, OrchestratorConfig};
+
+/// Output of the ranked retrieval pipeline (before context assembly).
+#[derive(Debug, Clone)]
+pub struct OrchestratorOutput {
+    /// Fused + reranked hits, original SearchResult preserved.
+    pub results: Vec<memory_retrieval::SearchResult>,
+    /// Fusion stage name for explainability (always `"rank_fusion"`).
+    pub fusion_stage: &'static str,
+    /// Reranker that ran (`"heuristic"` or `"llm"`).
+    pub rerank_mode: String,
+    /// Layers that returned at least one hit.
+    pub layers_attempted: Vec<RetrievalLayer>,
+    /// Wall-clock milliseconds for the pipeline.
+    pub retrieval_ms: u64,
+}
 
 /// Retrieval orchestrator that coordinates query expansion, multi-index
 /// search, fusion, reranking, and context assembly.
@@ -30,10 +45,11 @@ pub struct MemoryOrchestrator<E: LayerExecutor> {
 impl<E: LayerExecutor + Send + Sync + 'static> MemoryOrchestrator<E> {
     /// Create a new orchestrator with the default `HeuristicReranker`.
     pub fn new(executor: Arc<E>, config: OrchestratorConfig) -> Self {
+        let top_k = config.top_k;
         Self {
             executor,
             config,
-            reranker: Box::new(HeuristicReranker),
+            reranker: Box::new(HeuristicReranker::new(top_k)),
         }
     }
 
@@ -62,16 +78,36 @@ impl<E: LayerExecutor + Send + Sync + 'static> MemoryOrchestrator<E> {
     /// 4. Reranking (heuristic or injected)
     /// 5. Context assembly
     pub async fn query(&self, query: &str) -> Result<MemoryContext> {
+        let output = self.query_ranked(query).await?;
+        let reranked = output
+            .results
+            .into_iter()
+            .map(|r| crate::rerank::RerankedResult {
+                doc_id: r.doc_id.clone(),
+                score: f64::from(r.score),
+                text: r.text_preview.clone(),
+                source_layer: format!("{:?}", r.source_layer),
+                inner: r,
+            })
+            .collect();
+        let mut ctx = ContextBuilder::build(query, reranked);
+        ctx.retrieval_ms = output.retrieval_ms;
+        Ok(ctx)
+    }
+
+    /// Execute expand → fan-out → RRF → rerank and return ranked hits.
+    ///
+    /// Used by `RouteQuery` so gRPC callers get the orchestrator pipeline
+    /// without going through `MemoryContext` assembly.
+    pub async fn query_ranked(&self, query: &str) -> Result<OrchestratorOutput> {
         let start = Instant::now();
 
-        // 1. Query expansion
         let queries = if self.config.expand_query {
             expand_query(query)
         } else {
             vec![query.to_string()]
         };
 
-        // 2. Fan-out: each query against each layer
         let layers = [
             RetrievalLayer::Topics,
             RetrievalLayer::Vector,
@@ -81,6 +117,7 @@ impl<E: LayerExecutor + Send + Sync + 'static> MemoryOrchestrator<E> {
 
         let re = RetrievalExecutor::new(self.executor.clone());
         let mut all_lists: Vec<Vec<SearchResult>> = Vec::new();
+        let mut layers_attempted: Vec<RetrievalLayer> = Vec::new();
 
         for q in &queries {
             for &layer in &layers {
@@ -99,6 +136,9 @@ impl<E: LayerExecutor + Send + Sync + 'static> MemoryOrchestrator<E> {
                         CapabilityTier::Full,
                     )
                     .await;
+                if !layers_attempted.contains(&layer) {
+                    layers_attempted.push(layer);
+                }
                 if result.has_results() {
                     all_lists.push(result.results);
                 }
@@ -106,17 +146,31 @@ impl<E: LayerExecutor + Send + Sync + 'static> MemoryOrchestrator<E> {
             }
         }
 
-        // 3. RRF fusion
-        let fused = rrf_fuse(all_lists, self.config.rrf_k);
-
-        // 4. Reranking — always use self.reranker (injected or default)
+        let fused = fuse(all_lists, self.config.fusion_k);
         let reranked = self.reranker.rerank(query, fused).await?;
 
-        // 5. Build context
-        let mut ctx = ContextBuilder::build(query, reranked);
-        ctx.retrieval_ms = start.elapsed().as_millis() as u64;
+        let results: Vec<SearchResult> = reranked
+            .into_iter()
+            .map(|r| {
+                let mut inner = r.inner;
+                inner.score = r.score as f32;
+                inner
+            })
+            .collect();
 
-        Ok(ctx)
+        let rerank_mode = match self.config.rerank_mode {
+            crate::types::RerankMode::Heuristic => "heuristic",
+            crate::types::RerankMode::Llm => "llm",
+        }
+        .to_string();
+
+        Ok(OrchestratorOutput {
+            results,
+            fusion_stage: "rank_fusion",
+            rerank_mode,
+            layers_attempted,
+            retrieval_ms: start.elapsed().as_millis() as u64,
+        })
     }
 }
 
@@ -155,9 +209,10 @@ mod tests {
                 .into_iter()
                 .map(|r| RerankedResult {
                     doc_id: r.inner.doc_id.clone(),
-                    score: r.rrf_score,
+                    score: r.fusion_score,
                     text: r.inner.text_preview.clone(),
                     source_layer: format!("{:?}", r.inner.source_layer),
+                    inner: r.inner,
                 })
                 .collect();
             out.reverse();
@@ -252,5 +307,20 @@ mod tests {
 
         let result = orch.query("What happened with auth").await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_query_ranked_names_fusion_stage() {
+        let executor = MockLayerExecutor::default().with_results(
+            RetrievalLayer::BM25,
+            vec![mock_result("doc-x", 0.7, RetrievalLayer::BM25)],
+        );
+        let config = OrchestratorConfig::default();
+        let orch = MemoryOrchestrator::new(Arc::new(executor), config);
+        let output = orch.query_ranked("test").await.unwrap();
+        assert_eq!(output.fusion_stage, "rank_fusion");
+        assert_eq!(output.rerank_mode, "heuristic");
+        assert!(!output.results.is_empty());
+        assert!(output.layers_attempted.contains(&RetrievalLayer::BM25));
     }
 }

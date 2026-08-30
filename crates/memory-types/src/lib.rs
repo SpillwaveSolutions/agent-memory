@@ -29,6 +29,7 @@ pub mod grip;
 pub mod outbox;
 pub mod salience;
 pub mod segment;
+pub mod sync;
 pub mod toc;
 pub mod usage;
 
@@ -49,5 +50,6 @@ pub use salience::{
     SalienceScorer,
 };
 pub use segment::Segment;
+pub use sync::{recover_lock, LOCK_POISON_RECOVERIES};
 pub use toc::{TocBullet, TocLevel, TocNode};
 pub use usage::{usage_penalty, UsageConfig, UsageStats};
