@@ -241,6 +241,8 @@ async fn test_fail_open_staleness_no_timestamp_returns_results() {
             limit: 10,
             agent_filter: None,
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();

@@ -6,6 +6,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use memory_types::recover_lock;
+
 use tonic::{Request, Response, Status};
 use tracing::{debug, info};
 
@@ -45,13 +47,13 @@ impl VectorTeleportHandler {
 
     /// Check if the vector index is available for search.
     pub fn is_available(&self) -> bool {
-        let index = self.index.read().unwrap();
+        let index = recover_lock(self.index.read());
         index.len() > 0
     }
 
     /// Get the current vector index status.
     pub fn get_status(&self) -> VectorIndexStatus {
-        let index = self.index.read().unwrap();
+        let index = recover_lock(self.index.read());
         let stats = index.stats();
         VectorIndexStatus {
             available: stats.available && stats.vector_count > 0,
@@ -97,7 +99,7 @@ impl VectorTeleportHandler {
 
         // Search index
         let results = {
-            let index = self.index.read().unwrap();
+            let index = recover_lock(self.index.read());
             index
                 .search(&embedding, top_k)
                 .map_err(|e| Status::internal(format!("Search failed: {}", e)))?
@@ -165,7 +167,7 @@ impl VectorTeleportHandler {
     /// Returns a map of doc_id -> embedding vector. Missing entries are silently skipped.
     pub fn get_embeddings_for_doc_ids(&self, doc_ids: &[String]) -> HashMap<String, Vec<f32>> {
         let mut embeddings = HashMap::new();
-        let index = self.index.read().unwrap();
+        let index = recover_lock(self.index.read());
         for doc_id in doc_ids {
             if let Ok(Some(entry)) = self.metadata.find_by_doc_id(doc_id) {
                 if let Ok(Some(vector)) = index.get_vector(entry.vector_id) {
@@ -199,7 +201,7 @@ impl VectorTeleportHandler {
 
         // Search index
         let results = {
-            let index = self.index.read().unwrap();
+            let index = recover_lock(self.index.read());
             index
                 .search(&embedding, limit)
                 .map_err(|e| format!("Search failed: {}", e))?

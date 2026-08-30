@@ -2,6 +2,45 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v3.0 — Competitive Parity & Benchmarks
+
+**Shipped:** 2026-05-14 (Phases 51, 51.5, 52, 53.5 merged; Phase 53 PR pending)
+**Phases:** 51-53 + 51.5 + 53.5
+**Honest grade:** the code is strong; the *claims* were not.
+
+### What Was Built
+- `memory-orchestrator` crate (expand → fan-out → rank fusion → rerank → context)
+- Simple `memory` CLI (search/context/recall/add/timeline/summary)
+- Benchmark harness + LOCOMO adapter skeleton
+- Cross-project federated query (`all_projects`)
+
+### What Failed (the reason v3.1 exists)
+Verification was **by existence, not execution**:
+- `memory-orchestrator` had zero dependents; CLI called `RouteQuery` directly
+- LLM reranker was a mock `.reverse()`; CrossEncoder warned and fell back
+- BM25 outbox `IndexEvent`/`UpdateToc` reported success while indexing nothing
+- `CrateLayer::Hybrid` delegated to BM25
+- Two divergent RRF implementations
+- LOCOMO adapter never ran (invented schema, 404 download URL, substring scoring)
+- `recall_at_5` identical to accuracy; `compression_ratio` summed file-path lengths
+- TOC navigation p50 ≈ 64.6s on a 240-event corpus, percentiles from 3 samples
+- Phase 53 "17/17 verified, no gaps" — every item was an existence check
+- No root README/LICENSE; Cargo repository URL pointed at the wrong org
+
+### Process Changes Bound to v3.1
+1. **Execution-evidence:** VERIFICATION.md for run-dependent requirements must cite a committed artifact from actually running them.
+2. **Reachability:** a new crate is not done until `cargo tree -i <crate>` shows a binary dependent, or it is declared dormant.
+3. **human_verification items are blockers** when they gate the milestone goal.
+4. This retrospective exists (it did not, as of v3.0 close).
+
+### Key Lessons
+1. "The struct exists and a unit test constructs it" is not a shipped feature.
+2. Silent `Ok(())` while skipping work will lie to every downstream metric.
+3. A flag that logs "not implemented" and continues is a lying flag.
+4. Benchmarks that cannot be re-run are marketing, not evidence.
+
+---
+
 ## Milestone: v2.5 — Semantic Dedup & Retrieval Quality
 
 **Shipped:** 2026-03-10

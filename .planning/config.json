@@ -11,5 +11,11 @@
     "_auto_chain_active": false,
     "nyquist_validation": true
   },
-  "granularity": "fine"
+  "granularity": "fine",
+  "verification": {
+    "execution_evidence": true,
+    "crate_reachability": true,
+    "human_verification_is_blocker": true,
+    "notes": "v3.1 process rules: VERIFICATION.md items for run-dependent requirements must cite a committed artifact from actually running them. A new crate is not done until cargo tree -i <crate> shows a binary dependent, or it is explicitly declared dormant. human_verification items that gate the milestone goal are blockers."
+  }
 }

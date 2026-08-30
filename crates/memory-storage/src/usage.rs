@@ -31,6 +31,7 @@
 use crate::column_families::CF_USAGE_COUNTERS;
 use dashmap::DashMap;
 use lru::LruCache;
+use memory_types::recover_lock;
 use memory_types::usage::{UsageConfig, UsageStats};
 use rocksdb::{WriteBatch, DB};
 use std::num::NonZeroUsize;
@@ -98,7 +99,7 @@ impl UsageTracker {
     pub fn record_access(&self, doc_id: &str) {
         // Update cache immediately
         {
-            let mut cache = self.cache.lock().expect("cache mutex poisoned");
+            let mut cache = recover_lock(self.cache.lock());
             let stats = cache.get_or_insert_mut(doc_id.to_string(), UsageStats::new);
             stats.record_access();
         }
@@ -129,7 +130,7 @@ impl UsageTracker {
     pub fn get_usage_cached(&self, doc_id: &str) -> UsageStats {
         // Check cache first
         let cached = {
-            let mut cache = self.cache.lock().expect("cache mutex poisoned");
+            let mut cache = recover_lock(self.cache.lock());
             cache.get(doc_id).cloned()
         };
 
@@ -152,7 +153,7 @@ impl UsageTracker {
         let mut results = Vec::with_capacity(doc_ids.len());
 
         {
-            let mut cache = self.cache.lock().expect("cache mutex poisoned");
+            let mut cache = recover_lock(self.cache.lock());
             for doc_id in doc_ids {
                 if let Some(stats) = cache.get(doc_id) {
                     results.push((doc_id.clone(), stats.clone()));
@@ -264,7 +265,7 @@ impl UsageTracker {
             if let Some(bytes) = self.db.get_cf(&cf, doc_id.as_bytes())? {
                 if let Ok(stats) = UsageStats::from_bytes(&bytes) {
                     // Populate cache
-                    let mut cache = self.cache.lock().expect("cache mutex poisoned");
+                    let mut cache = recover_lock(self.cache.lock());
                     cache.put(doc_id.clone(), stats);
                     prefetched += 1;
                 }
@@ -294,7 +295,7 @@ impl UsageTracker {
         let mut loaded = 0u32;
         let iter = self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start);
 
-        let mut cache = self.cache.lock().expect("cache mutex poisoned");
+        let mut cache = recover_lock(self.cache.lock());
         for item in iter.take(limit) {
             let (key, value) = item?;
             if let (Ok(doc_id), Ok(stats)) = (
@@ -314,7 +315,7 @@ impl UsageTracker {
     ///
     /// Returns (current_size, capacity).
     pub fn cache_stats(&self) -> (usize, usize) {
-        let cache = self.cache.lock().expect("cache mutex poisoned");
+        let cache = recover_lock(self.cache.lock());
         (cache.len(), cache.cap().get())
     }
 

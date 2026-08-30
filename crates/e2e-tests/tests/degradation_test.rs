@@ -90,6 +90,8 @@ async fn test_degradation_all_indexes_missing() {
             limit: 10,
             agent_filter: None,
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();
@@ -171,6 +173,8 @@ async fn test_degradation_no_bm25_index() {
             limit: 10,
             agent_filter: None,
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();
@@ -278,6 +282,8 @@ async fn test_degradation_bm25_present_vector_missing() {
             limit: 10,
             agent_filter: None,
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();

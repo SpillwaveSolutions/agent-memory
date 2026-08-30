@@ -15,9 +15,13 @@ use async_trait::async_trait;
 use tonic::{Request, Response, Status};
 use tracing::{debug, info};
 
+use memory_orchestrator::{
+    fuse_weighted, Completer, HeuristicReranker, LlmReranker, MemoryOrchestrator,
+    OrchestratorConfig, RerankMode, Reranker,
+};
 use memory_retrieval::{
     classifier::IntentClassifier,
-    executor::{FallbackChain, LayerExecutor, RetrievalExecutor, SearchResult},
+    executor::{LayerExecutor, SearchResult},
     ranking::{apply_combined_ranking, RankingConfig},
     stale_filter::StaleFilter,
     types::{
@@ -28,6 +32,7 @@ use memory_retrieval::{
 };
 use memory_search::TeleportSearcher;
 use memory_storage::Storage;
+use memory_toc::ApiSummarizer;
 use memory_types::config::StalenessConfig;
 
 use crate::federated::federated_query;
@@ -69,6 +74,9 @@ pub struct RetrievalHandler {
 
     /// Path of the primary store (used for result attribution).
     primary_db_path: String,
+
+    /// Optional LLM completer for `rerank_mode=llm`.
+    completer: Option<Arc<dyn Completer>>,
 }
 
 impl RetrievalHandler {
@@ -83,6 +91,7 @@ impl RetrievalHandler {
             staleness_config: StalenessConfig::default(),
             registered_projects: Vec::new(),
             primary_db_path: String::new(),
+            completer: None,
         }
     }
 
@@ -103,6 +112,7 @@ impl RetrievalHandler {
             staleness_config,
             registered_projects: Vec::new(),
             primary_db_path: String::new(),
+            completer: None,
         }
     }
 
@@ -115,6 +125,17 @@ impl RetrievalHandler {
         self.registered_projects = projects;
         self.primary_db_path = primary_db_path;
         self
+    }
+
+    /// Inject an LLM completer used when `rerank_mode=llm`.
+    pub fn with_completer(mut self, completer: Arc<dyn Completer>) -> Self {
+        self.completer = Some(completer);
+        self
+    }
+
+    /// Inject an [`ApiSummarizer`] as the LLM completer for `rerank_mode=llm`.
+    pub fn with_api_summarizer(self, summarizer: Arc<ApiSummarizer>) -> Self {
+        self.with_completer(Arc::new(ApiCompleter::new(summarizer)))
     }
 
     /// Handle GetRetrievalCapabilities RPC.
@@ -243,8 +264,10 @@ impl RetrievalHandler {
             return Err(Status::invalid_argument("Query is required"));
         }
 
-        // Get stop conditions
-        let stop_conditions = req
+        // Get stop conditions (honored by the fallback executor inside the orchestrator
+        // via StopConditions::default today; parsed here so the proto field is not dropped
+        // silently if we thread it through later).
+        let _stop_conditions = req
             .stop_conditions
             .map(|sc| proto_to_stop_conditions(&sc))
             .unwrap_or_default();
@@ -280,11 +303,9 @@ impl RetrievalHandler {
             10
         };
 
-        // Execute the retrieval
+        // Execute expand → fan-out → rank fusion → rerank via the orchestrator.
         let start = Instant::now();
-        let chain = FallbackChain::for_intent(intent, tier);
 
-        // Create a simple executor that delegates to our services
         let executor = Arc::new(SimpleLayerExecutor::new(
             self.storage.clone(),
             self.bm25_searcher.clone(),
@@ -292,13 +313,51 @@ impl RetrievalHandler {
             self.topic_handler.clone(),
         ));
 
-        let retrieval_executor = RetrievalExecutor::new(executor);
-        let result = retrieval_executor
-            .execute(&req.query, chain, &stop_conditions, mode, tier)
-            .await;
+        let requested_rerank = match req.rerank_mode.as_deref() {
+            Some(mode) if mode.eq_ignore_ascii_case("llm") => RerankMode::Llm,
+            _ => RerankMode::Heuristic,
+        };
+        let (rerank_mode, reranker): (RerankMode, Box<dyn Reranker>) = match requested_rerank {
+            RerankMode::Llm => {
+                if let Some(completer) = &self.completer {
+                    (
+                        RerankMode::Llm,
+                        Box::new(LlmReranker::new(Arc::clone(completer), limit)),
+                    )
+                } else {
+                    tracing::warn!(
+                        "rerank_mode=llm requested but no LLM completer is configured; using heuristic"
+                    );
+                    (
+                        RerankMode::Heuristic,
+                        Box::new(HeuristicReranker::new(limit)),
+                    )
+                }
+            }
+            RerankMode::Heuristic => (
+                RerankMode::Heuristic,
+                Box::new(HeuristicReranker::new(limit)),
+            ),
+        };
+
+        let orch_config = OrchestratorConfig {
+            top_k: limit,
+            rerank_mode,
+            expand_query: req.expand_query,
+            fusion_k: 60.0,
+        };
+        let orchestrator = MemoryOrchestrator::with_reranker(executor, orch_config, reranker);
+        let output = orchestrator
+            .query_ranked(&req.query)
+            .await
+            .map_err(|e| Status::internal(format!("orchestrator error: {e}")))?;
+
+        let fusion_stage = output.fusion_stage;
+        let orch_rerank_mode = output.rerank_mode.clone();
+        let layers_attempted = output.layers_attempted.clone();
 
         // Enrich metadata with salience scores from Storage lookups
-        let enriched_results = enrich_with_salience(&self.storage, result.results);
+        let enriched_results = enrich_with_salience(&self.storage, output.results);
 
         // Apply staleness filter post-merge, pre-return
         let stale_filter = StaleFilter::new(self.staleness_config.clone());
@@ -356,29 +415,35 @@ impl RetrievalHandler {
             .collect();
 
         // Build explainability payload
+        let primary_layer = final_results
+            .first()
+            .map(|r| r.source_layer)
+            .or_else(|| layers_attempted.first().copied())
+            .unwrap_or(CrateLayer::Agentic);
         let explanation = ProtoExplainability {
             intent: intent_to_proto(intent) as i32,
             tier: tier_to_proto(tier) as i32,
             mode: exec_mode_to_proto(mode) as i32,
-            candidates_considered: result
-                .layers_attempted
+            candidates_considered: layers_attempted
                 .iter()
                 .map(|l| layer_to_proto(*l) as i32)
                 .collect(),
-            winner: layer_to_proto(result.primary_layer) as i32,
-            why_winner: result.explanation.clone(),
-            fallback_occurred: result.fallback_occurred,
-            fallback_reason: if result.fallback_occurred {
-                Some(result.explanation.clone())
-            } else {
-                None
-            },
+            winner: layer_to_proto(primary_layer) as i32,
+            why_winner: format!(
+                "rank_fusion across {} layer(s); rerank={}",
+                layers_attempted.len(),
+                orch_rerank_mode
+            ),
+            fallback_occurred: false,
+            fallback_reason: None,
             total_time_ms,
             grip_ids: results
                 .iter()
                 .filter(|r| r.doc_type == "grip")
                 .map(|r| r.doc_id.clone())
                 .collect(),
+            fusion_stage: fusion_stage.to_string(),
+            rerank_mode: Some(orch_rerank_mode),
         };
 
         let has_results = !results.is_empty();
@@ -397,8 +462,7 @@ impl RetrievalHandler {
             results,
             explanation: Some(explanation),
             has_results,
-            layers_attempted: result
-                .layers_attempted
+            layers_attempted: layers_attempted
                 .iter()
                 .map(|l| layer_to_proto(*l) as i32)
                 .collect(),
@@ -598,44 +662,71 @@ impl LayerExecutor for SimpleLayerExecutor {
                 }
             }
             CrateLayer::Hybrid => {
-                // Hybrid combines BM25 and Vector - for now, delegate to BM25 if available
+                let fetch_k = limit.max(1);
+                let mut bm25_list = Vec::new();
+                let mut vector_list = Vec::new();
+
                 if let Some(searcher) = &self.bm25_searcher {
-                    let opts = memory_search::SearchOptions::new().with_limit(limit);
-                    let results = searcher.search(query, opts).map_err(|e| e.to_string())?;
-                    Ok(results
-                        .into_iter()
-                        .map(|r| SearchResult {
-                            doc_id: r.doc_id,
-                            doc_type: format!("{:?}", r.doc_type).to_lowercase(),
-                            score: r.score,
-                            text_preview: r.keywords.unwrap_or_default(),
-                            source_layer: CrateLayer::Hybrid,
-                            metadata: build_metadata(
-                                r.timestamp_ms,
-                                r.agent.as_deref(),
-                                "observation",
-                            ),
-                        })
-                        .collect())
-                } else if let Some(handler) = &self.vector_handler {
-                    let results = handler.search(query, limit, 0.0).await?;
-                    Ok(results
-                        .into_iter()
-                        .map(|r| SearchResult {
-                            doc_id: r.doc_id,
-                            doc_type: r.doc_type,
-                            score: r.score,
-                            text_preview: r.text_preview,
-                            source_layer: CrateLayer::Hybrid,
-                            metadata: build_metadata(
-                                Some(r.timestamp_ms),
-                                r.agent.as_deref(),
-                                "observation",
-                            ),
-                        })
-                        .collect())
-                } else {
+                    let opts = memory_search::SearchOptions::new().with_limit(fetch_k);
+                    match searcher.search(query, opts) {
+                        Ok(results) => {
+                            bm25_list = results
+                                .into_iter()
+                                .map(|r| SearchResult {
+                                    doc_id: r.doc_id,
+                                    doc_type: format!("{:?}", r.doc_type).to_lowercase(),
+                                    score: r.score,
+                                    text_preview: r.keywords.unwrap_or_default(),
+                                    source_layer: CrateLayer::BM25,
+                                    metadata: build_metadata(
+                                        r.timestamp_ms,
+                                        r.agent.as_deref(),
+                                        "observation",
+                                    ),
+                                })
+                                .collect();
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Hybrid BM25 search failed; continuing with remaining indexes"
+                            );
+                        }
+                    }
+                }
+
+                if let Some(handler) = &self.vector_handler {
+                    match handler.search(query, fetch_k, 0.0).await {
+                        Ok(results) => {
+                            vector_list = results
+                                .into_iter()
+                                .map(|r| SearchResult {
+                                    doc_id: r.doc_id,
+                                    doc_type: r.doc_type,
+                                    score: r.score,
+                                    text_preview: r.text_preview,
+                                    source_layer: CrateLayer::Vector,
+                                    metadata: build_metadata(
+                                        Some(r.timestamp_ms),
+                                        r.agent.as_deref(),
+                                        "observation",
+                                    ),
+                                })
+                                .collect();
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Hybrid vector search failed; continuing with remaining indexes"
+                            );
+                        }
+                    }
+                }
+
+                if self.bm25_searcher.is_none() && self.vector_handler.is_none() {
                     Err("Hybrid requires BM25 or Vector".to_string())
+                } else {
+                    Ok(fuse_hybrid_lists(bm25_list, vector_list, limit))
                 }
             }
             CrateLayer::Agentic => {
@@ -657,6 +748,56 @@ impl LayerExecutor for SimpleLayerExecutor {
             CrateLayer::Agentic => true, // Always available
         }
     }
+}
+
+/// Completer that wraps [`ApiSummarizer`] for `rerank_mode=llm`.
+pub struct ApiCompleter {
+    inner: Arc<ApiSummarizer>,
+}
+
+impl ApiCompleter {
+    /// Wrap an API summarizer as an orchestrator completer.
+    pub fn new(inner: Arc<ApiSummarizer>) -> Self {
+        Self { inner }
+    }
+}
+
+#[async_trait]
+impl Completer for ApiCompleter {
+    async fn complete(&self, prompt: &str) -> anyhow::Result<String> {
+        self.inner
+            .complete(prompt)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
+    }
+}
+
+/// Fuse BM25 + vector hit lists and retag the winner as Hybrid.
+fn fuse_hybrid_lists(
+    bm25: Vec<SearchResult>,
+    vector: Vec<SearchResult>,
+    limit: usize,
+) -> Vec<SearchResult> {
+    let mut lists = Vec::new();
+    if !bm25.is_empty() {
+        lists.push((0.5, bm25));
+    }
+    if !vector.is_empty() {
+        lists.push((0.5, vector));
+    }
+    if lists.is_empty() {
+        return Vec::new();
+    }
+    fuse_weighted(lists, 60.0)
+        .into_iter()
+        .take(limit)
+        .map(|f| {
+            let mut r = f.inner;
+            r.score = f.fusion_score as f32;
+            r.source_layer = CrateLayer::Hybrid;
+            r
+        })
+        .collect()
 }
 
 /// Enrich search results with salience and usage data from Storage lookups.
@@ -916,6 +1057,8 @@ mod tests {
                 limit: 10,
                 agent_filter: None,
                 all_projects: false,
+                rerank_mode: None,
+                expand_query: false,
             }))
             .await
             .unwrap();
@@ -942,6 +1085,8 @@ mod tests {
                 limit: 10,
                 agent_filter: None,
                 all_projects: false,
+                rerank_mode: None,
+                expand_query: false,
             }))
             .await;
 
@@ -1024,5 +1169,195 @@ mod tests {
             project: result_no_agent.metadata.get("project").cloned(),
         };
         assert_eq!(proto_no_agent.agent, None);
+    }
+
+    #[test]
+    fn test_hybrid_fusion_differs_from_either_input() {
+        let bm25 = vec![
+            SearchResult {
+                doc_id: "a".into(),
+                doc_type: "event".into(),
+                score: 0.99,
+                text_preview: "a".into(),
+                source_layer: CrateLayer::BM25,
+                metadata: HashMap::new(),
+            },
+            SearchResult {
+                doc_id: "c".into(),
+                doc_type: "event".into(),
+                score: 0.50,
+                text_preview: "c".into(),
+                source_layer: CrateLayer::BM25,
+                metadata: HashMap::new(),
+            },
+        ];
+        let vector = vec![
+            SearchResult {
+                doc_id: "b".into(),
+                doc_type: "event".into(),
+                score: 0.99,
+                text_preview: "b".into(),
+                source_layer: CrateLayer::Vector,
+                metadata: HashMap::new(),
+            },
+            SearchResult {
+                doc_id: "a".into(),
+                doc_type: "event".into(),
+                score: 0.50,
+                text_preview: "a".into(),
+                source_layer: CrateLayer::Vector,
+                metadata: HashMap::new(),
+            },
+        ];
+        let fused = fuse_hybrid_lists(bm25, vector, 10);
+        let ids: Vec<&str> = fused.iter().map(|r| r.doc_id.as_str()).collect();
+        assert_ne!(ids.as_slice(), &["a", "c"][..]);
+        assert_ne!(ids.as_slice(), &["b", "a"][..]);
+        assert_eq!(fused[0].doc_id, "a", "consensus doc should rank first");
+        assert!(fused.iter().all(|r| r.source_layer == CrateLayer::Hybrid));
+    }
+
+    #[tokio::test]
+    async fn test_route_query_names_fusion_stage() {
+        let (handler, _temp) = create_test_handler();
+        let response = handler
+            .route_query(Request::new(RouteQueryRequest {
+                query: "what is rust?".to_string(),
+                intent_override: None,
+                stop_conditions: None,
+                mode_override: None,
+                limit: 10,
+                agent_filter: None,
+                all_projects: false,
+                rerank_mode: None,
+                expand_query: false,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        let explanation = response.explanation.expect("explanation");
+        assert_eq!(explanation.fusion_stage, "rank_fusion");
+        assert_eq!(explanation.rerank_mode.as_deref(), Some("heuristic"));
+        assert!(explanation.why_winner.contains("rank_fusion"));
+    }
+
+    struct ReverseCompleter;
+
+    #[async_trait]
+    impl Completer for ReverseCompleter {
+        async fn complete(&self, prompt: &str) -> anyhow::Result<String> {
+            // Reverse the candidate ids in the prompt so LLM order always
+            // differs from the RRF/BM25 order the heuristic path keeps.
+            let mut ids: Vec<String> = prompt
+                .lines()
+                .filter_map(|line| {
+                    line.split_once("id=")
+                        .map(|(_, rest)| rest.trim().to_string())
+                        .filter(|id| !id.is_empty())
+                })
+                .collect();
+            ids.reverse();
+            Ok(format!(r#"{{"order":{}}}"#, serde_json::json!(ids)))
+        }
+    }
+
+    #[tokio::test]
+    async fn test_llm_rerank_reorders_bm25_hits() {
+        use chrono::Utc;
+        use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
+        use memory_types::{Event, EventRole, EventType};
+
+        let temp_dir = TempDir::new().unwrap();
+        let index_path = temp_dir.path().join("search");
+        std::fs::create_dir_all(&index_path).unwrap();
+        let index = SearchIndex::open_or_create(SearchIndexConfig::new(&index_path)).unwrap();
+        let indexer = SearchIndexer::new(&index).unwrap();
+        indexer
+            .index_event(&Event::new(
+                "alpha-event".into(),
+                "s".into(),
+                Utc::now(),
+                EventType::UserMessage,
+                EventRole::User,
+                "zebra unique token alpha document".into(),
+            ))
+            .unwrap();
+        indexer
+            .index_event(&Event::new(
+                "beta-event".into(),
+                "s".into(),
+                Utc::now(),
+                EventType::UserMessage,
+                EventRole::User,
+                "zebra unique token beta document".into(),
+            ))
+            .unwrap();
+        indexer.commit().unwrap();
+        let searcher = Arc::new(TeleportSearcher::new(&index).unwrap());
+
+        let storage = Arc::new(Storage::open(temp_dir.path()).unwrap());
+        let heuristic = RetrievalHandler::with_services(
+            storage.clone(),
+            Some(searcher.clone()),
+            None,
+            None,
+            Default::default(),
+        );
+        let llm_handler = RetrievalHandler::with_services(
+            storage,
+            Some(searcher),
+            None,
+            None,
+            Default::default(),
+        )
+        .with_completer(Arc::new(ReverseCompleter));
+
+        let req = |mode: Option<&str>| RouteQueryRequest {
+            query: "zebra unique token".to_string(),
+            intent_override: None,
+            stop_conditions: None,
+            mode_override: None,
+            limit: 10,
+            agent_filter: None,
+            all_projects: false,
+            rerank_mode: mode.map(ToOwned::to_owned),
+            expand_query: false,
+        };
+
+        let heuristic_resp = heuristic
+            .route_query(Request::new(req(None)))
+            .await
+            .unwrap()
+            .into_inner();
+        let llm_resp = llm_handler
+            .route_query(Request::new(req(Some("llm"))))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(
+            heuristic_resp.results.len() >= 2,
+            "need two BM25 hits to observe a reorder"
+        );
+        let heuristic_ids: Vec<&str> = heuristic_resp
+            .results
+            .iter()
+            .map(|r| r.doc_id.as_str())
+            .collect();
+        let llm_ids: Vec<&str> = llm_resp.results.iter().map(|r| r.doc_id.as_str()).collect();
+        assert_eq!(
+            llm_resp
+                .explanation
+                .as_ref()
+                .and_then(|e| e.rerank_mode.as_deref()),
+            Some("llm")
+        );
+        assert_eq!(llm_ids.len(), heuristic_ids.len());
+        assert_ne!(
+            heuristic_ids, llm_ids,
+            "LLM completer must reverse the heuristic/BM25 order; heuristic={heuristic_ids:?} llm={llm_ids:?}"
+        );
+        // First of LLM should be last of heuristic (full reverse of two hits).
+        assert_eq!(llm_ids.first(), heuristic_ids.last());
     }
 }

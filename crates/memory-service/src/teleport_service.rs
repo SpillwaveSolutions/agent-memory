@@ -37,6 +37,8 @@ pub async fn handle_teleport_search(
         options = options.with_doc_type(DocType::TocNode);
     } else if req.doc_type == TeleportDocType::Grip as i32 {
         options = options.with_doc_type(DocType::Grip);
+    } else if req.doc_type == TeleportDocType::Event as i32 {
+        options = options.with_doc_type(DocType::Event);
     }
 
     // Execute search (blocking operation, use spawn_blocking)
@@ -58,6 +60,7 @@ pub async fn handle_teleport_search(
             doc_type: match r.doc_type {
                 DocType::TocNode => TeleportDocType::TocNode as i32,
                 DocType::Grip => TeleportDocType::Grip as i32,
+                DocType::Event => TeleportDocType::Event as i32,
             },
             score: r.score,
             keywords: r.keywords,

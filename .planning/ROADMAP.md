@@ -12,6 +12,7 @@
 - ✅ **v2.6 Cognitive Retrieval** — Phases 39-44 (shipped 2026-03-16)
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
 - **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 + Phase 51.5 (in progress; Phase 51.5 merged 2026-04-28)
+- **v3.1 Make It True** — Phases 54-58 (in progress; Phase 54 Integration Truth executing)
 
 ## Phases
 
@@ -251,4 +252,28 @@ Out-of-band insertion (mirrors Phase 51.5 pattern). Originally planned as Phase 
 
 ---
 
-*Updated: 2026-05-14 — Phase 53 (Benchmark Suite) opening PR to close v3.0*
+## v3.1 Make It True (Phases 54-58)
+
+See: `docs/plans/v3.1-make-it-true-plan.md`
+
+Close the claim/reality gap, then open the shop window. No new capabilities.
+
+### Phase 54: Integration Truth (6/6 plans) — IN EXECUTION 2026-08-30
+
+- [ ] 54-01: Wire orchestrator into RouteQuery + real LLM reranker
+- [ ] 54-02: Fix BM25 outbox no-op (index events)
+- [ ] 54-03: Make Hybrid layer hybrid
+- [ ] 54-04: One rank-fusion implementation
+- [ ] 54-05: Honest daemon flags + attach indexes
+- [ ] 54-06: Lock-poisoning recover_lock policy
+
+### Phase 55: Performance Truth (0/2)
+
+### Phase 56: Honest Benchmarks (0/3)
+
+### Phase 57: Shop Window & Positioning (0/3)
+
+### Phase 58: Launch (side quest)
+
+*Updated: 2026-08-30 — Phase 54 Integration Truth in execution*
+

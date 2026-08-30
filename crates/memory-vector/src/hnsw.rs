@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 
 use memory_embeddings::Embedding;
+use memory_types::recover_lock;
 use tracing::{debug, info};
 use usearch::{Index, IndexOptions, MetricKind, ScalarKind};
 
@@ -126,7 +127,7 @@ impl HnswIndex {
     ///
     /// Returns `None` if the ID is not present in the index.
     pub fn get_vector(&self, id: u64) -> Result<Option<Vec<f32>>, VectorError> {
-        let index = self.index.read().unwrap();
+        let index = recover_lock(self.index.read());
         if !index.contains(id) {
             return Ok(None);
         }
@@ -146,7 +147,7 @@ impl VectorIndex for HnswIndex {
     }
 
     fn len(&self) -> usize {
-        self.index.read().unwrap().size()
+        recover_lock(self.index.read()).size()
     }
 
     #[allow(clippy::readonly_write_lock)] // usearch::Index uses interior mutability
@@ -158,7 +159,7 @@ impl VectorIndex for HnswIndex {
             });
         }
 
-        let index = self.index.write().unwrap();
+        let index = recover_lock(self.index.write());
         index
             .add(id, &embedding.values)
             .map_err(|e| VectorError::Index(e.to_string()))?;
@@ -175,7 +176,7 @@ impl VectorIndex for HnswIndex {
             });
         }
 
-        let index = self.index.read().unwrap();
+        let index = recover_lock(self.index.read());
         let results = index
             .search(&query.values, k)
             .map_err(|e| VectorError::Index(e.to_string()))?;
@@ -193,7 +194,7 @@ impl VectorIndex for HnswIndex {
 
     #[allow(clippy::readonly_write_lock)] // usearch::Index uses interior mutability
     fn remove(&mut self, id: u64) -> Result<bool, VectorError> {
-        let index = self.index.write().unwrap();
+        let index = recover_lock(self.index.write());
         let result = index
             .remove(id)
             .map_err(|e| VectorError::Index(e.to_string()))?;
@@ -207,12 +208,12 @@ impl VectorIndex for HnswIndex {
     }
 
     fn contains(&self, id: u64) -> bool {
-        let index = self.index.read().unwrap();
+        let index = recover_lock(self.index.read());
         index.contains(id)
     }
 
     fn stats(&self) -> IndexStats {
-        let index = self.index.read().unwrap();
+        let index = recover_lock(self.index.read());
         let size_bytes = std::fs::metadata(self.index_file())
             .map(|m| m.len())
             .unwrap_or(0);
@@ -226,7 +227,7 @@ impl VectorIndex for HnswIndex {
     }
 
     fn save(&self) -> Result<(), VectorError> {
-        let index = self.index.read().unwrap();
+        let index = recover_lock(self.index.read());
         let path = self.index_file();
         let path_str = path
             .to_str()
@@ -256,7 +257,7 @@ impl VectorIndex for HnswIndex {
             .reserve(self.config.capacity)
             .map_err(|e| VectorError::Index(e.to_string()))?;
 
-        *self.index.write().unwrap() = new_index;
+        *recover_lock(self.index.write()) = new_index;
         info!("Cleared vector index");
         Ok(())
     }

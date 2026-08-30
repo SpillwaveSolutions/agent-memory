@@ -539,6 +539,7 @@ enum TeleportDocType {
     TELEPORT_DOC_TYPE_UNSPECIFIED = 0;  // Search all types
     TELEPORT_DOC_TYPE_TOC_NODE = 1;     // TOC nodes only
     TELEPORT_DOC_TYPE_GRIP = 2;         // Grips only
+    TELEPORT_DOC_TYPE_EVENT = 3;        // Raw ingested events (Phase 54)
 }
 
 // Request for teleport search
@@ -982,6 +983,11 @@ message RouteQueryRequest {
     // v3.0: Query across all registered project stores (opt-in, default false)
     // When true, fans out to all registered_projects and merges results.
     bool all_projects = 7;
+    // v3.1: Rerank mode for the orchestrator pipeline ("heuristic" | "llm").
+    // Unset defaults to heuristic (no LLM cost).
+    optional string rerank_mode = 8;
+    // v3.1: Expand the query into variants before fan-out (default false).
+    bool expand_query = 9;
 }
 
 // A single retrieval result
@@ -1011,6 +1017,11 @@ message ExplainabilityPayload {
     optional string fallback_reason = 8;
     uint64 total_time_ms = 9;
     repeated string grip_ids = 10;
+    // v3.1: Name of the fusion stage that produced these results
+    // (always "rank_fusion" when the orchestrator pipeline ran).
+    string fusion_stage = 11;
+    // v3.1: Rerank mode that was actually applied.
+    optional string rerank_mode = 12;
 }
 
 // Response from query routing

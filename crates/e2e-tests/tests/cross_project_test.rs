@@ -94,6 +94,8 @@ async fn test_cross_project_merged_results() {
             limit: 20,
             agent_filter: None,
             all_projects: true,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();
@@ -169,6 +171,8 @@ async fn test_cross_project_attribution() {
             limit: 20,
             agent_filter: None,
             all_projects: true,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();
@@ -249,6 +253,8 @@ async fn test_cross_project_unavailable_store_skipped() {
             limit: 20,
             agent_filter: None,
             all_projects: true,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await;
 
@@ -308,6 +314,8 @@ async fn test_single_project_default_unchanged() {
             limit: 20,
             agent_filter: None,
             all_projects: false, // explicit default
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();

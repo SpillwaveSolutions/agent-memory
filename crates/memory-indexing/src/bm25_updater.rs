@@ -3,17 +3,21 @@
 //! Wraps SearchIndexer from memory-search to handle outbox-driven updates.
 //! Converts OutboxEntry references to searchable documents.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use tracing::{debug, warn};
 
 use memory_search::SearchIndexer;
 use memory_storage::Storage;
-use memory_types::{Grip, OutboxAction, OutboxEntry, TocNode};
+use memory_types::{Event, Grip, OutboxAction, OutboxEntry, TocNode};
 
 use crate::checkpoint::IndexType;
 use crate::error::IndexingError;
 use crate::updater::{IndexUpdater, UpdateResult};
+
+/// Count of outbox entries that were intentionally skipped (event missing).
+pub static BM25_SKIPPED_NOOP: AtomicU64 = AtomicU64::new(0);
 
 /// BM25 index updater using Tantivy.
 ///
@@ -45,52 +49,79 @@ impl Bm25IndexUpdater {
             .map_err(|e| IndexingError::Index(format!("BM25 index error: {}", e)))
     }
 
-    /// Process an outbox entry by fetching the event and related data.
+    /// Process an outbox entry by fetching the event and indexing it.
     ///
-    /// For IndexEvent actions, we need to determine if this event
-    /// is associated with a TOC node or grip and index accordingly.
+    /// `IndexEvent` and `UpdateToc` both index the underlying event so that
+    /// BM25 teleport can find it after the outbox drain. If a grip already
+    /// exists for the event, that is indexed too.
     fn process_entry(&self, entry: &OutboxEntry) -> Result<bool, IndexingError> {
         match entry.action {
-            OutboxAction::IndexEvent => {
-                // The event_id in the outbox entry points to the event
-                // We need to check if there's a corresponding TOC node or grip
-                // For now, we'll try to find and index any related content
+            OutboxAction::IndexEvent | OutboxAction::UpdateToc => {
+                debug!(
+                    event_id = %entry.event_id,
+                    action = ?entry.action,
+                    "Processing outbox entry for BM25"
+                );
 
-                // Check if there's a TOC node associated with this timestamp
-                // This is a simplified approach - in practice, you might have
-                // more sophisticated event-to-document mapping
-                debug!(event_id = %entry.event_id, "Processing index event for BM25");
+                let mut indexed = false;
 
-                // Try to find TOC nodes that might reference this event
-                // The event_id format is typically a ULID
-                // We could look up grips that span this event
-                if let Some(grip) = self.find_grip_for_event(&entry.event_id)? {
-                    self.index_grip(&grip)?;
-                    return Ok(true);
+                match self.storage.get_event(&entry.event_id) {
+                    Ok(Some(bytes)) => match Event::from_bytes(&bytes) {
+                        Ok(event) => {
+                            self.indexer.index_event(&event).map_err(|e| {
+                                IndexingError::Index(format!("BM25 index event error: {e}"))
+                            })?;
+                            indexed = true;
+                        }
+                        Err(e) => {
+                            warn!(
+                                event_id = %entry.event_id,
+                                error = %e,
+                                "Failed to deserialize event for BM25 indexing"
+                            );
+                        }
+                    },
+                    Ok(None) => {
+                        warn!(
+                            event_id = %entry.event_id,
+                            "Outbox event not found in storage; skipping BM25 index"
+                        );
+                    }
+                    Err(e) => {
+                        warn!(
+                            event_id = %entry.event_id,
+                            error = %e,
+                            "BM25 event lookup failed; skipping"
+                        );
+                    }
                 }
 
-                // If no direct match, the event will be indexed when
-                // the summarizer creates TOC nodes/grips
-                debug!(event_id = %entry.event_id, "No grip found for event, skipping");
-                Ok(false)
-            }
-            OutboxAction::UpdateToc => {
-                // For TOC updates, we'd need additional context about which
-                // TOC node was updated. For now, skip these as they're
-                // typically handled by the TOC expansion logic.
-                debug!(event_id = %entry.event_id, "Skipping TOC update action");
-                Ok(false)
+                if let Some(grip) = self.find_grip_for_event(&entry.event_id)? {
+                    self.index_grip(&grip)?;
+                    indexed = true;
+                }
+
+                if indexed {
+                    Ok(true)
+                } else {
+                    BM25_SKIPPED_NOOP.fetch_add(1, Ordering::Relaxed);
+                    warn!(
+                        event_id = %entry.event_id,
+                        skipped = BM25_SKIPPED_NOOP.load(Ordering::Relaxed),
+                        "BM25 outbox entry produced no documents"
+                    );
+                    Ok(false)
+                }
             }
         }
     }
 
-    /// Find a grip that references this event.
+    /// Find a grip that references this event (start or end id).
     fn find_grip_for_event(&self, event_id: &str) -> Result<Option<Grip>, IndexingError> {
-        // This is a simplified lookup - in a full implementation,
-        // you might have an index from event_id to grip_id
-        // For now, we'll return None and rely on explicit grip indexing
-        debug!(event_id = %event_id, "Looking up grip for event");
-        Ok(None)
+        let grips = crate::rebuild::iter_all_grips(&self.storage)?;
+        Ok(grips
+            .into_iter()
+            .find(|g| g.event_id_start == event_id || g.event_id_end == event_id))
     }
 
     /// Process a batch of outbox entries.
@@ -144,7 +175,7 @@ impl IndexUpdater for Bm25IndexUpdater {
     fn index_document(&self, entry: &OutboxEntry) -> Result<(), IndexingError> {
         match self.process_entry(entry)? {
             true => Ok(()),
-            false => Ok(()), // Skipped entries are not errors
+            false => Ok(()), // Skipped entries already warned + counted
         }
     }
 
@@ -212,8 +243,51 @@ mod tests {
         let entry = OutboxEntry::for_index("event-123".to_string(), 1706540400000);
         let result = updater.process_entry(&entry).unwrap();
 
-        // Should return false since no grip found
+        // Should return false since no event in storage
         assert!(!result);
+    }
+
+    #[test]
+    fn test_process_index_event_makes_event_findable() {
+        use chrono::Utc;
+        use memory_search::{SearchIndex, SearchIndexConfig, SearchOptions, TeleportSearcher};
+        use memory_types::{Event, EventRole, EventType};
+
+        let (storage, temp_dir) = create_test_storage();
+        let search_path = temp_dir.path().join("search");
+        std::fs::create_dir_all(&search_path).unwrap();
+        let config = SearchIndexConfig::new(&search_path);
+        let index = SearchIndex::open_or_create(config).unwrap();
+        let indexer = Arc::new(SearchIndexer::new(&index).unwrap());
+        let updater = Bm25IndexUpdater::new(indexer, storage.clone());
+
+        let event_id = ulid::Ulid::new().to_string();
+        let event = Event::new(
+            event_id.clone(),
+            "session-1".to_string(),
+            Utc::now(),
+            EventType::UserMessage,
+            EventRole::User,
+            "authentication jwt refresh token discussion".to_string(),
+        );
+        let bytes = event.to_bytes().unwrap();
+        let outbox = OutboxEntry::for_toc(event_id.clone(), event.timestamp_ms());
+        storage
+            .put_event(&event_id, &bytes, &outbox.to_bytes().unwrap())
+            .unwrap();
+
+        let indexed = updater.process_entry(&outbox).unwrap();
+        assert!(indexed, "event must be indexed from outbox");
+        updater.commit().unwrap();
+
+        let searcher = TeleportSearcher::new(&index).unwrap();
+        let hits = searcher
+            .search("jwt authentication", SearchOptions::new().with_limit(10))
+            .unwrap();
+        assert!(
+            hits.iter().any(|h| h.doc_id == event_id),
+            "ingested event must be findable via BM25 teleport, hits={hits:?}"
+        );
     }
 
     #[test]

@@ -5,7 +5,8 @@
 //! # Usage
 //!
 //! ```bash
-//! memory-daemon start [--foreground] [--port PORT] [--db-path PATH]
+//! memory-daemon start [--port PORT] [--db-path PATH]
+//! memory-daemon start --background   # not implemented; exits non-zero
 //! memory-daemon stop
 //! memory-daemon status
 //! ```
@@ -33,13 +34,14 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Start {
-            foreground,
+            foreground: _,
+            background,
             port,
             db_path,
         } => {
             start_daemon(
                 cli.config.as_deref(),
-                foreground,
+                background,
                 port,
                 db_path.as_deref(),
                 cli.log_level.as_deref(),

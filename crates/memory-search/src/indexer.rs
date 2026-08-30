@@ -12,9 +12,9 @@ use tantivy::schema::Value;
 use tantivy::{IndexReader, IndexWriter, ReloadPolicy, Term};
 use tracing::{debug, info, warn};
 
-use memory_types::{Grip, TocNode};
+use memory_types::{Event, Grip, TocNode};
 
-use crate::document::{grip_to_doc, toc_node_to_doc};
+use crate::document::{event_to_doc, grip_to_doc, toc_node_to_doc};
 use crate::error::SearchError;
 use crate::index::SearchIndex;
 use crate::lifecycle::Bm25PruneStats;
@@ -103,6 +103,25 @@ impl SearchIndexer {
         writer.add_document(doc)?;
 
         debug!(grip_id = %grip.grip_id, "Indexed grip");
+        Ok(())
+    }
+
+    /// Index a raw ingested event so it is findable via BM25 immediately.
+    ///
+    /// If a document with the same event_id exists, it will be replaced.
+    pub fn index_event(&self, event: &Event) -> Result<(), SearchError> {
+        let doc = event_to_doc(&self.schema, event);
+
+        let writer = self
+            .writer
+            .lock()
+            .map_err(|e| SearchError::IndexLocked(e.to_string()))?;
+
+        let term = Term::from_field_text(self.schema.doc_id, &event.event_id);
+        writer.delete_term(term);
+        writer.add_document(doc)?;
+
+        debug!(event_id = %event.event_id, "Indexed event");
         Ok(())
     }
 

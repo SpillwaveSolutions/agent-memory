@@ -47,7 +47,7 @@ pub mod rebuild;
 pub mod updater;
 pub mod vector_updater;
 
-pub use bm25_updater::Bm25IndexUpdater;
+pub use bm25_updater::{Bm25IndexUpdater, BM25_SKIPPED_NOOP};
 pub use checkpoint::{IndexCheckpoint, IndexType};
 pub use error::IndexingError;
 pub use pipeline::{IndexingPipeline, PipelineConfig, ProcessResult};

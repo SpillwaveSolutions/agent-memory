@@ -143,6 +143,14 @@ Guidelines:
         )
     }
 
+    /// Complete an arbitrary prompt using the configured LLM API.
+    ///
+    /// Reuses the same retry / backoff / Anthropic-vs-OpenAI stack as
+    /// summarization. Used by the v3.1 LLM reranker.
+    pub async fn complete(&self, prompt: &str) -> Result<String, SummarizerError> {
+        self.call_api(prompt).await
+    }
+
     /// Call the API with retry logic.
     async fn call_api(&self, prompt: &str) -> Result<String, SummarizerError> {
         let mut backoff = ExponentialBackoff {

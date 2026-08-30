@@ -25,7 +25,7 @@ pub mod lifecycle;
 pub mod schema;
 pub mod searcher;
 
-pub use document::{extract_toc_text, grip_to_doc, toc_node_to_doc};
+pub use document::{event_to_doc, extract_toc_text, grip_to_doc, toc_node_to_doc};
 pub use error::SearchError;
 pub use index::{open_or_create_index, SearchIndex, SearchIndexConfig};
 pub use indexer::SearchIndexer;

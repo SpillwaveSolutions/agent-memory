@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 
 use chrono::{DateTime, Utc};
+use memory_types::recover_lock;
 use serde::{Deserialize, Serialize};
 
 /// Result of a job execution.
@@ -139,7 +140,7 @@ impl JobRegistry {
     ///
     /// If a job with the same name already exists, it will be replaced.
     pub fn register(&self, job_name: &str, cron_expr: &str) {
-        let mut jobs = self.jobs.write().unwrap();
+        let mut jobs = recover_lock(self.jobs.write());
         jobs.insert(
             job_name.to_string(),
             JobStatus::new(job_name.to_string(), cron_expr.to_string()),
@@ -148,7 +149,7 @@ impl JobRegistry {
 
     /// Record that a job has started executing.
     pub fn record_start(&self, job_name: &str) {
-        let mut jobs = self.jobs.write().unwrap();
+        let mut jobs = recover_lock(self.jobs.write());
         if let Some(status) = jobs.get_mut(job_name) {
             status.is_running = true;
         }
@@ -172,7 +173,7 @@ impl JobRegistry {
         duration_ms: u64,
         metadata: HashMap<String, String>,
     ) {
-        let mut jobs = self.jobs.write().unwrap();
+        let mut jobs = recover_lock(self.jobs.write());
         if let Some(status) = jobs.get_mut(job_name) {
             status.is_running = false;
             status.last_run = Some(Utc::now());
@@ -188,7 +189,7 @@ impl JobRegistry {
 
     /// Update the next scheduled run time for a job.
     pub fn set_next_run(&self, job_name: &str, next: DateTime<Utc>) {
-        let mut jobs = self.jobs.write().unwrap();
+        let mut jobs = recover_lock(self.jobs.write());
         if let Some(status) = jobs.get_mut(job_name) {
             status.next_run = Some(next);
         }
@@ -196,7 +197,7 @@ impl JobRegistry {
 
     /// Set the paused state of a job.
     pub fn set_paused(&self, job_name: &str, paused: bool) {
-        let mut jobs = self.jobs.write().unwrap();
+        let mut jobs = recover_lock(self.jobs.write());
         if let Some(status) = jobs.get_mut(job_name) {
             status.is_paused = paused;
         }
@@ -206,21 +207,19 @@ impl JobRegistry {
     ///
     /// Returns `None` if the job is not registered.
     pub fn get_status(&self, job_name: &str) -> Option<JobStatus> {
-        self.jobs.read().unwrap().get(job_name).cloned()
+        recover_lock(self.jobs.read()).get(job_name).cloned()
     }
 
     /// Get the status of all registered jobs.
     pub fn get_all_status(&self) -> Vec<JobStatus> {
-        self.jobs.read().unwrap().values().cloned().collect()
+        recover_lock(self.jobs.read()).values().cloned().collect()
     }
 
     /// Check if a job is currently running.
     ///
     /// Returns `false` if the job is not registered.
     pub fn is_running(&self, job_name: &str) -> bool {
-        self.jobs
-            .read()
-            .unwrap()
+        recover_lock(self.jobs.read())
             .get(job_name)
             .map(|s| s.is_running)
             .unwrap_or(false)
@@ -228,16 +227,14 @@ impl JobRegistry {
 
     /// Check if a job is registered.
     pub fn is_registered(&self, job_name: &str) -> bool {
-        self.jobs.read().unwrap().contains_key(job_name)
+        recover_lock(self.jobs.read()).contains_key(job_name)
     }
 
     /// Check if a job is paused.
     ///
     /// Returns `false` if the job is not registered.
     pub fn is_paused(&self, job_name: &str) -> bool {
-        self.jobs
-            .read()
-            .unwrap()
+        recover_lock(self.jobs.read())
             .get(job_name)
             .map(|s| s.is_paused)
             .unwrap_or(false)
@@ -245,7 +242,7 @@ impl JobRegistry {
 
     /// Get the number of registered jobs.
     pub fn job_count(&self) -> usize {
-        self.jobs.read().unwrap().len()
+        recover_lock(self.jobs.read()).len()
     }
 }
 

@@ -64,11 +64,20 @@ mod tests {
     use crate::rerank::RerankedResult;
 
     fn make_reranked(id: &str, text: &str, score: f64) -> RerankedResult {
+        use memory_retrieval::{RetrievalLayer, SearchResult};
         RerankedResult {
             doc_id: id.to_string(),
             score,
             text: text.to_string(),
             source_layer: "bm25".to_string(),
+            inner: SearchResult {
+                doc_id: id.to_string(),
+                doc_type: "toc_node".to_string(),
+                score: score as f32,
+                text_preview: text.to_string(),
+                source_layer: RetrievalLayer::BM25,
+                metadata: Default::default(),
+            },
         }
     }
 

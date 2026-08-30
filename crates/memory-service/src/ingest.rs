@@ -51,6 +51,20 @@ use crate::search_service;
 use crate::teleport_service;
 use crate::topics::TopicGraphHandler;
 use crate::vector::VectorTeleportHandler;
+use memory_toc::ApiSummarizer;
+
+/// Optional query-path indexes attached at daemon start (Phase 54).
+#[derive(Default)]
+pub struct QueryIndexBundle {
+    /// BM25 teleport searcher.
+    pub searcher: Option<Arc<TeleportSearcher>>,
+    /// Vector teleport handler.
+    pub vector: Option<Arc<VectorTeleportHandler>>,
+    /// Topic graph handler.
+    pub topics: Option<Arc<TopicGraphHandler>>,
+    /// API summarizer used as the LLM rerank completer.
+    pub api_summarizer: Option<Arc<ApiSummarizer>>,
+}
 
 /// Implementation of the MemoryService gRPC service.
 pub struct MemoryServiceImpl {
@@ -319,6 +333,38 @@ impl MemoryServiceImpl {
     /// When set, episodic memory RPCs will be functional.
     pub fn set_episode_handler(&mut self, handler: Arc<EpisodeHandler>) {
         self.episode_handler = Some(handler);
+    }
+
+    /// Attach live BM25/vector/topic indexes and an optional LLM completer.
+    ///
+    /// Replaces the retrieval handler constructed by `with_scheduler` (which
+    /// starts with all indexes `None`) so `RouteQuery` and teleport RPCs hit
+    /// real indexes.
+    pub fn attach_indexes(&mut self, indexes: QueryIndexBundle, staleness_config: StalenessConfig) {
+        if let Some(searcher) = &indexes.searcher {
+            self.teleport_searcher = Some(Arc::clone(searcher));
+        }
+        if let Some(vector) = &indexes.vector {
+            self.vector_service = Some(Arc::clone(vector));
+            self.hybrid_service = Some(Arc::new(HybridSearchHandler::new(
+                Arc::clone(vector),
+                indexes.searcher.clone(),
+            )));
+        }
+        if let Some(topics) = &indexes.topics {
+            self.topic_service = Some(Arc::clone(topics));
+        }
+        let mut retrieval = RetrievalHandler::with_services(
+            Arc::clone(&self.storage),
+            indexes.searcher,
+            indexes.vector,
+            indexes.topics,
+            staleness_config,
+        );
+        if let Some(summarizer) = indexes.api_summarizer {
+            retrieval = retrieval.with_api_summarizer(summarizer);
+        }
+        self.retrieval_service = Some(Arc::new(retrieval));
     }
 
     /// Convert proto EventRole to domain EventRole

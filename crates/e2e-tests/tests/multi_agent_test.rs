@@ -162,6 +162,8 @@ async fn test_multi_agent_cross_agent_query() {
             limit: 20,
             agent_filter: None,
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();
@@ -276,6 +278,8 @@ async fn test_multi_agent_filtered_query() {
             limit: 10,
             agent_filter: Some("claude".to_string()),
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();
@@ -338,6 +342,8 @@ async fn test_multi_agent_filtered_query() {
             limit: 10,
             agent_filter: Some("nonexistent_agent".to_string()),
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         }))
         .await
         .unwrap();

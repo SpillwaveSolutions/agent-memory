@@ -5,7 +5,7 @@
 use tantivy::doc;
 use tantivy::TantivyDocument;
 
-use memory_types::{Grip, TocNode};
+use memory_types::{Event, Grip, TocNode};
 
 use crate::schema::{DocType, SearchSchema};
 
@@ -60,6 +60,24 @@ pub fn grip_to_doc(schema: &SearchSchema, grip: &Grip) -> TantivyDocument {
         schema.keywords => "",  // Grips don't have keywords
         schema.timestamp_ms => timestamp,
         schema.agent => ""  // Grips inherit agent from parent node
+    )
+}
+
+/// Convert an ingested [`Event`] to a Tantivy document.
+///
+/// Text field contains the event body. Doc id is the event_id so BM25
+/// teleport can find it immediately after the outbox drain (Phase 54-02).
+pub fn event_to_doc(schema: &SearchSchema, event: &Event) -> TantivyDocument {
+    let timestamp = event.timestamp.timestamp_millis().to_string();
+    let agent = event.agent.clone().unwrap_or_default();
+    doc!(
+        schema.doc_type => DocType::Event.as_str(),
+        schema.doc_id => event.event_id.clone(),
+        schema.level => "",
+        schema.text => event.text.clone(),
+        schema.keywords => "",
+        schema.timestamp_ms => timestamp,
+        schema.agent => agent
     )
 }
 

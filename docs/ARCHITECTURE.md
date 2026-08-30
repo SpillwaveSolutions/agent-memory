@@ -216,18 +216,25 @@ memory-storage  memory-toc   memory-search   memory-embeddings     │
 ### Indexing Pipeline
 
 ```
-1. Outbox consumer reads pending entries
+1. Outbox consumer reads pending entries (IndexEvent / UpdateToc)
    │
 2. For each entry:
-   ├── Extract text from TOC node summaries and grips
-   ├── Index text in Tantivy (BM25)
-   ├── Generate embedding via Candle
-   └── Add embedding to usearch HNSW index
+   ├── Look up the event in RocksDB (fail-open + warn if missing)
+   ├── Index the event body in Tantivy (BM25, DocType::Event)
+   ├── If a grip exists for the event, index that too
+   ├── Generate embeddings via Candle for TOC nodes and grips
+   └── Add embeddings to usearch HNSW
    │
 3. Update checkpoint for crash recovery
    │
 4. Periodic compaction and optimization
 ```
+
+Skipped entries (event not found, empty text) log `tracing::warn!` and
+increment `BM25_SKIPPED_NOOP`. They never report success while doing nothing.
+
+Live ingest writes `OutboxAction::UpdateToc` (and sometimes `IndexEvent`).
+Both arms index the event so `ingest → drain outbox → BM25 teleport` is true.
 
 ## Storage Schema
 
@@ -253,8 +260,8 @@ Some indexes are managed outside RocksDB for specialized libraries:
 
 | Index | Location | Library | Purpose |
 |-------|----------|---------|---------|
-| Tantivy BM25 | `{db_path}/tantivy/` | Tantivy | Full-text search with BM25 ranking |
-| usearch HNSW | `{db_path}/usearch/` | usearch | Approximate nearest neighbor vectors |
+| Tantivy BM25 | `{db_path}/search/` | Tantivy | Full-text search over events, TOC nodes, and grips |
+| usearch HNSW | `{db_path}/vector/` | usearch | Approximate nearest neighbor vectors |
 
 RocksDB column families store metadata and pointers to these external directories. The indexing pipeline coordinates writes to ensure consistency between RocksDB and external indexes.
 

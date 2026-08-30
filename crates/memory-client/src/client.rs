@@ -300,6 +300,19 @@ impl MemoryClient {
         limit: i32,
         agent_filter: Option<String>,
     ) -> Result<RouteQueryResponse, ClientError> {
+        self.route_query_ex(query, limit, agent_filter, None, false)
+            .await
+    }
+
+    /// Route a query with explicit rerank/expand options.
+    pub async fn route_query_ex(
+        &mut self,
+        query: &str,
+        limit: i32,
+        agent_filter: Option<String>,
+        rerank_mode: Option<String>,
+        expand_query: bool,
+    ) -> Result<RouteQueryResponse, ClientError> {
         debug!("RouteQuery request: query={}, limit={}", query, limit);
         let request = tonic::Request::new(RouteQueryRequest {
             query: query.to_string(),
@@ -309,6 +322,8 @@ impl MemoryClient {
             limit,
             agent_filter,
             all_projects: false,
+            rerank_mode,
+            expand_query,
         });
         let response = self.inner.route_query(request).await?;
         Ok(response.into_inner())

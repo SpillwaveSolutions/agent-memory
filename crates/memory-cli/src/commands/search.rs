@@ -11,7 +11,13 @@ use crate::output::{estimate_tokens, print_output, should_force_json, JsonEnvelo
 pub async fn run(args: SearchArgs, global: &GlobalArgs) -> Result<()> {
     let mut client = crate::client::connect_client(&global.endpoint).await?;
     let response = client
-        .route_query(&args.query, args.top as i32, None)
+        .route_query_ex(
+            &args.query,
+            args.top as i32,
+            None,
+            args.rerank.clone(),
+            false,
+        )
         .await?;
 
     let results_json = build_results_json(&response);

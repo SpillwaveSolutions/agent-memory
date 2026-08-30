@@ -28,7 +28,9 @@ use memory_service::pb::{
     SearchChildrenRequest, SearchField as ProtoSearchField, SearchNodeRequest,
     TocLevel as ProtoTocLevel,
 };
-use memory_service::run_server_with_scheduler;
+use memory_service::{
+    run_server_with_scheduler, QueryIndexBundle, TopicGraphHandler, VectorTeleportHandler,
+};
 use memory_storage::Storage;
 use memory_toc::summarizer::{ApiSummarizer, ApiSummarizerConfig, MockSummarizer};
 use memory_types::config::SummarizerSettings;
@@ -440,6 +442,97 @@ pub(crate) fn build_summarizer(
     }
 }
 
+/// Build an [`ApiSummarizer`] when an API key is configured (used for LLM rerank).
+fn build_api_summarizer(settings: &SummarizerSettings) -> Option<Arc<ApiSummarizer>> {
+    let api_key = resolve_api_key(settings)?;
+    if !is_anthropic(&settings.provider) && !is_openai(&settings.provider) {
+        warn!(
+            provider = %settings.provider,
+            "Unknown summarizer provider for LLM rerank, defaulting to OpenAI configuration"
+        );
+    }
+    let kind = pick_summarizer_kind(settings, true);
+    let config = match kind {
+        SummarizerKind::Anthropic => ApiSummarizerConfig::claude(api_key, &settings.model),
+        SummarizerKind::OpenAi => ApiSummarizerConfig::openai(api_key, &settings.model),
+        SummarizerKind::Mock => return None,
+    };
+    match ApiSummarizer::new(config) {
+        Ok(s) => Some(Arc::new(s)),
+        Err(e) => {
+            warn!(error = %e, "Failed to create ApiSummarizer for LLM rerank");
+            None
+        }
+    }
+}
+
+/// Open BM25/vector/topic indexes if present so RouteQuery is not agentic-only.
+fn open_query_indexes(storage: &Arc<Storage>, db_path: &Path) -> QueryIndexBundle {
+    use memory_search::{SearchIndex, SearchIndexConfig, TeleportSearcher};
+    use memory_topics::TopicStorage;
+    use memory_vector::{HnswConfig, HnswIndex, VectorMetadata};
+
+    let mut bundle = QueryIndexBundle::default();
+
+    let search_dir = db_path.join("search");
+    if search_dir.exists() {
+        match SearchIndex::open_or_create(SearchIndexConfig::new(&search_dir)) {
+            Ok(index) => match TeleportSearcher::new(&index) {
+                Ok(searcher) => {
+                    info!(docs = searcher.num_docs(), "BM25 searcher attached");
+                    bundle.searcher = Some(Arc::new(searcher));
+                }
+                Err(e) => warn!(error = %e, "Failed to create BM25 searcher"),
+            },
+            Err(e) => warn!(error = %e, "Failed to open BM25 index"),
+        }
+    } else {
+        info!(
+            "No BM25 index at {:?}; RouteQuery will skip BM25",
+            search_dir
+        );
+    }
+
+    let vector_dir = db_path.join("vector");
+    if vector_dir.exists() {
+        match memory_embeddings::CandleEmbedder::load_default() {
+            Ok(embedder) => {
+                let hnsw_config = HnswConfig::new(384, &vector_dir);
+                match HnswIndex::open_or_create(hnsw_config) {
+                    Ok(hnsw) => {
+                        let meta_path = vector_dir.join("metadata");
+                        match VectorMetadata::open(&meta_path) {
+                            Ok(metadata) => {
+                                info!("Vector teleport handler attached");
+                                bundle.vector = Some(Arc::new(VectorTeleportHandler::new(
+                                    Arc::new(embedder),
+                                    Arc::new(std::sync::RwLock::new(hnsw)),
+                                    Arc::new(metadata),
+                                )));
+                            }
+                            Err(e) => warn!(error = %e, "Failed to open vector metadata"),
+                        }
+                    }
+                    Err(e) => warn!(error = %e, "Failed to open HNSW index"),
+                }
+            }
+            Err(e) => warn!(error = %e, "Failed to load embedder for vector search"),
+        }
+    } else {
+        info!(
+            "No vector index at {:?}; RouteQuery will skip vector",
+            vector_dir
+        );
+    }
+
+    bundle.topics = Some(Arc::new(TopicGraphHandler::new(
+        Arc::new(TopicStorage::new(Arc::clone(storage))),
+        Arc::clone(storage),
+    )));
+
+    bundle
+}
+
 /// Start the memory daemon.
 ///
 /// 1. Load configuration (CFG-01: defaults -> file -> env -> CLI)
@@ -447,13 +540,20 @@ pub(crate) fn build_summarizer(
 /// 3. Create and start scheduler with rollup and compaction jobs
 /// 4. Start gRPC server with scheduler integration
 /// 5. Handle graceful shutdown on SIGINT/SIGTERM
+///
+/// The process always runs in the foreground. `--background` is rejected.
 pub async fn start_daemon(
     config_path: Option<&str>,
-    foreground: bool,
+    background: bool,
     port_override: Option<u16>,
     db_path_override: Option<&str>,
     log_level_override: Option<&str>,
 ) -> Result<()> {
+    if background {
+        anyhow::bail!(
+            "background daemonization is not implemented; run `memory-daemon start` in the foreground, or supervise it with systemd/launchd"
+        );
+    }
     // Load configuration (CFG-01)
     let mut settings = Settings::load(config_path).context("Failed to load configuration")?;
 
@@ -478,18 +578,11 @@ pub async fn start_daemon(
     tracing::subscriber::set_global_default(subscriber)
         .context("Failed to set tracing subscriber")?;
 
-    info!("Memory daemon starting...");
+    info!("Memory daemon starting in foreground...");
     info!("Configuration:");
     info!("  Database path: {}", settings.db_path);
     info!("  gRPC address: {}", settings.grpc_addr());
     info!("  Log level: {}", settings.log_level);
-
-    if !foreground {
-        // TODO: Implement actual daemonization (double-fork on Unix)
-        // For Phase 1, just warn and continue in foreground
-        warn!("Background mode not yet implemented, running in foreground");
-        warn!("Use a process manager (systemd, launchd) for background operation");
-    }
 
     // Open storage (STOR-04: per-project RocksDB instance)
     let db_path = settings.expanded_db_path();
@@ -652,6 +745,10 @@ pub async fn start_daemon(
         settings.staleness.max_penalty
     );
 
+    // Attach live indexes so RouteQuery is not agentic-only.
+    let mut indexes = open_query_indexes(&storage, &db_path);
+    indexes.api_summarizer = build_api_summarizer(&settings.summarizer);
+
     // Start server with scheduler
     let result = run_server_with_scheduler(
         addr,
@@ -660,6 +757,7 @@ pub async fn start_daemon(
         shutdown_signal,
         novelty_checker,
         settings.staleness.clone(),
+        indexes,
     )
     .await;
 
@@ -2772,6 +2870,8 @@ async fn retrieval_route(
             limit: limit as i32,
             agent_filter: agent_filter.map(|s| s.to_string()),
             all_projects: false,
+            rerank_mode: None,
+            expand_query: false,
         })
         .await
         .context("Failed to route query")?
