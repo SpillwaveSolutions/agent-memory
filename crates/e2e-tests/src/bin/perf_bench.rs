@@ -27,7 +27,11 @@ static EMBEDDER: OnceLock<Arc<CandleEmbedder>> = OnceLock::new();
 
 const SMALL_EVENT_COUNT: usize = 60;
 const MEDIUM_EVENT_COUNT: usize = 240;
-const DEFAULT_ITERATIONS: usize = 3;
+/// Query-step default. p99 is only reported at this count.
+const DEFAULT_ITERATIONS: usize = 30;
+const MIN_SAMPLES_P90: usize = 10;
+const MIN_SAMPLES_P99: usize = 30;
+const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -78,29 +82,60 @@ impl Scenario {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum StepKind {
+    Setup,
+    Query,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ThroughputMetrics {
     p50_eps: f64,
-    p90_eps: f64,
-    p99_eps: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p90_eps: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p99_eps: Option<f64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct StepMetrics {
-    p50_ms: f64,
-    p90_ms: f64,
-    p99_ms: f64,
+    kind: StepKind,
     samples: usize,
+    min_ms: f64,
+    p50_ms: f64,
+    max_ms: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p90_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p99_ms: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     throughput_eps: Option<ThroughputMetrics>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct CorpusInfo {
+    tier: DatasetTier,
+    event_count: usize,
+    kind: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct HardwareInfo {
+    os: String,
+    arch: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct BenchmarkOutput {
+    schema_version: u32,
     tier: DatasetTier,
     mode: RunMode,
     iterations: usize,
     generated_at: String,
+    corpus: CorpusInfo,
+    hardware: HardwareInfo,
+    caveats: Vec<String>,
     steps: BTreeMap<String, StepMetrics>,
     comparison: Option<ComparisonSummary>,
 }
@@ -150,15 +185,45 @@ struct BaselineRun {
     steps: BTreeMap<String, StepMetrics>,
 }
 
-struct WarmState {
+struct PreparedStore {
     harness: TestHarness,
-    next_vector_id: u64,
+    toc_node: TocNode,
+    bm25_searcher: Arc<TeleportSearcher>,
+    vector_handler: Arc<VectorTeleportHandler>,
+    topic_handler: Arc<TopicGraphHandler>,
 }
 
 #[derive(Default)]
 struct SampleCollector {
     durations: HashMap<String, Vec<f64>>,
     throughput: HashMap<String, Vec<f64>>,
+    kinds: HashMap<String, StepKind>,
+}
+
+impl SampleCollector {
+    fn record(&mut self, step: String, kind: StepKind, duration_ms: f64) {
+        self.kinds.insert(step.clone(), kind);
+        self.durations.entry(step).or_default().push(duration_ms);
+    }
+
+    fn record_throughput(&mut self, step: &str, eps: f64) {
+        self.throughput
+            .entry(step.to_string())
+            .or_default()
+            .push(eps);
+    }
+}
+
+fn caveats() -> Vec<String> {
+    vec![
+        "Query steps (toc, bm25, vector, topics, route_query) exclude index build, rollup, and model load.".into(),
+        "toc_build is ingest-time MockSummarizer rollup + grip extract + parent-node writes — not TOC navigation.".into(),
+        "vector_index includes Candle embedding of TOC bullets; vector_model_load is a one-shot process cost.".into(),
+        "bm25_index is Tantivy add+commit; bm25 is search only.".into(),
+        "p90 is omitted when samples < 10; p99 is omitted when samples < 30.".into(),
+        "Warm mode: one setup, one discarded warmup query, then N query samples. Cold mode: new store per iteration.".into(),
+        "The 2026-02-12 latest.json (single.toc p50 ≈ 64.6s, samples=3) measured toc_build, not navigation.".into(),
+    ]
 }
 
 #[tokio::main]
@@ -172,51 +237,87 @@ async fn main() -> Result<(), String> {
         None
     };
 
-    let mut collector = SampleCollector::default();
-    let mut warm_state = if args.mode == RunMode::Warm {
-        Some(WarmState {
-            harness: TestHarness::new(),
-            next_vector_id: 1,
-        })
-    } else {
-        None
+    let event_count = match (trace_events.as_ref(), args.tier) {
+        (Some(events), _) => events.len(),
+        (None, DatasetTier::Small) => SMALL_EVENT_COUNT,
+        (None, DatasetTier::Medium) => MEDIUM_EVENT_COUNT,
     };
 
-    for iteration in 0..args.iterations {
-        for scenario in [Scenario::Single, Scenario::Multi] {
-            let sample = run_iteration(
-                args.tier,
-                args.mode,
-                scenario,
-                iteration,
-                trace_events.as_deref(),
-                warm_state.as_mut(),
-            )
-            .await?;
+    let mut collector = SampleCollector::default();
 
-            for (step, duration_ms) in sample.durations {
-                collector
-                    .durations
-                    .entry(step)
-                    .or_default()
-                    .push(duration_ms);
+    let model_start = Instant::now();
+    eprintln!("perf_bench: loading embedding model...");
+    let _ = get_embedder();
+    let model_ms = model_start.elapsed().as_secs_f64() * 1000.0;
+    eprintln!("perf_bench: embedding model ready ({model_ms:.0} ms)");
+    collector.record("vector_model_load".to_string(), StepKind::Setup, model_ms);
+
+    for scenario in [Scenario::Single, Scenario::Multi] {
+        eprintln!(
+            "perf_bench: {} / {} starting",
+            mode_label(args.mode),
+            scenario.label()
+        );
+        match args.mode {
+            RunMode::Warm => {
+                let store = prepare_store(
+                    args.tier,
+                    scenario,
+                    0,
+                    trace_events.as_deref(),
+                    &mut collector,
+                )
+                .await?;
+                // Discard one warmup query so the N samples are warm.
+                let _ = run_queries(&store, scenario).await?;
+                for _iteration in 0..args.iterations {
+                    let query_durations = run_queries(&store, scenario).await?;
+                    for (step, ms) in query_durations {
+                        collector.record(step, StepKind::Query, ms);
+                    }
+                }
             }
-            for (step, throughput) in sample.throughput {
-                collector
-                    .throughput
-                    .entry(step)
-                    .or_default()
-                    .push(throughput);
+            RunMode::Cold => {
+                for iteration in 0..args.iterations {
+                    let store = prepare_store(
+                        args.tier,
+                        scenario,
+                        iteration,
+                        trace_events.as_deref(),
+                        &mut collector,
+                    )
+                    .await?;
+                    let query_durations = run_queries(&store, scenario).await?;
+                    for (step, ms) in query_durations {
+                        collector.record(step, StepKind::Query, ms);
+                    }
+                    drop(store);
+                }
             }
         }
     }
 
     let step_metrics = build_metrics(&collector);
     let mut output = BenchmarkOutput {
+        schema_version: SCHEMA_VERSION,
         tier: args.tier,
         mode: args.mode,
         iterations: args.iterations,
         generated_at: Utc::now().to_rfc3339(),
+        corpus: CorpusInfo {
+            tier: args.tier,
+            event_count,
+            kind: if args.trace.is_some() {
+                "trace".into()
+            } else {
+                "synthetic".into()
+            },
+        },
+        hardware: HardwareInfo {
+            os: std::env::consts::OS.to_string(),
+            arch: std::env::consts::ARCH.to_string(),
+        },
+        caveats: caveats(),
         steps: step_metrics,
         comparison: None,
     };
@@ -270,35 +371,14 @@ async fn main() -> Result<(), String> {
     Ok(())
 }
 
-struct IterationSample {
-    durations: Vec<(String, f64)>,
-    throughput: Vec<(String, f64)>,
-}
-
-async fn run_iteration(
+async fn prepare_store(
     tier: DatasetTier,
-    mode: RunMode,
     scenario: Scenario,
     iteration: usize,
     trace_events: Option<&[Event]>,
-    warm_state: Option<&mut WarmState>,
-) -> Result<IterationSample, String> {
-    // Separate harness ownership from warm_state to avoid overlapping borrows.
-    // For warm mode, we split warm_state into its harness ref and vector_id tracking.
-    let mut local_harness = TestHarness::new();
-    let (harness, initial_vector_id, warm_vector_writer): (
-        &mut TestHarness,
-        u64,
-        Option<*mut u64>,
-    ) = match (mode, warm_state) {
-        (RunMode::Warm, Some(state)) => {
-            let vid = state.next_vector_id;
-            let ptr = &mut state.next_vector_id as *mut u64;
-            (&mut state.harness, vid, Some(ptr))
-        }
-        _ => (&mut local_harness, 1, None),
-    };
-
+    collector: &mut SampleCollector,
+) -> Result<PreparedStore, String> {
+    let harness = TestHarness::new();
     let iteration_tag = format!("{}-{}-{}", tier_label(tier), scenario.label(), iteration);
     let base_events = if let Some(trace) = trace_events {
         prepare_trace_events(trace, scenario, &iteration_tag)
@@ -306,26 +386,18 @@ async fn run_iteration(
         synthetic_events(tier, scenario, iteration)
     };
 
-    let ingest_label = format!("{}.ingest", scenario.label());
-    let toc_label = format!("{}.toc", scenario.label());
-    let bm25_label = format!("{}.bm25", scenario.label());
-    let vector_label = format!("{}.vector", scenario.label());
-    let topics_label = format!("{}.topics", scenario.label());
-    let route_label = format!("{}.route_query", scenario.label());
-
-    let mut durations = Vec::new();
-    let mut throughput = Vec::new();
+    let prefix = scenario.label();
 
     let ingest_start = Instant::now();
     ingest_events(&harness.storage, &base_events);
     let ingest_ms = ingest_start.elapsed().as_secs_f64() * 1000.0;
-    durations.push((ingest_label.clone(), ingest_ms));
-    throughput.push((
-        ingest_label.clone(),
+    collector.record(format!("{prefix}.ingest"), StepKind::Setup, ingest_ms);
+    collector.record_throughput(
+        &format!("{prefix}.ingest"),
         events_per_second(base_events.len(), ingest_ms),
-    ));
+    );
 
-    let toc_start = Instant::now();
+    let toc_build_start = Instant::now();
     let mut toc_node = build_toc_segment(harness.storage.clone(), base_events).await;
     if scenario == Scenario::Multi {
         for agent in ["claude", "copilot"] {
@@ -334,48 +406,114 @@ async fn run_iteration(
             }
         }
     }
-    navigate_toc(harness.storage.as_ref(), &toc_node);
-    let toc_ms = toc_start.elapsed().as_secs_f64() * 1000.0;
-    durations.push((toc_label, toc_ms));
+    collector.record(
+        format!("{prefix}.toc_build"),
+        StepKind::Setup,
+        toc_build_start.elapsed().as_secs_f64() * 1000.0,
+    );
+    eprintln!(
+        "perf_bench: {prefix}.toc_build {:.0} ms",
+        toc_build_start.elapsed().as_secs_f64() * 1000.0
+    );
 
     let bm25_start = Instant::now();
-    let bm25_searcher = build_bm25_index(harness, &toc_node)?;
-    let bm25_ms = bm25_start.elapsed().as_secs_f64() * 1000.0;
-    durations.push((bm25_label, bm25_ms));
+    let bm25_searcher = build_bm25_index(&harness, &toc_node)?;
+    collector.record(
+        format!("{prefix}.bm25_index"),
+        StepKind::Setup,
+        bm25_start.elapsed().as_secs_f64() * 1000.0,
+    );
 
     let vector_start = Instant::now();
-    let vector_handler = build_vector_index(
-        harness,
-        &toc_node,
-        scenario,
-        iteration,
-        initial_vector_id,
-        warm_vector_writer,
-    )
-    .await?;
-    let vector_ms = vector_start.elapsed().as_secs_f64() * 1000.0;
-    durations.push((vector_label, vector_ms));
+    let vector_handler = build_vector_index(&harness, &toc_node, scenario, iteration).await?;
+    collector.record(
+        format!("{prefix}.vector_index"),
+        StepKind::Setup,
+        vector_start.elapsed().as_secs_f64() * 1000.0,
+    );
 
     let topics_start = Instant::now();
     let topic_handler = build_topic_graph(harness.storage.clone(), &toc_node, iteration).await?;
-    let topics_ms = topics_start.elapsed().as_secs_f64() * 1000.0;
-    durations.push((topics_label, topics_ms));
+    collector.record(
+        format!("{prefix}.topics_index"),
+        StepKind::Setup,
+        topics_start.elapsed().as_secs_f64() * 1000.0,
+    );
 
-    let route_start = Instant::now();
-    run_route_query(
-        harness.storage.clone(),
+    Ok(PreparedStore {
+        harness,
+        toc_node,
         bm25_searcher,
         vector_handler,
         topic_handler,
+    })
+}
+
+async fn run_queries(
+    store: &PreparedStore,
+    scenario: Scenario,
+) -> Result<Vec<(String, f64)>, String> {
+    let prefix = scenario.label();
+    let mut durations = Vec::new();
+
+    let toc_start = Instant::now();
+    navigate_toc(store.harness.storage.as_ref(), &store.toc_node);
+    durations.push((
+        format!("{prefix}.toc"),
+        toc_start.elapsed().as_secs_f64() * 1000.0,
+    ));
+
+    let bm25_start = Instant::now();
+    let _ = store
+        .bm25_searcher
+        .search("rust memory safety", SearchOptions::new().with_limit(10));
+    durations.push((
+        format!("{prefix}.bm25"),
+        bm25_start.elapsed().as_secs_f64() * 1000.0,
+    ));
+
+    let vector_start = Instant::now();
+    let _ = store
+        .vector_handler
+        .search("vector embedding retrieval", 10, 0.0)
+        .await;
+    durations.push((
+        format!("{prefix}.vector"),
+        vector_start.elapsed().as_secs_f64() * 1000.0,
+    ));
+
+    let topics_start = Instant::now();
+    let _ = store
+        .topic_handler
+        .get_top_topics(Request::new(memory_service::pb::GetTopTopicsRequest {
+            limit: 3,
+            days: 30,
+            agent_filter: None,
+        }))
+        .await;
+    let _ = store
+        .topic_handler
+        .search_topics("memory retrieval", 5)
+        .await;
+    durations.push((
+        format!("{prefix}.topics"),
+        topics_start.elapsed().as_secs_f64() * 1000.0,
+    ));
+
+    let route_start = Instant::now();
+    run_route_query(
+        store.harness.storage.clone(),
+        store.bm25_searcher.clone(),
+        store.vector_handler.clone(),
+        store.topic_handler.clone(),
     )
     .await?;
-    let route_ms = route_start.elapsed().as_secs_f64() * 1000.0;
-    durations.push((route_label, route_ms));
+    durations.push((
+        format!("{prefix}.route_query"),
+        route_start.elapsed().as_secs_f64() * 1000.0,
+    ));
 
-    Ok(IterationSample {
-        durations,
-        throughput,
-    })
+    Ok(durations)
 }
 
 fn events_per_second(count: usize, duration_ms: f64) -> f64 {
@@ -485,10 +623,11 @@ fn synthetic_events(tier: DatasetTier, scenario: Scenario, iteration: usize) -> 
 fn navigate_toc(storage: &memory_storage::Storage, toc_node: &TocNode) {
     let day_id = toc_node.start_time.format("%Y-%m-%d").to_string();
     let year_id = toc_node.start_time.format("%Y").to_string();
-    let day_node = format!("toc:day:{}", day_id);
-    let year_node = format!("toc:year:{}", year_id);
-    let _ = storage.get_toc_node(&day_node);
+    let day_node = format!("toc:day:{day_id}");
+    let year_node = format!("toc:year:{year_id}");
     let _ = storage.get_toc_node(&year_node);
+    let _ = storage.get_toc_node(&day_node);
+    let _ = storage.get_toc_node(&toc_node.node_id);
 }
 
 fn build_bm25_index(
@@ -517,10 +656,9 @@ fn build_bm25_index(
         }
     }
     indexer.commit().map_err(|e| e.to_string())?;
-
-    let searcher = TeleportSearcher::new(&bm25_index).map_err(|e| e.to_string())?;
-    let _ = searcher.search("rust memory safety", SearchOptions::new().with_limit(10));
-    Ok(Arc::new(searcher))
+    TeleportSearcher::new(&bm25_index)
+        .map(Arc::new)
+        .map_err(|e| e.to_string())
 }
 
 async fn build_vector_index(
@@ -528,8 +666,6 @@ async fn build_vector_index(
     toc_node: &TocNode,
     scenario: Scenario,
     iteration: usize,
-    initial_vector_id: u64,
-    warm_vector_writer: Option<*mut u64>,
 ) -> Result<Arc<VectorTeleportHandler>, String> {
     let embedder = get_embedder();
     let capacity = toc_node.bullets.len().max(10) + 32;
@@ -557,8 +693,7 @@ async fn build_vector_index(
         ));
     }
 
-    let mut vector_id = initial_vector_id;
-
+    let mut vector_id = 1_u64;
     for (idx, (text, agent, timestamp_ms)) in texts.iter().enumerate() {
         let embedder_clone = embedder.clone();
         let text_owned = text.clone();
@@ -582,19 +717,11 @@ async fn build_vector_index(
         vector_id += 1;
     }
 
-    if let Some(ptr) = warm_vector_writer {
-        // SAFETY: ptr points to warm_state.next_vector_id which is still alive
-        // within run_iteration's scope. We use a raw pointer to avoid borrow conflicts.
-        unsafe {
-            *ptr = vector_id;
-        }
-    }
-
     let index_lock = Arc::new(std::sync::RwLock::new(hnsw_index));
     let metadata = Arc::new(metadata);
-    let handler = Arc::new(VectorTeleportHandler::new(embedder, index_lock, metadata));
-    let _ = handler.search("vector embedding retrieval", 10, 0.0).await;
-    Ok(handler)
+    Ok(Arc::new(VectorTeleportHandler::new(
+        embedder, index_lock, metadata,
+    )))
 }
 
 async fn build_topic_graph(
@@ -633,19 +760,10 @@ async fn build_topic_graph(
         }
     }
 
-    let handler = Arc::new(TopicGraphHandler::new(
+    Ok(Arc::new(TopicGraphHandler::new(
         Arc::new(topic_storage),
-        storage.clone(),
-    ));
-    let _ = handler
-        .get_top_topics(Request::new(memory_service::pb::GetTopTopicsRequest {
-            limit: 3,
-            days: 30,
-            agent_filter: None,
-        }))
-        .await;
-    let _ = handler.search_topics("memory retrieval", 5).await;
-    Ok(handler)
+        storage,
+    )))
 }
 
 async fn run_route_query(
@@ -689,29 +807,31 @@ fn create_topic(id: &str, label: &str, keywords: &[&str], importance: f64) -> To
 fn build_metrics(collector: &SampleCollector) -> BTreeMap<String, StepMetrics> {
     let mut steps = BTreeMap::new();
     for (step, durations) in &collector.durations {
-        let mut sorted = durations.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let p50 = percentile(&sorted, 50.0);
-        let p90 = percentile(&sorted, 90.0);
-        let p99 = percentile(&sorted, 99.0);
-
+        let kind = collector
+            .kinds
+            .get(step)
+            .copied()
+            .unwrap_or(StepKind::Query);
+        let stats = summarize_samples(durations);
         let throughput = collector.throughput.get(step).map(|values| {
-            let mut throughput_values = values.clone();
-            throughput_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let t = summarize_samples(values);
             ThroughputMetrics {
-                p50_eps: percentile(&throughput_values, 50.0),
-                p90_eps: percentile(&throughput_values, 90.0),
-                p99_eps: percentile(&throughput_values, 99.0),
+                p50_eps: t.p50,
+                p90_eps: t.p90,
+                p99_eps: t.p99,
             }
         });
 
         steps.insert(
             step.clone(),
             StepMetrics {
-                p50_ms: p50,
-                p90_ms: p90,
-                p99_ms: p99,
-                samples: durations.len(),
+                kind,
+                samples: stats.samples,
+                min_ms: stats.min,
+                p50_ms: stats.p50,
+                max_ms: stats.max,
+                p90_ms: stats.p90,
+                p99_ms: stats.p99,
                 throughput_eps: throughput,
             },
         );
@@ -719,40 +839,91 @@ fn build_metrics(collector: &SampleCollector) -> BTreeMap<String, StepMetrics> {
     steps
 }
 
-fn percentile(values: &[f64], percentile: f64) -> f64 {
+struct SampleStats {
+    samples: usize,
+    min: f64,
+    p50: f64,
+    max: f64,
+    p90: Option<f64>,
+    p99: Option<f64>,
+}
+
+fn summarize_samples(values: &[f64]) -> SampleStats {
+    let mut sorted = values.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let n = sorted.len();
+    SampleStats {
+        samples: n,
+        min: sorted.first().copied().unwrap_or(0.0),
+        p50: percentile(&sorted, 50.0).unwrap_or(0.0),
+        max: sorted.last().copied().unwrap_or(0.0),
+        p90: if n >= MIN_SAMPLES_P90 {
+            percentile(&sorted, 90.0)
+        } else {
+            None
+        },
+        p99: if n >= MIN_SAMPLES_P99 {
+            percentile(&sorted, 99.0)
+        } else {
+            None
+        },
+    }
+}
+
+/// Linear-interpolated percentile. `values` must be sorted ascending.
+fn percentile(values: &[f64], percentile: f64) -> Option<f64> {
     if values.is_empty() {
-        return 0.0;
+        return None;
     }
     let rank = (percentile / 100.0) * (values.len() as f64 - 1.0);
     let low = rank.floor() as usize;
     let high = rank.ceil() as usize;
     if low == high {
-        values[low]
+        Some(values[low])
     } else {
         let weight = rank - low as f64;
-        values[low] + (values[high] - values[low]) * weight
+        Some(values[low] + (values[high] - values[low]) * weight)
     }
 }
 
 fn render_table(output: &BenchmarkOutput) -> String {
     let mut lines = Vec::new();
     lines.push(format!(
-        "Benchmark Results (tier={}, mode={}, iterations={})",
+        "Benchmark Results (schema={}, tier={}, mode={}, iterations={}, corpus={} {}, {}/{})",
+        output.schema_version,
         tier_label(output.tier),
         mode_label(output.mode),
-        output.iterations
+        output.iterations,
+        output.corpus.event_count,
+        output.corpus.kind,
+        output.hardware.os,
+        output.hardware.arch
     ));
-    lines.push("step\tp50_ms\tp90_ms\tp99_ms\tthroughput_eps".to_string());
+    lines.push(
+        "kind\tstep\tsamples\tmin_ms\tp50_ms\tp90_ms\tp99_ms\tmax_ms\tthroughput_eps".to_string(),
+    );
 
     for (step, metrics) in &output.steps {
+        let kind = match metrics.kind {
+            StepKind::Setup => "setup",
+            StepKind::Query => "query",
+        };
+        let p90 = metrics
+            .p90_ms
+            .map(|v| format!("{v:.2}"))
+            .unwrap_or_else(|| "-".into());
+        let p99 = metrics
+            .p99_ms
+            .map(|v| format!("{v:.2}"))
+            .unwrap_or_else(|| "-".into());
         let throughput = metrics
             .throughput_eps
             .as_ref()
             .map(|t| format!("{:.2}", t.p50_eps))
             .unwrap_or_else(|| "-".to_string());
         lines.push(format!(
-            "{}\t{:.2}\t{:.2}\t{:.2}\t{}",
-            step, metrics.p50_ms, metrics.p90_ms, metrics.p99_ms, throughput
+            "{kind}\t{step}\t{}\t{:.2}\t{:.2}\t{p90}\t{p99}\t{:.2}\t{throughput}",
+            metrics.samples, metrics.min_ms, metrics.p50_ms, metrics.max_ms
         ));
     }
     lines.join("\n")
@@ -775,7 +946,16 @@ fn compare_with_baseline(
         });
     }
     let baseline_data = fs::read_to_string(baseline_path).map_err(|e| e.to_string())?;
-    let baseline: BaselineFile = serde_json::from_str(&baseline_data).map_err(|e| e.to_string())?;
+    let baseline: BaselineFile = match serde_json::from_str::<BaselineFile>(&baseline_data) {
+        Ok(b) if b.version == SCHEMA_VERSION => b,
+        _ => {
+            // v1 files mixed setup+query under query names; do not compare.
+            return Ok(ComparisonSummary {
+                warnings: Vec::new(),
+                severe: Vec::new(),
+            });
+        }
+    };
 
     let run = baseline
         .runs
@@ -793,6 +973,9 @@ fn compare_with_baseline(
     let mut severe = Vec::new();
 
     for (step, current) in &output.steps {
+        if current.kind != StepKind::Query {
+            continue;
+        }
         let Some(baseline_step) = run.steps.get(step) else {
             continue;
         };
@@ -906,25 +1089,20 @@ fn apply_throughput_regression(
 fn update_baseline(path: &Path, output: &BenchmarkOutput) -> Result<BaselineFile, String> {
     let mut baseline = if path.exists() {
         let data = fs::read_to_string(path).map_err(|e| e.to_string())?;
-        serde_json::from_str::<BaselineFile>(&data).map_err(|e| e.to_string())?
+        match serde_json::from_str::<BaselineFile>(&data) {
+            Ok(existing) if existing.version == SCHEMA_VERSION => existing,
+            _ => BaselineFile {
+                baseline: default_baseline_label(),
+                version: SCHEMA_VERSION,
+                thresholds: default_thresholds(),
+                runs: Vec::new(),
+            },
+        }
     } else {
         BaselineFile {
             baseline: default_baseline_label(),
-            version: 1,
-            thresholds: Thresholds {
-                warning: Threshold {
-                    relative: 0.15,
-                    absolute_ms: 25.0,
-                    throughput_relative: 0.15,
-                    throughput_absolute: 50.0,
-                },
-                severe: Threshold {
-                    relative: 0.30,
-                    absolute_ms: 50.0,
-                    throughput_relative: 0.30,
-                    throughput_absolute: 100.0,
-                },
-            },
+            version: SCHEMA_VERSION,
+            thresholds: default_thresholds(),
             runs: Vec::new(),
         }
     };
@@ -932,6 +1110,7 @@ fn update_baseline(path: &Path, output: &BenchmarkOutput) -> Result<BaselineFile
     if baseline.baseline.is_empty() {
         baseline.baseline = default_baseline_label();
     }
+    baseline.version = SCHEMA_VERSION;
 
     let run = BaselineRun {
         tier: output.tier,
@@ -954,6 +1133,23 @@ fn update_baseline(path: &Path, output: &BenchmarkOutput) -> Result<BaselineFile
     Ok(baseline)
 }
 
+fn default_thresholds() -> Thresholds {
+    Thresholds {
+        warning: Threshold {
+            relative: 0.15,
+            absolute_ms: 25.0,
+            throughput_relative: 0.15,
+            throughput_absolute: 50.0,
+        },
+        severe: Threshold {
+            relative: 0.30,
+            absolute_ms: 50.0,
+            throughput_relative: 0.30,
+            throughput_absolute: 100.0,
+        },
+    }
+}
+
 fn default_baseline_label() -> String {
     "perf_bench".to_string()
 }
@@ -961,7 +1157,13 @@ fn default_baseline_label() -> String {
 fn get_embedder() -> Arc<CandleEmbedder> {
     EMBEDDER
         .get_or_init(|| {
-            let embedder = CandleEmbedder::load_default().expect("Failed to load embedding model");
+            let cache = memory_embeddings::ModelCache::default();
+            eprintln!(
+                "perf_bench: model cache dir = {} (cached={})",
+                cache.model_dir().display(),
+                cache.is_cached()
+            );
+            let embedder = CandleEmbedder::load(&cache).expect("Failed to load embedding model");
             Arc::new(embedder)
         })
         .clone()
@@ -985,5 +1187,64 @@ fn agent_for_scenario(scenario: Scenario) -> &'static str {
     match scenario {
         Scenario::Single => "claude",
         Scenario::Multi => "copilot",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn percentile_empty_is_none() {
+        assert_eq!(percentile(&[], 50.0), None);
+    }
+
+    #[test]
+    fn percentile_single_value() {
+        assert_eq!(percentile(&[10.0], 50.0), Some(10.0));
+        assert_eq!(percentile(&[10.0], 99.0), Some(10.0));
+    }
+
+    #[test]
+    fn summarize_omits_p90_below_10_samples() {
+        let stats = summarize_samples(&[1.0, 2.0, 3.0]);
+        assert_eq!(stats.samples, 3);
+        assert_eq!(stats.min, 1.0);
+        assert_eq!(stats.max, 3.0);
+        assert_eq!(stats.p50, 2.0);
+        assert!(stats.p90.is_none());
+        assert!(stats.p99.is_none());
+    }
+
+    #[test]
+    fn summarize_includes_p90_at_10_samples() {
+        let values: Vec<f64> = (1..=10).map(|i| i as f64).collect();
+        let stats = summarize_samples(&values);
+        assert!(stats.p90.is_some());
+        assert!(stats.p99.is_none());
+    }
+
+    #[test]
+    fn summarize_includes_p99_at_30_samples() {
+        let values: Vec<f64> = (1..=30).map(|i| i as f64).collect();
+        let stats = summarize_samples(&values);
+        assert!(stats.p90.is_some());
+        assert!(stats.p99.is_some());
+        assert_eq!(stats.min, 1.0);
+        assert_eq!(stats.max, 30.0);
+    }
+
+    #[test]
+    fn three_sample_p99_would_be_an_artifact() {
+        // The retired 2026-02-12 methodology interpolated p99 from 3 samples.
+        let sorted = [64576.0, 65000.0, 65451.0];
+        let fake_p99 = percentile(&sorted, 99.0).unwrap();
+        assert!(
+            (fake_p99 - sorted[2]).abs() < 50.0,
+            "p99 of 3 samples collapses onto max ({fake_p99} vs {})",
+            sorted[2]
+        );
+        let honest = summarize_samples(&sorted);
+        assert!(honest.p99.is_none());
     }
 }

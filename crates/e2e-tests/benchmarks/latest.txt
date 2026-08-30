@@ -1,14 +1,23 @@
-Benchmark Results (tier=medium, mode=warm, iterations=3)
-step	p50_ms	p90_ms	p99_ms	throughput_eps
-multi.bm25	247.45	272.24	277.82	-
-multi.ingest	5.93	6.06	6.09	40483.56
-multi.route_query	2.65	3.57	3.77	-
-multi.toc	64732.55	67491.81	68112.65	-
-multi.topics	1.91	2.59	2.74	-
-multi.vector	7371.71	7406.27	7414.04	-
-single.bm25	244.62	248.54	249.43	-
-single.ingest	5.79	5.86	5.87	41451.97
-single.route_query	2.33	3.01	3.16	-
-single.toc	64576.71	65290.78	65451.45	-
-single.topics	1.89	2.51	2.64	-
-single.vector	7171.03	7752.53	7883.37	-
+Benchmark Results (schema=2, tier=medium, mode=warm, iterations=30, corpus=240 synthetic, linux/x86_64)
+kind	step	samples	min_ms	p50_ms	p90_ms	p99_ms	max_ms	throughput_eps
+query	multi.bm25	30	0.48	0.55	0.71	0.77	0.78	-
+setup	multi.bm25_index	1	36.47	36.47	-	-	36.47	-
+setup	multi.ingest	1	7.42	7.42	-	-	7.42	32325.81
+query	multi.route_query	30	4049.17	4132.33	4280.63	4315.11	4325.85	-
+query	multi.toc	30	0.12	0.13	0.25	0.39	0.40	-
+setup	multi.toc_build	1	76080.04	76080.04	-	-	76080.04	-
+query	multi.topics	30	0.95	0.98	1.05	1.31	1.37	-
+setup	multi.topics_index	1	0.66	0.66	-	-	0.66	-
+query	multi.vector	30	4039.87	4125.63	4220.34	4325.90	4363.62	-
+setup	multi.vector_index	1	12404.26	12404.26	-	-	12404.26	-
+query	single.bm25	30	0.49	0.57	0.70	0.78	0.78	-
+setup	single.bm25_index	1	35.65	35.65	-	-	35.65	-
+setup	single.ingest	1	7.49	7.49	-	-	7.49	32053.63
+query	single.route_query	30	3997.11	4145.49	4255.67	4477.30	4545.49	-
+query	single.toc	30	0.12	0.13	0.16	0.19	0.20	-
+setup	single.toc_build	1	76713.97	76713.97	-	-	76713.97	-
+query	single.topics	30	0.95	0.97	1.04	1.22	1.26	-
+setup	single.topics_index	1	0.61	0.61	-	-	0.61	-
+query	single.vector	30	4019.13	4152.48	4256.10	4333.78	4357.29	-
+setup	single.vector_index	1	12589.21	12589.21	-	-	12589.21	-
+setup	vector_model_load	1	155.73	155.73	-	-	155.73	-
