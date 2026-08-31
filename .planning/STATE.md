@@ -67,6 +67,7 @@ post the blog and launch threads.
 - Phase 57 tiering: Tier 1 = Claude Code + Codex CLI (PR gate); Tier 2 = Gemini + Copilot (weekly schedule)
 - Phase 57: OpenCode removed rather than archived — a converter whose methods return empty is a false success, not a gap
 - Phase 57: no comparative benchmark claim ships while the only committed results are mock-backend / mock-judge
-- Phase 58: version is 3.1.0 — it had been stuck at 2.7.0 through the whole v3.0 and v3.1 line, and there are no tags in the repo
+- Phase 58: version is 3.1.0 — it had been stuck at 2.7.0 through the whole v3.0 and v3.1 line. Tags and GitHub releases exist through v2.7.0 (2026-03-22); v3.0 and v3.1 were milestone names that never shipped a release. An earlier note here claimed the repo had no tags — that was a shallow-clone artifact, not the truth
+- Phase 58 blocker: this session cannot cut the release. `git push origin v3.1.0` returns HTTP 403 through the agent git proxy, and the GitHub App cannot `workflow_dispatch` release.yml ("Resource not accessible by integration"). The tag must be pushed by a maintainer
 - Phase 58: release archives are `agent-memory-<version>-<platform>` and carry all four binaries; the CLI the quickstart needs was previously not shipped
 - Phase 58: `admin rebuild-bm25` is a prune, not a rebuild — relabelled rather than renamed, and there is no event backfill path
