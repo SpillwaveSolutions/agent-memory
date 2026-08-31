@@ -12,7 +12,7 @@
 - ✅ **v2.6 Cognitive Retrieval** — Phases 39-44 (shipped 2026-03-16)
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
 - **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 + Phase 51.5 (in progress; Phase 51.5 merged 2026-04-28)
-- **v3.1 Make It True** — Phases 54-58 (in progress; Phases 54, 54.5, 55, 56 merged 2026-08-30, Phase 57 executing)
+- ✅ **v3.1 Make It True** — Phases 54-58 (shipped 2026-08-31)
 
 ## Phases
 
@@ -285,13 +285,22 @@ Close the claim/reality gap, then open the shop window. No new capabilities.
 - [x] 56-02: LOCOMO adapter v2 (real schema, mock vs llm-judge)
 - [x] 56-03: Smoke artifacts + HOLD comparison marketing
 
-### Phase 57: Shop Window & Positioning (3/3 plans) — IN EXECUTION 2026-08-30
+### Phase 57: Shop Window & Positioning (3/3 plans) — COMPLETE 2026-08-31 (PR #36)
 
 - [x] 57-01: Repo hygiene (root README, LICENSE, repository URL)
 - [x] 57-02: Positioning writeup vs Mem0 / Zep / MemMachine / Letta
 - [x] 57-03: Scope trim — Tier 1/Tier 2 surface; OpenCode stub deleted
 
-### Phase 58: Launch (side quest)
+### Phase 58: Launch (side quest) — IN EXECUTION 2026-08-31
 
-*Updated: 2026-08-30 — Phase 56 merged (#34); Phase 57 Shop Window in execution*
+- [x] Version bumped to 3.1.0 (was still 2.7.0 across v3.0 and v3.1)
+- [x] CHANGELOG.md and v3.1 upgrade notes
+- [x] Release archives ship all four binaries; assets renamed `agent-memory-*`
+- [x] Blog post and Show HN / reddit copy drafted in `docs/launch/`
+- [ ] Tag `v3.1.0` (maintainer — publishes public binaries)
+- [ ] Repo description, topics, Discussions (maintainer — repo settings)
+- [ ] Recorded demo (maintainer)
+- [ ] Post the blog and the launch threads (maintainer)
+
+*Updated: 2026-08-31 — Phase 57 merged (#36); v3.1 shipped; Phase 58 launch prep*
 

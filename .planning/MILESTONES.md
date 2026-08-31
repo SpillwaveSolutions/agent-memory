@@ -1,5 +1,67 @@
 # Project Milestones: Agent Memory
 
+## v3.1 Make It True (Shipped: 2026-08-31)
+
+**Delivered:** no new capabilities. Four phases closing the gap between what the
+project claimed and what it did, after a v3.0 verification document self-graded
+17/17 on a benchmark that had never been run and a crate no shipped binary could
+reach.
+
+**Phases completed:** 54, 54.5, 55, 56, 57 (5 phases, 14 plans + a cleanup phase)
+
+**Key accomplishments:**
+
+- `memory-orchestrator` made reachable: `RouteQuery` calls it, `memory search`
+  is a client of that RPC (`cargo tree -i` now shows a shipped dependent)
+- Hybrid retrieval actually fuses BM25 and vector; BM25 outbox drain no longer a
+  no-op; event documents store text so previews and LLM reranking work
+- Explainability reports what actually ran — a failed LLM rerank says
+  `rerank=heuristic`, `layers_attempted` lists only invoked layers, client stop
+  conditions reach the orchestrator instead of being echoed and ignored
+- Performance measurement split setup from query: the retired "64.6s TOC
+  navigation" figure was ingest-time rollup; warm query p50 is 0.13 ms.
+  Percentiles withheld below 10 (p90) / 30 (p99) samples
+- Honest benchmark harness: the substring metric is named `context_hit_rate`,
+  not "LOCOMO"; committed results are labelled mock-backend / mock-judge, and no
+  comparative accuracy claim ships anywhere
+- Root README, LICENSE, positioning writeup, CHANGELOG — the repo had none
+- Supported-surface tiering: Tier 1 (Claude Code, Codex) gates PRs, Tier 2
+  (Gemini, Copilot) runs weekly. OpenCode stub deleted rather than shipped
+- Release archives now contain all four binaries; previously the CLI the
+  quickstart depends on was not shipped at all
+
+**Process changes (bound to this milestone):**
+
+- Execution-evidence rule: run-dependent requirements must cite a committed
+  artifact produced by running them
+- Reachability rule: a new crate is not complete until `cargo tree -i` shows a
+  dependent binary, or it is explicitly declared dormant
+- `human_verification` items gating the milestone goal are blockers by default
+- The v3.0 retrospective was written: *the code is strong; the claims were not*
+
+**Defects found by executing documentation rather than reading it:**
+
+- First-run daemon created no index directories, so it accepted events and
+  answered every query with an empty result set — successfully
+- `admin rebuild-toc` printed a TODO and exited 0; `--dry-run` advertised a
+  rebuild that did nothing
+- `admin rebuild-bm25` is a prune, not a rebuild — relabelled rather than renamed
+
+**Known Gaps:**
+
+- No backfill for events indexed before v3.1 (`text_preview` stays empty)
+- No real-backend / real-judge LOCOMO run, so no comparative claim
+- Vector retrieval quality is not benchmarked
+- GitHub repo description, topics, Discussions, and a recorded demo are
+  maintainer actions, not code
+
+**Stats:**
+
+- 64,626 LOC Rust across 20 crates
+- Timeline: 2026-08-30 → 2026-08-31
+
+---
+
 ## v2.7 Multi-Runtime Portability (Shipped: 2026-03-22)
 
 **Delivered:** Rust-based multi-runtime installer that converts canonical Claude plugin source into runtime-specific installations for 6 targets, replacing 5 manually-maintained adapter directories with a single conversion pipeline.

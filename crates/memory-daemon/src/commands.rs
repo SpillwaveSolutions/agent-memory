@@ -1532,7 +1532,8 @@ fn handle_prune_vectors(
 
 /// Handle the rebuild-bm25 command.
 ///
-/// Rebuilds the BM25 index keeping only documents at or above the specified level.
+/// Despite the name, this prunes rather than rebuilds: it removes documents
+/// below `min_level` and re-indexes nothing.
 fn handle_rebuild_bm25(db_path: &str, min_level: &str, search_path: Option<String>) -> Result<()> {
     use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
 
@@ -1554,8 +1555,9 @@ fn handle_rebuild_bm25(db_path: &str, min_level: &str, search_path: Option<Strin
         );
     }
 
-    println!("BM25 Index Rebuild");
-    println!("==================");
+    println!("BM25 Index Prune");
+    println!("================");
+    println!("(this removes documents below the minimum level; it does not re-index)");
     println!("Search path: {:?}", search_dir);
     println!("Min level: {} (excluding docs below this level)", min_level);
     println!();

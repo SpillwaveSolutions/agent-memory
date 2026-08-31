@@ -57,14 +57,25 @@ cargo build --release
 - [ ] Download the latest release for your platform
 - [ ] Unpack to a local bin directory
 
+One archive per platform contains all four binaries: `memory-daemon`,
+`memory-ingest`, `memory` (the CLI), and `memory-installer`. Assets are named
+`agent-memory-<version>-<platform>.tar.gz`, and the tarball unpacks into a
+directory of that name.
+
 ```bash
 mkdir -p ~/.local/bin
-PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
-curl -L "https://github.com/SpillwaveSolutions/agent-memory/releases/latest/download/memory-daemon-${PLATFORM}-${ARCH}.tar.gz" | tar xz -C ~/.local/bin
-curl -L "https://github.com/SpillwaveSolutions/agent-memory/releases/latest/download/memory-ingest-${PLATFORM}-${ARCH}.tar.gz" | tar xz -C ~/.local/bin
-chmod +x ~/.local/bin/memory-daemon ~/.local/bin/memory-ingest
+VERSION=3.1.0
+case "$(uname -s)" in Darwin) OS=macos ;; Linux) OS=linux ;; esac
+case "$(uname -m)" in x86_64|amd64) ARCH=x86_64 ;; arm64|aarch64) ARCH=aarch64 ;; esac
+ASSET="agent-memory-${VERSION}-${OS}-${ARCH}"
+
+curl -fL "https://github.com/SpillwaveSolutions/agent-memory/releases/download/v${VERSION}/${ASSET}.tar.gz" \
+  | tar xz -C /tmp
+install -m 0755 /tmp/${ASSET}/memory-daemon /tmp/${ASSET}/memory-ingest \
+                /tmp/${ASSET}/memory /tmp/${ASSET}/memory-installer ~/.local/bin/
 ```
+
+Verify the download against the release's `SHA256SUMS.txt` if you want to.
 
 ### 3) Add binaries to PATH
 
@@ -77,6 +88,7 @@ export PATH="$HOME/.local/bin:$PATH"
 > Verify now (optional):
 > - `memory-daemon --version`
 > - `memory-ingest --version`
+> - `memory --version`
 
 ### 4) Create a minimal config (single-agent defaults)
 

@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone_name: Make It True
-status: in_progress
+status: shipping
 stopped_at: null
-last_updated: "2026-08-30T22:30:00.000Z"
-last_activity: 2026-08-30 — Phase 56 merged (#34); Phase 57 Shop Window & Positioning in execution
+last_updated: "2026-08-31T01:30:00.000Z"
+last_activity: 2026-08-31 — Phase 57 merged (#36); v3.1 shipped; Phase 58 launch prep (version 3.1.0, CHANGELOG, launch drafts)
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 14
-  completed_plans: 11
-  percent: 79
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
@@ -20,17 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v3.1 Phase 57 — Shop Window & Positioning (root README, LICENSE, positioning writeup, supported-surface tiering)
+**Current focus:** v3.1 Phase 58 — Launch (side quest): version 3.1.0, CHANGELOG, release archive fixes, launch drafts. The tag and the public posts are maintainer actions.
 
 ## Current Position
 
-Phase: 57 of 58 (Shop Window & Positioning)
-Plan: 01-03 implemented on `claude/phase-54-toolchain-drift-3k4fer`
-Status: Phases 54, 54.5, 55, 56 merged; Phase 57 in review
-Last activity: 2026-08-30 — #34 merged; Phase 57 README/LICENSE/positioning/scope-trim
+Phase: 58 of 58 (Launch — side quest, not a GSD phase)
+Status: all v3.1 GSD phases merged (54, 54.5, 55, 56, 57). Launch prep in review.
+Last activity: 2026-08-31 — #36 merged; version bumped 2.7.0 → 3.1.0
 
-Progress: [████████░░] 11/14 plans merged; Phase 57's 3 plans are implemented and in review
-(Phase 58 is a side quest, not a GSD phase)
+Progress: [██████████] 14/14 plans merged. v3.1 GSD work complete.
+
+Remaining launch steps are maintainer actions: tag `v3.1.0` (publishes public
+binaries), set the repo description/topics/Discussions, record the demo, and
+post the blog and launch threads.
 
 ## Out-of-band Work
 
@@ -38,12 +40,13 @@ Progress: [████████░░] 11/14 plans merged; Phase 57's 3 plan
 
 | PR | What | Status |
 |---|---|---|
-| _(none open)_ | | |
+| _(Phase 58 launch prep)_ | version 3.1.0, CHANGELOG, release fix, launch drafts | Open |
 
 ### Recently Merged
 
 | PR | What | Merged |
 |---|---|---|
+| #36 | Phase 57 Shop Window & Positioning | 2026-08-31 |
 | #34 | Phase 56 Honest Benchmarks | 2026-08-30 |
 | #35 | Phase 54.5 truth leaks + rustc 1.97 pin | 2026-08-30 |
 | #33 | Phase 55 Performance Truth | 2026-08-30 |
@@ -64,3 +67,6 @@ Progress: [████████░░] 11/14 plans merged; Phase 57's 3 plan
 - Phase 57 tiering: Tier 1 = Claude Code + Codex CLI (PR gate); Tier 2 = Gemini + Copilot (weekly schedule)
 - Phase 57: OpenCode removed rather than archived — a converter whose methods return empty is a false success, not a gap
 - Phase 57: no comparative benchmark claim ships while the only committed results are mock-backend / mock-judge
+- Phase 58: version is 3.1.0 — it had been stuck at 2.7.0 through the whole v3.0 and v3.1 line, and there are no tags in the repo
+- Phase 58: release archives are `agent-memory-<version>-<platform>` and carry all four binaries; the CLI the quickstart needs was previously not shipped
+- Phase 58: `admin rebuild-bm25` is a prune, not a rebuild — relabelled rather than renamed, and there is no event backfill path
