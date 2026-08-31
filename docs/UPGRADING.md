@@ -4,6 +4,78 @@ This document provides upgrade instructions between agent-memory versions, with 
 
 ---
 
+## v2.7.0 to v3.1.0 (Make It True)
+
+**Release focus:** closing the gap between what the project claimed and what it
+did. No new capabilities; several claims were retracted or made true.
+
+### Breaking
+
+**OpenCode is no longer a supported runtime.** `memory-installer install
+--agent opencode` now exits 2 with `invalid value 'opencode'`. Previously it
+exited 0 and wrote no files — every method of the converter returned empty.
+The converter, the `Runtime::OpenCode` variant, its bats suite and the archived
+`plugins/memory-opencode-plugin/` directory were removed rather than shipped as
+a stub.
+
+If you were running that command in a setup script, it will now fail. It was
+never doing anything, so nothing is lost by deleting the line. OpenCode can
+still feed the store through the runtime-agnostic ingest path:
+
+```bash
+memory-ingest --agent opencode < event.json
+```
+
+and `memory-daemon clod convert --target opencode` still emits OpenCode command
+files from a CLOD definition.
+
+**`memory-daemon admin rebuild-toc` now exits non-zero.** It used to print
+"TOC rebuild not yet fully implemented" and exit 0. Offline TOC rebuild is
+still not implemented; the command now says so and fails, so scripts that
+treated its exit code as success will now stop. TOC nodes are produced by the
+daemon's scheduled rollup jobs.
+
+### Known gap: no backfill for events indexed before v3.1
+
+BM25 documents added before v3.1 stored keywords but not text, so event hits
+came back with an empty `text_preview` and the LLM reranker was judging blank
+bodies. **Events indexed from v3.1 onward store text automatically.**
+
+There is currently **no supported way to backfill** the older ones. Do not
+reach for `admin rebuild-bm25` — despite the name it is a *prune*: it removes
+documents below `--min-level` (default `day`, which deletes your segment and
+grip documents) and re-indexes nothing. `admin rebuild-indexes` re-indexes TOC
+nodes and grips from storage, not raw events. Clearing the index with
+`admin clear-index --index bm25` does not reset the indexing checkpoint stored
+in RocksDB, so the outbox drain will not revisit already-processed events.
+
+If old event previews matter to you, the only route today is a fresh store.
+This is tracked as a gap rather than papered over.
+
+### Behaviour changes worth knowing
+
+- **First daemon start now creates `db/search` and `db/vector`.** Before this,
+  a fresh store never registered the outbox indexing job, so every query
+  returned an empty result set with no error. Existing stores are unaffected.
+- **Release archives changed name and contents.** Assets are now
+  `agent-memory-<version>-<platform>.tar.gz` and contain all four binaries
+  (`memory-daemon`, `memory-ingest`, `memory`, `memory-installer`). Previously
+  the CLI the quickstart depends on was not shipped at all.
+- **Runtimes are tiered.** Claude Code and Codex CLI (Tier 1) gate every PR;
+  Gemini and Copilot (Tier 2) moved to a weekly scheduled CI run. Tiering is
+  not removal — the Tier 2 converters and their tests are unchanged.
+- **Explainability now reports what actually ran.** A failed LLM rerank reports
+  `rerank=heuristic` rather than `rerank=llm`, and `layers_attempted` lists
+  only layers that were invoked.
+- **Toolchain is pinned** to Rust 1.97 via `rust-toolchain.toml`.
+
+### Not changed
+
+Storage format, gRPC API, config file schema, and hook payloads are unchanged.
+No data migration is required.
+
+---
+
 ## v2.1.0 to v2.2.0 (Multi-Agent Ecosystem)
 
 **Release Focus:** Cross-agent discovery, multi-adapter support, and ecosystem documentation
@@ -337,6 +409,7 @@ memory-daemon admin rebuild-index --type all
 
 | Version | Release Date | Key Changes |
 |---------|--------------|-------------|
+| v3.1.0 | 2026-08-31 | Phase 54-57: Make It True — orchestrator wired, honest benchmarks, README/LICENSE, OpenCode removed |
 | v2.2.0 | TBD | Phase 18-23: Multi-agent ecosystem, cross-agent discovery, CLOD format |
 | v2.1.0 | TBD | Phase 16-17: Ranking enhancements, index lifecycle |
 | v2.0.0 | 2026-02-01 | Topic graph, vector search, hybrid search |
@@ -344,4 +417,4 @@ memory-daemon admin rebuild-index --type all
 
 ---
 
-*Last Updated: 2026-02-06*
+*Last Updated: 2026-08-31*

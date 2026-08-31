@@ -86,6 +86,10 @@ cargo build --release -p memory-daemon -p memory-ingest -p memory-cli
 export PATH="$PWD/target/release:$PATH"
 ```
 
+Prefer not to compile? Each release ships one archive per platform containing
+all four binaries — see
+[docs/setup/quickstart.md](docs/setup/quickstart.md#option-b-prebuilt-binaries).
+
 ### 2. Start the daemon
 
 The daemon runs in the foreground. There is no built-in background mode — use
@@ -159,7 +163,7 @@ is experimental.
 | Passive hook capture → `memory-ingest` | **Solid** | Covered by the bats CLI suites on Linux + macOS |
 | TOC build and drill-down navigation | **Solid** | Year → Month → Week → Day → Segment → Grip |
 | Grips / provenance | **Solid** | Excerpts link back to the events they came from |
-| BM25 keyword search (Tantivy) | **Solid** | Exact tokens, no stemming (`jwt` does not match `JWTs`). Indexes built before v3.1 do not store text — rebuild to get event previews |
+| BM25 keyword search (Tantivy) | **Solid** | Exact tokens, no stemming (`jwt` does not match `JWTs`). Events indexed before v3.1 have empty `text_preview` and there is no backfill command — see [UPGRADING](docs/UPGRADING.md) |
 | Vector search (HNSW + Candle) | **Solid** | First daemon start downloads the embedding model; with no network the daemon warns and runs BM25-only |
 | Topic graph | **Works** | Clustering quality is not benchmarked |
 | Hybrid fusion + `RouteQuery` orchestration | **Works** | Wired end-to-end in Phase 54; explainability reports what actually ran |
@@ -215,6 +219,7 @@ unaffected by tiering.
 | [docs/verification/57-quickstart-transcript.md](docs/verification/57-quickstart-transcript.md) | The transcript of this quickstart being run on a clean machine, defects and all |
 | [docs/positioning/agent-memory-vs-competition.md](docs/positioning/agent-memory-vs-competition.md) | Head-to-head vs Mem0 / Zep / MemMachine / Letta |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version migration notes |
+| [CHANGELOG.md](CHANGELOG.md) | What changed per release, including retractions |
 
 ## Contributing
 

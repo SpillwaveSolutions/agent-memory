@@ -306,7 +306,8 @@ pub enum AdminCommands {
         dry_run: bool,
     },
 
-    /// Rebuild BM25 index with level filtering
+    /// Prune BM25 documents below a TOC level. Despite the name this does not
+    /// re-index anything -- it only removes documents below `--min-level`.
     RebuildBm25 {
         /// Minimum TOC level to keep: segment, day, week, month, year
         #[arg(long, default_value = "day")]

@@ -124,17 +124,25 @@ jobs:
         shell: bash
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          ARCHIVE_DIR="memory-daemon-${VERSION}-${{ matrix.name }}"
+          ARCHIVE_DIR="agent-memory-${VERSION}-${{ matrix.name }}"
           mkdir -p "dist/${ARCHIVE_DIR}"
 
-          # Copy binaries
+          # Copy binaries. All four are required: the README quickstart uses
+          # `memory` for search and `memory-installer` for hook setup, so an
+          # archive missing either is a broken release, not a partial one.
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            cp target/${{ matrix.target }}/release/memory-daemon.exe "dist/${ARCHIVE_DIR}/"
-            cp target/${{ matrix.target }}/release/memory-ingest.exe "dist/${ARCHIVE_DIR}/" || true
+            EXT=".exe"
           else
-            cp target/${{ matrix.target }}/release/memory-daemon "dist/${ARCHIVE_DIR}/"
-            cp target/${{ matrix.target }}/release/memory-ingest "dist/${ARCHIVE_DIR}/" || true
+            EXT=""
           fi
+          for bin in memory-daemon memory-ingest memory memory-installer; do
+            src="target/${{ matrix.target }}/release/${bin}${EXT}"
+            if [[ ! -f "$src" ]]; then
+              echo "::error::release archive would be missing ${bin}${EXT} for ${{ matrix.name }}"
+              exit 1
+            fi
+            cp "$src" "dist/${ARCHIVE_DIR}/"
+          done
 
           # Copy documentation
           cp LICENSE "dist/${ARCHIVE_DIR}/" || true
@@ -145,7 +153,7 @@ jobs:
         shell: bash
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          ARCHIVE_DIR="memory-daemon-${VERSION}-${{ matrix.name }}"
+          ARCHIVE_DIR="agent-memory-${VERSION}-${{ matrix.name }}"
           cd dist
           tar -czvf "${ARCHIVE_DIR}.tar.gz" "${ARCHIVE_DIR}"
           rm -rf "${ARCHIVE_DIR}"
@@ -155,7 +163,7 @@ jobs:
         shell: pwsh
         run: |
           $VERSION = "${{ steps.version.outputs.version }}"
-          $ARCHIVE_DIR = "memory-daemon-${VERSION}-${{ matrix.name }}"
+          $ARCHIVE_DIR = "agent-memory-${VERSION}-${{ matrix.name }}"
           cd dist
           Compress-Archive -Path $ARCHIVE_DIR -DestinationPath "${ARCHIVE_DIR}.zip"
           Remove-Item -Recurse -Force $ARCHIVE_DIR
