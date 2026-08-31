@@ -297,7 +297,7 @@ Close the claim/reality gap, then open the shop window. No new capabilities.
 - [x] CHANGELOG.md and v3.1 upgrade notes
 - [x] Release archives ship all four binaries; assets renamed `agent-memory-*`
 - [x] Blog post and Show HN / reddit copy drafted in `docs/launch/`
-- [ ] Tag `v3.1.0` (maintainer — publishes public binaries)
+- [ ] Tag `v3.1.0` (maintainer — the agent session cannot: tag push is 403 through the git proxy, and the GitHub App cannot dispatch release.yml)
 - [ ] Repo description, topics, Discussions (maintainer — repo settings)
 - [ ] Recorded demo (maintainer)
 - [ ] Post the blog and the launch threads (maintainer)
