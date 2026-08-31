@@ -575,7 +575,7 @@ Study these existing adapters for patterns and best practices:
 | Adapter | Strengths | Location |
 |---------|-----------|----------|
 | Claude Code | Simplest hook integration | `plugins/memory-query-plugin/` |
-| OpenCode | TypeScript plugin example | `plugins/memory-opencode-plugin/` |
+| Codex CLI | Sandboxed runtime notes | `adapters/codex-cli/` |
 | Gemini CLI | Shell hook with settings.json | `plugins/memory-gemini-adapter/` |
 | Copilot CLI | Hook + skill hybrid approach | `plugins/memory-copilot-adapter/` |
 

@@ -26,7 +26,7 @@ Each adapter has its own installation process. See the adapter-specific README f
 | Agent | Setup Guide |
 |-------|-------------|
 | Claude Code | [Claude Code Setup](../../plugins/memory-query-plugin/README.md) |
-| OpenCode | [OpenCode Plugin Setup](../../plugins/memory-opencode-plugin/README.md) |
+| Codex CLI | [Codex CLI Adapter Notes](../../adapters/codex-cli/README.md) |
 | Gemini CLI | [Gemini Adapter Setup](../../plugins/memory-gemini-adapter/README.md) |
 | Copilot CLI | [Copilot Adapter Setup](../../plugins/memory-copilot-adapter/README.md) |
 

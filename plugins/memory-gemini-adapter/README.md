@@ -8,7 +8,7 @@ plugin files from the canonical source.
 Install plugins for this runtime using the installer:
 
 ```bash
-memory-installer --agent gemini --project
+memory-installer install --agent gemini --project
 ```
 
 See `crates/memory-installer/` for details.

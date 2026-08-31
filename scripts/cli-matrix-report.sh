@@ -2,13 +2,16 @@
 set -euo pipefail
 
 # Cross-CLI Matrix Report Generator
-# Parses JUnit XML reports from all 5 CLIs and produces a markdown summary table.
-# Usage: cli-matrix-report.sh [junit-dir]
+# Parses JUnit XML reports and produces a markdown summary table.
+# Usage: cli-matrix-report.sh [junit-dir] [cli-list]
 #   Local mode:  reads $JUNIT_DIR/report-<cli>.xml
 #   CI mode:     reads $JUNIT_DIR/junit-<cli>-*/report.xml
+#
+# The CLI list defaults to the Tier 1 supported surface (see README). Pass the
+# list explicitly for a Tier 2 run, e.g. `cli-matrix-report.sh dir "gemini copilot"`.
 
 JUNIT_DIR="${1:-.}"
-CLIS="claude-code gemini opencode copilot codex"
+CLIS="${2:-claude-code codex}"
 
 python3 - "$JUNIT_DIR" "$CLIS" <<'PYEOF'
 import sys

@@ -7,10 +7,10 @@ use crate::types::{
 
 /// Trait for converting canonical Claude-format plugins to a specific runtime's format.
 ///
-/// Each runtime (Claude, OpenCode, Gemini, Codex, Copilot, Skills) implements this trait.
+/// Each runtime (Claude, Gemini, Codex, Copilot, Skills) implements this trait.
 /// Converters are stateless -- all configuration is passed via [`InstallConfig`].
 pub trait RuntimeConverter {
-    /// Human-readable name for this runtime (e.g., "claude", "opencode").
+    /// Human-readable name for this runtime (e.g., "claude", "codex").
     fn name(&self) -> &str;
 
     /// Target directory for this runtime given the install scope.
@@ -42,12 +42,6 @@ mod tests {
     fn select_converter_returns_correct_name_for_claude() {
         let converter = select_converter(Runtime::Claude);
         assert_eq!(converter.name(), "claude");
-    }
-
-    #[test]
-    fn select_converter_returns_correct_name_for_opencode() {
-        let converter = select_converter(Runtime::OpenCode);
-        assert_eq!(converter.name(), "opencode");
     }
 
     #[test]
@@ -88,8 +82,9 @@ mod tests {
             source_path: PathBuf::from("test.md"),
         };
 
-        // All implemented converters produce at least one ConvertedFile.
-        // OpenCode is still a stub (Phase 47 scope) -- excluded here.
+        // Every runtime the installer offers produces at least one ConvertedFile.
+        // There are no stub converters: a runtime that cannot be converted is
+        // not a `Runtime` variant (see Phase 57 supported-surface tiering).
         for runtime in [
             Runtime::Claude,
             Runtime::Gemini,
@@ -114,9 +109,6 @@ mod tests {
 
         let claude_dir = select_converter(Runtime::Claude).target_dir(&scope);
         assert!(claude_dir.to_str().unwrap().contains(".claude"));
-
-        let opencode_dir = select_converter(Runtime::OpenCode).target_dir(&scope);
-        assert!(opencode_dir.to_str().unwrap().contains(".opencode"));
 
         let gemini_dir = select_converter(Runtime::Gemini).target_dir(&scope);
         assert!(gemini_dir.to_str().unwrap().contains(".gemini"));

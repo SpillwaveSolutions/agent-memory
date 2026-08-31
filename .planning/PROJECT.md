@@ -261,7 +261,12 @@ Agent Memory implements a layered cognitive architecture:
 
 ### Known Gaps (v2.7)
 
-- OC-01–06: OpenCode converter is a stub (methods return empty). Deferred to v3.0.
+- OC-01–06: RESOLVED-BY-REMOVAL in v3.1 Phase 57. The OpenCode converter was a
+  stub whose methods returned empty, so `memory-installer --agent opencode`
+  reported success and wrote no files. Rather than carry the gap further, the
+  converter, the `Runtime::OpenCode` variant, its bats suite, and the archived
+  plugin directory were deleted, and OpenCode is documented as not supported.
+  The runtime-agnostic `memory-ingest --agent opencode` path is unaffected.
 
 ### Deferred / Future
 

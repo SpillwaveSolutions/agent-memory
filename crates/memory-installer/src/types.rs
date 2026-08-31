@@ -4,7 +4,6 @@ use std::path::PathBuf;
 #[derive(clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Runtime {
     Claude,
-    OpenCode,
     Gemini,
     Codex,
     Copilot,
