@@ -163,16 +163,16 @@ is experimental.
 | Passive hook capture → `memory-ingest` | **Solid** | Covered by the bats CLI suites on Linux + macOS |
 | TOC build and drill-down navigation | **Solid** | Year → Month → Week → Day → Segment → Grip |
 | Grips / provenance | **Solid** | Excerpts link back to the events they came from |
-| BM25 keyword search (Tantivy) | **Solid** | Exact tokens, no stemming (`jwt` does not match `JWTs`). Events indexed before v3.1 have empty `text_preview` and there is no backfill command — see [UPGRADING](docs/UPGRADING.md) |
-| Vector search (HNSW + Candle) | **Solid** | First daemon start downloads the embedding model; with no network the daemon warns and runs BM25-only |
-| Topic graph | **Works** | Clustering quality is not benchmarked |
+| BM25 keyword search (Tantivy) | **Solid** | Exact tokens, no stemming (`jwt` does not match `JWTs`). Events indexed before v3.1 have empty `text_preview` and there is no backfill command — see [UPGRADING](docs/UPGRADING.md) and [#41](https://github.com/SpillwaveSolutions/agent-memory/issues/41) |
+| Vector search (HNSW + Candle) | **Solid** | Mechanism is wired; retrieval *quality* is not yet measured ([#40](https://github.com/SpillwaveSolutions/agent-memory/issues/40)). First daemon start downloads the embedding model; with no network the daemon warns and runs BM25-only |
+| Topic graph | **Works** | Clustering quality is not benchmarked ([#40](https://github.com/SpillwaveSolutions/agent-memory/issues/40)) |
 | Hybrid fusion + `RouteQuery` orchestration | **Works** | Wired end-to-end in Phase 54; explainability reports what actually ran |
 | LLM summarization / LLM rerank | **Experimental** | Needs an API key; fails open to the heuristic ranker and reports `rerank=heuristic` when it does |
 | Cross-project federated query | **Experimental** | Implemented; not performance-characterised |
-| Cross-encoder rerank | **Not implemented** | The extension point exists and returns an explicit error — it is not silently degraded |
+| Cross-encoder rerank | **Not implemented** | The extension point exists and returns an explicit error — it is not silently degraded. Build only if [#39](https://github.com/SpillwaveSolutions/agent-memory/issues/39) says retrieval is the bottleneck ([#44](https://github.com/SpillwaveSolutions/agent-memory/issues/44)) |
 | Ingest → searchable latency | **~1 minute** | The outbox drains on a schedule; ingest is deliberately not blocked on indexing |
-| Offline TOC rebuild (`admin rebuild-toc`) | **Not implemented** | Exits non-zero with guidance. TOC nodes come from the daemon's scheduled rollup jobs |
-| Background daemonization | **Not implemented** | `--background` exits non-zero with guidance rather than pretending |
+| Offline TOC rebuild (`admin rebuild-toc`) | **Not implemented** | Exits non-zero with guidance. TOC nodes come from the daemon's scheduled rollup jobs ([#43](https://github.com/SpillwaveSolutions/agent-memory/issues/43)) |
+| Background daemonization | **Not implemented** | `--background` exits non-zero with guidance rather than pretending. v3.2 will ship `install-service` unit files ([#42](https://github.com/SpillwaveSolutions/agent-memory/issues/42)) |
 
 ### Benchmarks
 
@@ -184,7 +184,8 @@ Committed results live in `benchmarks/results/`. Today both are **mock-backend**
 runs — a mock retrieval backend and a mock judge — so they demonstrate the
 harness, not competitive quality. **There is deliberately no comparison
 marketing in this repo**, and there will not be until a real-backend,
-real-judge run is committed next to the claim.
+real-judge run is committed next to the claim
+([#39](https://github.com/SpillwaveSolutions/agent-memory/issues/39)).
 
 ---
 
@@ -219,6 +220,7 @@ unaffected by tiering.
 | [docs/verification/57-quickstart-transcript.md](docs/verification/57-quickstart-transcript.md) | The transcript of this quickstart being run on a clean machine, defects and all |
 | [docs/positioning/agent-memory-vs-competition.md](docs/positioning/agent-memory-vs-competition.md) | Head-to-head vs Mem0 / Zep / MemMachine / Letta |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version migration notes |
+| [docs/RELEASING.md](docs/RELEASING.md) | How to cut a tag so the pipeline cannot repeat the v3.1.0 stale-ref incident |
 | [CHANGELOG.md](CHANGELOG.md) | What changed per release, including retractions |
 
 ## Contributing

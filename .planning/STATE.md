@@ -1,38 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone_name: Make It True
-status: shipping
+milestone_name: Prove It
+status: executing
 stopped_at: null
-last_updated: "2026-08-31T01:30:00.000Z"
-last_activity: 2026-08-31 — Phase 57 merged (#36); v3.1 shipped; Phase 58 launch prep (version 3.1.0, CHANGELOG, launch drafts)
+last_updated: "2026-09-01T23:30:00.000Z"
+last_activity: 2026-09-01 — v3.1.0 released; v3.2 adopted; Phase 59 Guardrails and Inventory executing
 progress:
-  total_phases: 6
-  completed_phases: 5
-  total_plans: 14
-  completed_plans: 14
-  percent: 100
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 13
+  completed_plans: 3
+  percent: 23
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-22)
+See: .planning/PROJECT.md (updated 2026-09-01)
 
 **Core value:** Agent can answer "what were we talking about last week?" without scanning everything
-**Current focus:** v3.1 Phase 58 — Launch (side quest): version 3.1.0, CHANGELOG, release archive fixes, launch drafts. The tag and the public posts are maintainer actions.
+**Current focus:** v3.2 Phase 59 — Guardrails and Inventory. Release pipeline cannot repeat the stale-tag incident; March gsd/ line inventoried; planning docs match v3.1.0 shipped.
 
 ## Current Position
 
-Phase: 58 of 58 (Launch — side quest, not a GSD phase)
-Status: all v3.1 GSD phases merged (54, 54.5, 55, 56, 57). Launch prep in review.
-Last activity: 2026-08-31 — #36 merged; version bumped 2.7.0 → 3.1.0
+Phase: 59 of 62 (Guardrails and Inventory)
+Status: v3.1.0 shipped 2026-09-01 (5 of 5 platforms). v3.2 Prove It adopted. Phase 59 in execution.
+Last activity: 2026-09-01 — issues #39–#44 opened; release guards + orphan triage + PROJECT.md rewrite
 
-Progress: [██████████] 14/14 plans merged. v3.1 GSD work complete.
-
-Remaining launch steps are maintainer actions: tag `v3.1.0` (publishes public
-binaries), set the repo description/topics/Discussions, record the demo, and
-post the blog and launch threads.
+Progress: [██░░░░░░░░] 3/13 plans (Phase 59). Phases 60–62 not started.
 
 ## Out-of-band Work
 
@@ -40,34 +36,36 @@ post the blog and launch threads.
 
 | PR | What | Status |
 |---|---|---|
-| _(Phase 58 launch prep)_ | version 3.1.0, CHANGELOG, release fix, launch drafts | Open |
+| _(this branch)_ | Phase 59 Guardrails and Inventory | Open |
+
+### Open issues (the v3.2 backlog)
+
+| Issue | What | Phase |
+|---|---|---|
+| #39 | Real LOCOMO LLM-judge run | 60-02 |
+| #40 | Vector and topic-graph quality fixtures | 60-03 |
+| #41 | Backfill BM25/vector for pre-v3.1 events | 61-01 |
+| #42 | `install-service` (launchd/systemd) | 61-02 |
+| #43 | Offline TOC rebuild | 61-04 |
+| #44 | Cross-encoder rerank (conditional) | 62 |
 
 ### Recently Merged
 
 | PR | What | Merged |
 |---|---|---|
+| #38 | docs: correct the "no tags" claim and record the release blocker | 2026-08-31 |
+| #37 | chore(v3.1): release prep — version 3.1.0, changelog, working release archives | 2026-08-31 |
 | #36 | Phase 57 Shop Window & Positioning | 2026-08-31 |
 | #34 | Phase 56 Honest Benchmarks | 2026-08-30 |
 | #35 | Phase 54.5 truth leaks + rustc 1.97 pin | 2026-08-30 |
 | #33 | Phase 55 Performance Truth | 2026-08-30 |
 | #32 | Phase 54 Integration Truth | 2026-08-30 |
 | #31 | v3.1 Make It True design spec | 2026-08-30 |
-| #30 | Phase 53 Benchmark Suite | 2026-08-30 |
-| #25 | Phase 53.5: cross-project federated query | 2026-05-14 |
-| #29 | Phase 52: Simple CLI API | 2026-05-14 |
-| #28 | Phase 51: Retrieval Orchestrator | 2026-04-28 |
 
 ## Decisions
 
-- v3.1 scope: Make It True — no new capabilities; close claim/reality gap (Phases 54-58)
-- Phase 54.5: explainability reports what ran; shared HNSW handle; CI pins rust-toolchain.toml to 1.97
-- Phase 55: split setup vs query in `perf_bench`; p90/p99 withheld below 10/30 samples
-- Warm = one setup + N query samples; cold = new store per iteration
-- Phase 56: substring metric is `context_hit_rate`; HOLD LOCOMO comparison marketing until `locomo_llm_judge` artifact exists
-- Phase 57 tiering: Tier 1 = Claude Code + Codex CLI (PR gate); Tier 2 = Gemini + Copilot (weekly schedule)
-- Phase 57: OpenCode removed rather than archived — a converter whose methods return empty is a false success, not a gap
-- Phase 57: no comparative benchmark claim ships while the only committed results are mock-backend / mock-judge
-- Phase 58: version is 3.1.0 — it had been stuck at 2.7.0 through the whole v3.0 and v3.1 line. Tags and GitHub releases exist through v2.7.0 (2026-03-22); v3.0 and v3.1 were milestone names that never shipped a release. An earlier note here claimed the repo had no tags — that was a shallow-clone artifact, not the truth
-- Phase 58 blocker: this session cannot cut the release. `git push origin v3.1.0` returns HTTP 403 through the agent git proxy, and the GitHub App cannot `workflow_dispatch` release.yml ("Resource not accessible by integration"). The tag must be pushed by a maintainer
-- Phase 58: release archives are `agent-memory-<version>-<platform>` and carry all four binaries; the CLI the quickstart needs was previously not shipped
-- Phase 58: `admin rebuild-bm25` is a prune, not a rebuild — relabelled rather than renamed, and there is no event backfill path
+- v3.2 scope: Prove It — no new capabilities except conditional Phase 62
+- Maintainer decisions 2026-09-01: cherry-pick March export/import + CREG/META by feature (not by branch); skip OpenCode converter; blog now / product posts after #39; daemonization is unit files not double-fork
+- v3.1.0 first tag push shipped `acc7294` (Cargo.toml 2.7.0) for 17 minutes — Phase 59-01 exists because of that
+- March `gsd/phase-56-import-bootstrap` is 88 ahead / 20 behind; naïve merge regresses orchestrator and bench. Inventory: `docs/plans/phase-59-orphan-branch-triage.md`
+- HOLD comparison marketing until #39 lands a `locomo_llm_judge` artifact

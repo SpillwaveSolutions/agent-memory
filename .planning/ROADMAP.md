@@ -11,8 +11,9 @@
 - ✅ **v2.5 Semantic Dedup & Retrieval Quality** — Phases 35-38 (shipped 2026-03-10)
 - ✅ **v2.6 Cognitive Retrieval** — Phases 39-44 (shipped 2026-03-16)
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
-- **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 + Phase 51.5 (in progress; Phase 51.5 merged 2026-04-28)
-- ✅ **v3.1 Make It True** — Phases 54-58 (shipped 2026-08-31)
+- **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 + Phase 51.5 (shipped 2026-05-14; Phase 53 merged as #30)
+- ✅ **v3.1 Make It True** — Phases 54-58 (shipped 2026-09-01 as v3.1.0)
+- **v3.2 Prove It** — Phases 59-62 (in progress; Phase 59 executing 2026-09-01)
 
 ## Phases
 
@@ -138,7 +139,7 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 
 </details>
 
-### v3.0 Competitive Parity & Benchmarks (In Progress)
+### v3.0 Competitive Parity & Benchmarks (Shipped 2026-05-14)
 
 **Milestone Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
 
@@ -146,7 +147,7 @@ See: `.planning/milestones/v2.7-ROADMAP.md`
 - [x] **Phase 51.5: API Summarizer Wiring** - Wire `ApiSummarizer` from config (out-of-band; merged 2026-04-28 via PR #27)
 - [x] **Phase 52: Simple CLI API** - New `memory` binary with search, context, recall, add, timeline, summary subcommands (merged 2026-05-14 via PR #29)
 - [x] **Phase 53.5: Cross-Project Federation** - Federated query across multiple project stores (out-of-band; merged 2026-05-14 via PR #25)
-- [x] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring (PR in review 2026-05-14)
+- [x] **Phase 53: Benchmark Suite** - Custom TOML-fixture harness with LOCOMO adapter and publishable scoring (merged 2026-05-14 via PR #30; honesty pass in v3.1 Phase 56)
 
 ## Phase Details
 
@@ -227,7 +228,9 @@ Phases execute in numeric order: 51 -> 51.5 (merged out-of-band) -> 52 -> 53
 | v2.5 Semantic Dedup | 35-38 | 11/11 | Complete | 2026-03-10 |
 | v2.6 Cognitive Retrieval | 39-44 | 13/13 | Complete | 2026-03-16 |
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
-| v3.0 Competitive Parity | 51-53 + 51.5, 53.5 | 6/TBD | In progress | Phase 51 + 51.5 + 52 + 53.5 merged; Phase 53 (Benchmark Suite) in PR review |
+| v3.0 Competitive Parity | 51-53 + 51.5, 53.5 | 10/10 | Complete | 2026-05-14 |
+| v3.1 Make It True | 54-58 | 14/14 | Complete | 2026-09-01 |
+| v3.2 Prove It | 59-62 | 3/13 | In progress | Phase 59 executing |
 
 ---
 
@@ -291,16 +294,50 @@ Close the claim/reality gap, then open the shop window. No new capabilities.
 - [x] 57-02: Positioning writeup vs Mem0 / Zep / MemMachine / Letta
 - [x] 57-03: Scope trim — Tier 1/Tier 2 surface; OpenCode stub deleted
 
-### Phase 58: Launch (side quest) — IN EXECUTION 2026-08-31
+### Phase 58: Launch (side quest) — COMPLETE 2026-09-01 (tag `v3.1.0`)
 
 - [x] Version bumped to 3.1.0 (was still 2.7.0 across v3.0 and v3.1)
 - [x] CHANGELOG.md and v3.1 upgrade notes
 - [x] Release archives ship all four binaries; assets renamed `agent-memory-*`
 - [x] Blog post and Show HN / reddit copy drafted in `docs/launch/`
-- [ ] Tag `v3.1.0` (maintainer — the agent session cannot: tag push is 403 through the git proxy, and the GitHub App cannot dispatch release.yml)
+- [x] Tag `v3.1.0` published 2026-09-01 01:45 UTC, 5 of 5 platforms (the first push tagged a stale SHA for 17 minutes — Phase 59 exists because of that)
 - [ ] Repo description, topics, Discussions (maintainer — repo settings)
 - [ ] Recorded demo (maintainer)
-- [ ] Post the blog and the launch threads (maintainer)
+- [ ] Post the blog and the launch threads (maintainer; product posts wait on #39)
 
-*Updated: 2026-08-31 — Phase 57 merged (#36); v3.1 shipped; Phase 58 launch prep*
+---
+
+## v3.2 Prove It (Phases 59-62)
+
+See: `docs/plans/v3.2-prove-it-plan.md`
+
+v3.1 made the claims true. v3.2 makes them provable: a real benchmark number,
+evidence behind every "Solid", and a daemon someone can run for a week.
+Nothing on this list is a new capability except Phase 62, which is conditional.
+
+### Phase 59: Guardrails and Inventory (3/3 plans) — IN EXECUTION 2026-09-01
+
+- [x] 59-01: Release pipeline checks (ancestor of main, crate version, all five platforms, CHANGELOG notes)
+- [x] 59-02: Orphan branch triage (`docs/plans/phase-59-orphan-branch-triage.md`)
+- [x] 59-03: Planning truth (PROJECT.md, ROADMAP, STATE, GitHub issues #39–#44)
+
+### Phase 60: Real Numbers (0/3)
+
+- [ ] 60-01: Live-backend isolation for `memory-bench locomo --backend cli`
+- [ ] 60-02: The run — maintainer, needs API key + documented machine (#39)
+- [ ] 60-03: Vector and topic quality fixtures (#40)
+
+### Phase 61: Operate It (0/5)
+
+- [ ] 61-01: Backfill (`admin backfill-index`) (#41); cherry-pick export/import from 59-02
+- [ ] 61-02: `install-service` launchd/systemd (#42)
+- [ ] 61-03: Panic audit (`unwrap()`/`expect()` on request paths)
+- [ ] 61-04: Offline TOC rebuild (#43)
+- [ ] 61-05: Installer register / uninstall / status (CREG/META from 59-02)
+
+### Phase 62: Cross-encoder rerank (conditional) (#44)
+
+- [ ] Only if 60-02 shows retrieval, not generation, is the bottleneck
+
+*Updated: 2026-09-01 — v3.1.0 released; v3.2 Prove It adopted; Phase 59 executing*
 

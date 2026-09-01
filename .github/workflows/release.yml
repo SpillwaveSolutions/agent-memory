@@ -7,16 +7,62 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 0.2.0)'
+        description: 'Version to release (e.g., 3.1.0, no leading v)'
         required: true
         type: string
+      dry_run:
+        description: 'Run guards (and, if they pass, builds) but do not publish a GitHub Release or push a tag'
+        required: false
+        type: boolean
+        default: false
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  guard:
+    name: Release guards
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch origin/main
+        run: git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+
+      - name: Resolve version
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            raw="${{ github.event.inputs.version }}"
+          else
+            raw="${GITHUB_REF_NAME}"
+          fi
+          raw="${raw#v}"
+          echo "version=${raw}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${raw}" >> "$GITHUB_OUTPUT"
+
+      - name: Guard tagged commit is on main and version matches Cargo.toml
+        run: |
+          bash scripts/release-guards.sh \
+            --version "${{ steps.meta.outputs.version }}" \
+            --sha "${GITHUB_SHA}" \
+            --main-ref origin/main \
+            --cargo Cargo.toml
+
+      - name: Guard CHANGELOG.md has a matching section
+        run: |
+          bash scripts/changelog-section.sh "${{ steps.meta.outputs.version }}" CHANGELOG.md \
+            > "$RUNNER_TEMP/release-notes.md"
+          test -s "$RUNNER_TEMP/release-notes.md"
+
   build:
     name: Build (${{ matrix.name }})
+    needs: guard
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -45,16 +91,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -123,7 +159,7 @@ jobs:
       - name: Create archive directory
         shell: bash
         run: |
-          VERSION=${{ steps.version.outputs.version }}
+          VERSION=${{ needs.guard.outputs.version }}
           ARCHIVE_DIR="agent-memory-${VERSION}-${{ matrix.name }}"
           mkdir -p "dist/${ARCHIVE_DIR}"
 
@@ -152,7 +188,7 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          VERSION=${{ steps.version.outputs.version }}
+          VERSION=${{ needs.guard.outputs.version }}
           ARCHIVE_DIR="agent-memory-${VERSION}-${{ matrix.name }}"
           cd dist
           tar -czvf "${ARCHIVE_DIR}.tar.gz" "${ARCHIVE_DIR}"
@@ -162,7 +198,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $VERSION = "${{ steps.version.outputs.version }}"
+          $VERSION = "${{ needs.guard.outputs.version }}"
           $ARCHIVE_DIR = "agent-memory-${VERSION}-${{ matrix.name }}"
           cd dist
           Compress-Archive -Path $ARCHIVE_DIR -DestinationPath "${ARCHIVE_DIR}.zip"
@@ -177,24 +213,17 @@ jobs:
 
   release:
     name: Create Release
-    needs: build
-    if: always() && !cancelled()
+    needs: [guard, build]
+    # success() is required: a custom `if` replaces the implicit "needed jobs
+    # succeeded" check. The previous `if: always() && !cancelled()` is how a
+    # partial set of archives could ship. dry_run skips publish after a green
+    # guard+build, which is the live way to verify the guards without a tag.
+    if: ${{ success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -203,31 +232,50 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
-      - name: List artifacts
-        run: ls -laR artifacts/
+      - name: Require all five platform archives
+        run: |
+          ls -laR artifacts/
+          missing=0
+          for name in linux-x86_64 linux-aarch64 macos-x86_64 macos-aarch64 windows-x86_64; do
+            if ! ls artifacts/agent-memory-${{ needs.guard.outputs.version }}-${name}.* >/dev/null 2>&1; then
+              echo "::error::missing archive for ${name}"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Refusing to publish a partial release."
+            exit 1
+          fi
 
       - name: Generate checksums
         run: |
           cd artifacts
-          sha256sum *.tar.gz *.zip > SHA256SUMS.txt 2>/dev/null || sha256sum *.tar.gz > SHA256SUMS.txt 2>/dev/null || echo "No artifacts to checksum"
-          cat SHA256SUMS.txt 2>/dev/null || true
+          sha256sum *.tar.gz *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          bash scripts/changelog-section.sh "${{ needs.guard.outputs.version }}" CHANGELOG.md \
+            > release-notes.md
+          test -s release-notes.md
 
       - name: Create tag (workflow_dispatch only)
         if: github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git tag -a ${{ steps.version.outputs.tag }} -m "Release ${{ steps.version.outputs.tag }}"
-          git push origin ${{ steps.version.outputs.tag }}
+          git tag -a ${{ needs.guard.outputs.tag }} -m "Release ${{ needs.guard.outputs.tag }}" "${GITHUB_SHA}"
+          git push origin ${{ needs.guard.outputs.tag }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.version }}
+          tag_name: ${{ needs.guard.outputs.tag }}
+          name: Release ${{ needs.guard.outputs.version }}
           draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
-          generate_release_notes: true
+          prerelease: ${{ contains(needs.guard.outputs.version, '-') }}
+          generate_release_notes: false
+          body_path: release-notes.md
           files: |
             artifacts/*.tar.gz
             artifacts/*.zip
