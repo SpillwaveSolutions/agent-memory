@@ -221,4 +221,56 @@ max_tokens = 300
         assert_eq!(tests[1].id, "b-001");
         assert_eq!(tests[2].id, "b-002");
     }
+
+    fn query_tokens(query: &str) -> Vec<String> {
+        query
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|t| t.len() > 1)
+            .map(|t| t.to_lowercase())
+            .collect()
+    }
+
+    #[test]
+    fn semantic_hits_do_not_contain_query_tokens() {
+        let dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../benchmarks/fixtures");
+        let tests = Fixture::load_dir(&dir).unwrap();
+        let semantic: Vec<_> = tests
+            .into_iter()
+            .filter(|t| t.id.starts_with("semantic-") || t.category.as_deref() == Some("semantic"))
+            .collect();
+        assert!(
+            semantic.len() >= 15,
+            "QUAL-01 requires ≥15 semantic tests, found {}",
+            semantic.len()
+        );
+        for test in &semantic {
+            assert!(!test.setup.is_empty(), "{} needs a hit setup file", test.id);
+            let hit = crate::runner::resolve_setup(&dir, &test.setup[0]);
+            let hit_text = std::fs::read_to_string(&hit)
+                .unwrap_or_else(|e| panic!("reading {}: {e}", hit.display()))
+                .to_lowercase();
+            for tok in query_tokens(&test.query) {
+                assert!(
+                    !hit_text.contains(&tok),
+                    "{} hit {} contains query token `{tok}`",
+                    test.id,
+                    hit.display()
+                );
+            }
+            let phrase = test.query.to_lowercase();
+            for setup in test.setup.iter().skip(1) {
+                let path = crate::runner::resolve_setup(&dir, setup);
+                let text = std::fs::read_to_string(&path)
+                    .unwrap_or_else(|e| panic!("reading {}: {e}", path.display()))
+                    .to_lowercase();
+                assert!(
+                    !text.contains(&phrase),
+                    "{} distractor {} contains contiguous query `{phrase}`",
+                    test.id,
+                    path.display()
+                );
+            }
+        }
+    }
 }

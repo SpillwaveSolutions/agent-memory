@@ -1,0 +1,4 @@
+{"role": "user", "content": "We need a short-lived access credential plan for the API."}
+{"role": "assistant", "content": "We set JWT lifetime to fifteen minutes with rotating refresh credentials."}
+{"role": "assistant", "content": "Access JWTs last fifteen minutes; rotating refresh credentials replace the family on each use."}
+{"role": "assistant", "content": "I'll start the jose signer and store the refresh family in Postgres."}

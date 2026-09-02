@@ -109,6 +109,8 @@ pub struct BenchmarkReport {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failed_ids: Vec<String>,
     pub caveats: Vec<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub layers: String,
 }
 
 #[cfg(test)]

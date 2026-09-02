@@ -1,0 +1,4 @@
+{"role": "user", "content": "Where do cold blobs go after a month?"}
+{"role": "assistant", "content": "S3 intelligent-tiering, then Glacier after 30 days."}
+{"role": "assistant", "content": "intelligent-tiering is on. Glacier after 30 days is the cold step."}
+{"role": "assistant", "content": "I'll enable S3 intelligent-tiering on the bucket."}

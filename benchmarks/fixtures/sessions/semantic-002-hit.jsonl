@@ -1,0 +1,4 @@
+{"role": "user", "content": "How are we moving the fleet off the old cluster?"}
+{"role": "assistant", "content": "EKS migration with Karpenter node provisioning is scheduled for 12 February 2026."}
+{"role": "assistant", "content": "Karpenter node provisioning replaces the ASG; 12 February 2026 is the freeze date."}
+{"role": "assistant", "content": "I'll file the EKS migration runbook under infra/eks."}

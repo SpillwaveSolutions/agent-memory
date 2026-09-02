@@ -1,0 +1,179 @@
+# QUAL-01 paraphrase set. Relevant sessions share meaning with the query
+# but not tokens. First setup file is the hit; the rest are distractors
+# whose query words are separated so BM25 ranks them and the lexicon does not fire.
+
+[[test]]
+id = "semantic-001"
+category = "semantic"
+description = "Paraphrase: token expiry policy → JWT lifetime"
+setup = ["sessions/semantic-001-hit.jsonl", "sessions/semantic-001-distract.jsonl"]
+query = "token expiry policy"
+expected_contains = ["JWT lifetime"]
+relevant = ["JWT lifetime", "fifteen minutes"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-002"
+category = "semantic"
+description = "Paraphrase: container orchestration cutover → EKS migration"
+setup = ["sessions/semantic-002-hit.jsonl", "sessions/semantic-002-distract.jsonl"]
+query = "container orchestration cutover"
+expected_contains = ["EKS migration"]
+relevant = ["EKS migration", "Karpenter"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-003"
+category = "semantic"
+description = "Paraphrase: distributed tracing vendor → OpenTelemetry"
+setup = ["sessions/semantic-003-hit.jsonl", "sessions/semantic-003-distract.jsonl"]
+query = "distributed tracing vendor"
+expected_contains = ["OpenTelemetry"]
+relevant = ["OpenTelemetry", "Grafana Tempo"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-004"
+category = "semantic"
+description = "Paraphrase: feature toggle SaaS → Unleash self-hosted"
+setup = ["sessions/semantic-004-hit.jsonl", "sessions/semantic-004-distract.jsonl"]
+query = "feature toggle SaaS"
+expected_contains = ["Unleash"]
+relevant = ["Unleash", "LaunchDarkly"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-005"
+category = "semantic"
+description = "Paraphrase: background job persistence → SKIP LOCKED"
+setup = ["sessions/semantic-005-hit.jsonl", "sessions/semantic-005-distract.jsonl"]
+query = "background job persistence"
+expected_contains = ["SKIP LOCKED"]
+relevant = ["SKIP LOCKED", "Redis lists"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-006"
+category = "semantic"
+description = "Paraphrase: gateway throttle quota → 120 requests per minute"
+setup = ["sessions/semantic-006-hit.jsonl", "sessions/semantic-006-distract.jsonl"]
+query = "gateway throttle quota"
+expected_contains = ["120 requests per minute"]
+relevant = ["120 requests per minute", "20/min"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-007"
+category = "semantic"
+description = "Paraphrase: session cache duration → fifteen-minute TTL"
+setup = ["sessions/semantic-007-hit.jsonl", "sessions/semantic-007-distract.jsonl"]
+query = "session cache duration"
+expected_contains = ["fifteen-minute default ttl"]
+relevant = ["fifteen-minute default ttl", "look-aside"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-008"
+category = "semantic"
+description = "Paraphrase: primary pager rotation → Avery first on-call"
+setup = ["sessions/semantic-008-hit.jsonl", "sessions/semantic-008-distract.jsonl"]
+query = "primary pager rotation"
+expected_contains = ["Avery"]
+relevant = ["Avery", "Friday 16:00"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-009"
+category = "semantic"
+description = "Paraphrase: null avatar crash → empty Option / DEFAULT_PHOTO_URL"
+setup = ["sessions/semantic-009-hit.jsonl", "sessions/semantic-009-distract.jsonl"]
+query = "null avatar crash"
+expected_contains = ["DEFAULT_PHOTO_URL"]
+relevant = ["DEFAULT_PHOTO_URL", "empty Option"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-010"
+category = "semantic"
+description = "Paraphrase: log shipping backend → Promtail + Loki"
+setup = ["sessions/semantic-010-hit.jsonl", "sessions/semantic-010-distract.jsonl"]
+query = "log shipping backend"
+expected_contains = ["Promtail"]
+relevant = ["Promtail", "Loki"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-011"
+category = "semantic"
+description = "Paraphrase: schema migration utility → Atlas apply"
+setup = ["sessions/semantic-011-hit.jsonl", "sessions/semantic-011-distract.jsonl"]
+query = "schema migration utility"
+expected_contains = ["Atlas apply"]
+relevant = ["Atlas apply", "expand-contract"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-012"
+category = "semantic"
+description = "Paraphrase: secret storage backend → sops plus age"
+setup = ["sessions/semantic-012-hit.jsonl", "sessions/semantic-012-distract.jsonl"]
+query = "secret storage backend"
+expected_contains = ["age encryption"]
+relevant = ["age encryption", "Vault is out"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-013"
+category = "semantic"
+description = "Paraphrase: blue green release → Argo Rollouts canary"
+setup = ["sessions/semantic-013-hit.jsonl", "sessions/semantic-013-distract.jsonl"]
+query = "blue green release"
+expected_contains = ["Argo Rollouts"]
+relevant = ["Argo Rollouts", "canary"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-014"
+category = "semantic"
+description = "Paraphrase: search ranking algorithm → BM25 then cross-encoder"
+setup = ["sessions/semantic-014-hit.jsonl", "sessions/semantic-014-distract.jsonl"]
+query = "search ranking algorithm"
+expected_contains = ["first-pass BM25"]
+relevant = ["first-pass BM25", "cross-encoder"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-015"
+category = "semantic"
+description = "Paraphrase: object storage lifecycle → S3 intelligent-tiering"
+setup = ["sessions/semantic-015-hit.jsonl", "sessions/semantic-015-distract.jsonl"]
+query = "object storage lifecycle"
+expected_contains = ["intelligent-tiering"]
+relevant = ["intelligent-tiering", "Glacier after 30 days"]
+k = 5
+max_tokens = 400
+
+[[test]]
+id = "semantic-016"
+category = "semantic"
+description = "Paraphrase: identity provider cutover → Keycloak replaces Auth0"
+setup = ["sessions/semantic-016-hit.jsonl", "sessions/semantic-016-distract.jsonl"]
+query = "identity provider cutover"
+expected_contains = ["Keycloak"]
+relevant = ["Keycloak", "SAML mappings"]
+k = 5
+max_tokens = 400

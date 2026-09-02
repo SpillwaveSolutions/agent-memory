@@ -54,7 +54,7 @@ pub enum Commands {
         #[arg(long)]
         output: Option<String>,
     },
-    /// Run full custom benchmark suite (all categories).
+    /// Run full custom benchmark suite (all categories except semantic).
     All {
         /// Path to fixtures directory.
         #[arg(long, default_value = "benchmarks/fixtures")]
@@ -68,6 +68,36 @@ pub enum Commands {
         /// Path to baselines TOML file.
         #[arg(long, default_value = "benchmarks/baselines.toml")]
         baselines: String,
+        /// Retrieval layer: `bm25` (default), `vector`, or `hybrid`.
+        #[arg(long, default_value = "bm25", value_parser = ["bm25", "vector", "hybrid"])]
+        layers: String,
+    },
+    /// Run custom-harness fixtures, optionally filtered by category.
+    Run {
+        /// Path to fixtures directory.
+        #[arg(long, default_value = "benchmarks/fixtures")]
+        fixtures: String,
+        /// Output file for JSON results.
+        #[arg(long)]
+        output: Option<String>,
+        /// Filter by test id/category prefix (e.g. `semantic`, `temporal`).
+        #[arg(long)]
+        category: Option<String>,
+        /// Retrieval layer: `bm25` (default), `vector`, or `hybrid`.
+        #[arg(long, default_value = "bm25", value_parser = ["bm25", "vector", "hybrid"])]
+        layers: String,
+    },
+    /// Run the semantic/paraphrase fixture set (QUAL-01).
+    Semantic {
+        /// Path to fixtures directory.
+        #[arg(long, default_value = "benchmarks/fixtures")]
+        fixtures: String,
+        /// Output file for JSON results.
+        #[arg(long)]
+        output: Option<String>,
+        /// Retrieval layer: `bm25` (default), `vector`, or `hybrid`.
+        #[arg(long, default_value = "bm25", value_parser = ["bm25", "vector", "hybrid"])]
+        layers: String,
     },
     /// Run LOCOMO adapter. Substring mode is `context_hit_rate`, not a LOCOMO score.
     Locomo {

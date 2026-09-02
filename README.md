@@ -164,8 +164,8 @@ is experimental.
 | TOC build and drill-down navigation | **Solid** | Year → Month → Week → Day → Segment → Grip |
 | Grips / provenance | **Solid** | Excerpts link back to the events they came from |
 | BM25 keyword search (Tantivy) | **Solid** | Exact tokens, no stemming (`jwt` does not match `JWTs`). Events indexed before v3.1 have empty `text_preview` and there is no backfill command — see [UPGRADING](docs/UPGRADING.md) and [#41](https://github.com/SpillwaveSolutions/agent-memory/issues/41) |
-| Vector search (HNSW + Candle) | **Solid** | Mechanism is wired; retrieval *quality* is not yet measured ([#40](https://github.com/SpillwaveSolutions/agent-memory/issues/40)). First daemon start downloads the embedding model; with no network the daemon warns and runs BM25-only |
-| Topic graph | **Works** | Clustering quality is not benchmarked ([#47](https://github.com/SpillwaveSolutions/agent-memory/issues/47)) |
+| Vector search (HNSW + Candle) | **Solid** | Mechanism is wired. Mock-harness hybrid recall@5 = **1.00** vs BM25 **0.00** on the 16-test paraphrase set ([`semantic-hybrid.json`](benchmarks/results/semantic-hybrid.json)); the vector *layer in that artifact* is a committed lexicon + TF-IDF cosine, not Candle ([#40](https://github.com/SpillwaveSolutions/agent-memory/issues/40)). First daemon start downloads the embedding model; with no network the daemon warns and runs BM25-only |
+| Topic graph | **Works** | ARI **1.00** / purity **1.00** on a synthetic 80-doc TF-IDF corpus ([`topics-quality.json`](benchmarks/results/topics-quality.json)), not Candle TOC embeddings ([#47](https://github.com/SpillwaveSolutions/agent-memory/issues/47)) |
 | Hybrid fusion + `RouteQuery` orchestration | **Works** | Wired end-to-end in Phase 54; explainability reports what actually ran |
 | LLM summarization / LLM rerank | **Experimental** | Needs an API key; fails open to the heuristic ranker and reports `rerank=heuristic` when it does |
 | Cross-project federated query | **Experimental** | Implemented; not performance-characterised |
@@ -180,9 +180,11 @@ is experimental.
 the old "65 second TOC" number was a harness defect (it timed ingest-time
 rollup and labelled it navigation).
 
-Committed results live in `benchmarks/results/`. Today both are **mock-backend**
-runs — a mock retrieval backend and a mock judge — so they demonstrate the
-harness, not competitive quality. **There is deliberately no comparison
+Committed results live in `benchmarks/results/`. `custom-harness-mock.json` and
+`locomo-smoke.json` are **mock-backend** runs — they demonstrate the harness,
+not competitive quality. `semantic-{bm25,vector,hybrid}.json` are also mock
+(token-overlap vs a committed paraphrase lexicon); they exist so the vector
+row has a BM25-cannot-solve baseline. **There is deliberately no comparison
 marketing in this repo**, and there will not be until a real-backend,
 real-judge run is committed next to the claim
 ([#39](https://github.com/SpillwaveSolutions/agent-memory/issues/39)).

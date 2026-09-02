@@ -1,0 +1,4 @@
+{"role": "user", "content": "What do we emit spans with, and where do they land?"}
+{"role": "assistant", "content": "OpenTelemetry into Grafana Tempo at a 5% sample rate is the standard."}
+{"role": "assistant", "content": "Grafana Tempo holds the traces; keep the 5% sample rate unless an incident needs more."}
+{"role": "assistant", "content": "I'll add the OpenTelemetry SDK to the services this week."}

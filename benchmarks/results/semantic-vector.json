@@ -1,0 +1,21 @@
+{
+  "backend": "mock",
+  "accuracy": 1.0,
+  "recall_at_k": 1.0,
+  "k": 5,
+  "token_usage_avg": 91,
+  "latency_p50_ms": 0,
+  "latency_p95_ms": 0,
+  "compression_ratio": 0.6692786454300235,
+  "test_count": 16,
+  "pass_count": 16,
+  "caveats": [
+    "accuracy is expected_contains over this fixture suite, not LOCOMO",
+    "recall@k uses labeled relevant items in top-k, not accuracy under another name",
+    "compression_ratio compares retrieved tokens to setup file contents (not path strings)",
+    "each test ran against a fresh store (mock isolation; cli shares the daemon unless you restart it)",
+    "backend=mock vector is a committed paraphrase lexicon plus TF-IDF cosine, not Candle/HNSW",
+    "--layers is a mock-backend switch; CLI search is always RouteQuery hybrid"
+  ],
+  "layers": "vector"
+}

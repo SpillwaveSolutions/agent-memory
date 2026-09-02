@@ -1,0 +1,4 @@
+{"role": "user", "content": "Are we staying on Auth0?"}
+{"role": "assistant", "content": "Keycloak replaces Auth0. SAML mappings stay."}
+{"role": "assistant", "content": "SAML mappings stay as-is. Keycloak replaces Auth0 next quarter."}
+{"role": "assistant", "content": "I'll stand up Keycloak and copy the SAML mappings."}

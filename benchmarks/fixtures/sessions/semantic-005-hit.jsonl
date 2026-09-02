@@ -1,0 +1,4 @@
+{"role": "user", "content": "Are we using Redis lists for the worker queue?"}
+{"role": "assistant", "content": "No. Postgres SKIP LOCKED is the queue. Redis lists are out."}
+{"role": "assistant", "content": "Workers claim rows with SKIP LOCKED; Redis lists were a prototype only."}
+{"role": "assistant", "content": "I'll add the SKIP LOCKED claim query and drop the Redis list writer."}

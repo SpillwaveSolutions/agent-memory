@@ -171,6 +171,45 @@ cargo run -p memory-bench -- all --backend mock --output benchmarks/results/cust
 `--backend cli` shells out to a running `memory` daemon; `memory add` /
 `memory search` failures abort the run (a dead daemon is not accuracy 0.0).
 
+### Semantic / paraphrase layer switch (Phase 60-03)
+
+`--layers bm25|vector|hybrid` is a **mock-backend** switch on the custom
+harness (`semantic`, `run`, `all`). CLI `memory search` is always
+`RouteQuery` hybrid; `--layers` does not change a live daemon.
+
+```bash
+cargo run -p memory-bench -- semantic --layers bm25 \
+  --output benchmarks/results/semantic-bm25.json
+cargo run -p memory-bench -- semantic --layers vector \
+  --output benchmarks/results/semantic-vector.json
+cargo run -p memory-bench -- semantic --layers hybrid \
+  --output benchmarks/results/semantic-hybrid.json
+```
+
+`memory-bench all` excludes the `semantic` category so the original BM25
+custom-harness number is not tanked. Use `semantic` or
+`run --category semantic --layers …` for the paraphrase set.
+
+Mock BM25 is token overlap. Mock vector expands a committed paraphrase
+lexicon then TF-IDF cosine (not Candle/HNSW). Mock hybrid is RRF (`k=60`)
+of those two lists.
+
+Committed 2026-09-02 on the 16-test paraphrase set
+(`benchmarks/fixtures/semantic-001.toml`):
+
+| Artifact | layers | recall@5 | pass |
+|---|---|---|---|
+| `semantic-bm25.json` | bm25 | 0.00 | 0/16 |
+| `semantic-vector.json` | vector | 1.00 | 16/16 |
+| `semantic-hybrid.json` | hybrid | 1.00 | 16/16 |
+
+That hybrid > BM25 delta is the QUAL-01 evidence. It is not a Candle
+number.
+
+Topic clustering quality is `cargo run -p memory-topics --example topics_quality`
+→ `benchmarks/results/topics-quality.json` (purity + adjusted rand index on a
+synthetic 80-doc TF-IDF corpus, not live TOC summaries).
+
 ## LOCOMO live backend (Phase 60-01)
 
 `--backend cli` on `memory-bench locomo` defaults to

@@ -1,0 +1,4 @@
+{"role": "user", "content": "What is the public API rate for partner credentials?"}
+{"role": "assistant", "content": "120 requests per minute for public keys; 20/min for partner credentials."}
+{"role": "assistant", "content": "Partner credentials stay at 20/min. Public stays at 120 requests per minute."}
+{"role": "assistant", "content": "I'll put 120 requests per minute in the nginx snippet."}

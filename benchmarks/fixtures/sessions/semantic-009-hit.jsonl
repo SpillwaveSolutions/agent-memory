@@ -1,0 +1,4 @@
+{"role": "user", "content": "Why did the user profile handler panic last week?"}
+{"role": "assistant", "content": "An empty Option on DEFAULT_PHOTO_URL. The profile handler panicked."}
+{"role": "assistant", "content": "DEFAULT_PHOTO_URL was missing; unwrap on an empty Option made the profile handler panicked."}
+{"role": "assistant", "content": "I'll return a placeholder when DEFAULT_PHOTO_URL is an empty Option."}

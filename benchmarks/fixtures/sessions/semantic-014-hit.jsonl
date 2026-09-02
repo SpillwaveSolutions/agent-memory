@@ -1,0 +1,4 @@
+{"role": "user", "content": "How do we order hits before any LLM sees them?"}
+{"role": "assistant", "content": "First-pass BM25 then a cross-encoder rerank."}
+{"role": "assistant", "content": "BM25 then a cross-encoder. That is the written first-pass BM25 plan."}
+{"role": "assistant", "content": "I'll keep first-pass BM25 and add the cross-encoder rerank hook."}
