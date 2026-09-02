@@ -227,6 +227,50 @@ impl Storage {
         Ok(results)
     }
 
+    /// Page through the event log in key order.
+    ///
+    /// `after` is exclusive: pass the last key from the previous page to
+    /// continue. `after = None` starts at the first event.
+    pub fn get_events_page(
+        &self,
+        after: Option<&EventKey>,
+        limit: usize,
+    ) -> Result<Vec<(EventKey, Vec<u8>)>, StorageError> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let events_cf = self
+            .db
+            .cf_handle(CF_EVENTS)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_EVENTS.to_string()))?;
+
+        let start_bytes = after.map(|k| k.to_bytes());
+        let iter = match start_bytes.as_ref() {
+            Some(bytes) => self
+                .db
+                .iterator_cf(&events_cf, IteratorMode::From(bytes, Direction::Forward)),
+            None => self.db.iterator_cf(&events_cf, IteratorMode::Start),
+        };
+
+        let mut results = Vec::new();
+        for item in iter {
+            let (key, value) = item?;
+            let event_key = EventKey::from_bytes(&key)?;
+            if let Some(after_key) = after {
+                if event_key == *after_key {
+                    continue;
+                }
+            }
+            results.push((event_key, value.to_vec()));
+            if results.len() >= limit {
+                break;
+            }
+        }
+
+        Ok(results)
+    }
+
     /// Store a checkpoint for crash recovery (STOR-03)
     pub fn put_checkpoint(
         &self,
@@ -287,6 +331,27 @@ impl Storage {
         }
 
         Ok(results)
+    }
+
+    /// Count outbox entries with sequence >= `start_sequence`.
+    pub fn count_outbox_from(&self, start_sequence: u64) -> Result<u64, StorageError> {
+        let cf = self
+            .db
+            .cf_handle(CF_OUTBOX)
+            .ok_or_else(|| StorageError::ColumnFamilyNotFound(CF_OUTBOX.to_string()))?;
+
+        let start_key = OutboxKey::new(start_sequence);
+        let iter = self.db.iterator_cf(
+            &cf,
+            IteratorMode::From(&start_key.to_bytes(), Direction::Forward),
+        );
+
+        let mut count = 0u64;
+        for item in iter {
+            item?;
+            count += 1;
+        }
+        Ok(count)
     }
 
     /// Delete outbox entries up to and including a sequence number.
@@ -885,6 +950,46 @@ mod tests {
         let results = storage.get_events_in_range(1500, 2500).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].1, b"event2");
+    }
+
+    #[test]
+    fn test_get_events_page_exclusive_after() {
+        let (storage, _temp) = create_test_storage();
+
+        let ts = 1_706_540_400_000i64;
+        let mut keys = Vec::new();
+        for i in 0..5 {
+            let ulid = ulid::Ulid::from_parts(ts as u64 + i, i as u128);
+            storage
+                .put_event(&ulid.to_string(), format!("e{i}").as_bytes(), b"outbox")
+                .unwrap();
+            keys.push(EventKey::from_event_id(&ulid.to_string()).unwrap());
+        }
+
+        let first = storage.get_events_page(None, 2).unwrap();
+        assert_eq!(first.len(), 2);
+        assert_eq!(first[0].1, b"e0");
+        assert_eq!(first[1].1, b"e1");
+
+        let rest = storage.get_events_page(Some(&first[1].0), 10).unwrap();
+        assert_eq!(rest.len(), 3);
+        assert_eq!(rest[0].1, b"e2");
+        assert_eq!(rest[2].1, b"e4");
+
+        let empty = storage.get_events_page(Some(&keys[4]), 10).unwrap();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn test_count_outbox_from() {
+        let (storage, _temp) = create_test_storage();
+        for _ in 0..4 {
+            let event_id = ulid::Ulid::new().to_string();
+            storage.put_event(&event_id, b"event", b"outbox").unwrap();
+        }
+        assert_eq!(storage.count_outbox_from(0).unwrap(), 4);
+        assert_eq!(storage.count_outbox_from(2).unwrap(), 2);
+        assert_eq!(storage.count_outbox_from(4).unwrap(), 0);
     }
 
     #[test]

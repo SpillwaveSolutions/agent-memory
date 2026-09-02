@@ -16,7 +16,7 @@ use memory_toc::builder::TocBuilder;
 use memory_toc::segmenter::segment_events;
 use memory_toc::summarizer::MockSummarizer;
 use memory_toc::SegmentationConfig;
-use memory_types::{Event, EventRole, EventType, TocNode};
+use memory_types::{Event, EventRole, EventType, OutboxEntry, TocNode};
 
 /// Shared test harness for E2E tests.
 ///
@@ -70,6 +70,21 @@ pub fn ingest_events(storage: &Storage, events: &[Event]) {
         let outbox_bytes = b"pending";
         storage
             .put_event(&event.event_id, &event_bytes, outbox_bytes)
+            .expect("Failed to put event");
+    }
+}
+
+/// Ingest events with real [`OutboxEntry`] JSON (not the `b"pending"` stub).
+///
+/// Use this when a test will run [`memory_indexing::IndexingPipeline`];
+/// `ingest_events` writes bytes the pipeline cannot deserialize.
+pub fn ingest_events_with_outbox(storage: &Storage, events: &[Event]) {
+    for event in events {
+        let event_bytes = event.to_bytes().expect("Failed to serialize event");
+        let outbox = OutboxEntry::for_index(event.event_id.clone(), event.timestamp_ms());
+        let outbox_bytes = outbox.to_bytes().expect("Failed to serialize outbox");
+        storage
+            .put_event(&event.event_id, &event_bytes, &outbox_bytes)
             .expect("Failed to put event");
     }
 }

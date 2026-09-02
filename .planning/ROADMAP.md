@@ -327,9 +327,9 @@ Nothing on this list is a new capability except Phase 62, which is conditional.
 - [ ] 60-02: The run — maintainer, needs API key + documented machine (#39)
 - [ ] 60-03: Vector (#40) and topic (#47) quality fixtures
 
-### Phase 61: Operate It (0/5)
+### Phase 61: Operate It (1/5)
 
-- [ ] 61-01: Backfill (`admin backfill-index`) (#41); cherry-pick export/import from 59-02
+- [x] 61-01: Backfill (`admin backfill-index`) (#41); event-log replay, stopped-daemon CLI (export/import cherry-pick not required — import.rs is not on this line)
 - [ ] 61-02: `install-service` launchd/systemd (#42)
 - [ ] 61-03: Panic audit (`unwrap()`/`expect()` on request paths)
 - [ ] 61-04: Offline TOC rebuild (#43)
@@ -339,5 +339,5 @@ Nothing on this list is a new capability except Phase 62, which is conditional.
 
 - [ ] Only if 60-02 shows retrieval, not generation, is the bottleneck
 
-*Updated: 2026-09-02 — Phase 59 complete (#45); expanded v3.2 plan adopted; 60-01 executing*
+*Updated: 2026-09-02 — Phase 59 complete (#45); 60-01 in #49; 61-01 backfill-index this PR*
 

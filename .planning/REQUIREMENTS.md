@@ -69,7 +69,7 @@ exactly one plan in `docs/plans/v3.2-prove-it-plan.md`.
 
 ### Operate it (OPS)
 
-- [ ] **OPS-01**: `admin backfill-index` resumable, idempotent (61-01 / #41)
+- [x] **OPS-01**: `admin backfill-index` resumable, idempotent (61-01 / #41)
 - [ ] **OPS-02**: `install-service`/`uninstall-service` macOS+Linux (61-02 / #42)
 - [ ] **OPS-03**: Zero fallible `unwrap` on request paths (61-03)
 - [ ] **OPS-04**: Hostile-input e2e over all RPCs (61-03)
@@ -126,7 +126,7 @@ exactly one plan in `docs/plans/v3.2-prove-it-plan.md`.
 | QUAL-01 | 60-03 | Open (#40) |
 | QUAL-02 | 60-03 | Open (#47) |
 | QUAL-03 | 60-03 | Open |
-| OPS-01 | 61-01 | Open (#41) |
+| OPS-01 | 61-01 | This PR (#41) |
 | OPS-02 | 61-02 | Open (#42) |
 | OPS-03 | 61-03 | Open |
 | OPS-04 | 61-03 | Open |

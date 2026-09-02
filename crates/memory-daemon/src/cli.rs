@@ -330,6 +330,44 @@ pub enum AdminCommands {
         #[arg(long)]
         search_path: Option<String>,
     },
+
+    /// Replay events into BM25/vector indexes. Stopped-daemon only.
+    ///
+    /// Default start resumes from the index checkpoint. Pass `--from-sequence 0`
+    /// to re-index every event (needed to fill empty pre-v3.1 `text_preview`s
+    /// after the outbox has been drained). This is not `rebuild-indexes` (TOC
+    /// and grips) and not `rebuild-bm25` (a prune).
+    BackfillIndex {
+        /// Which index: bm25, vector, or all. Default bm25 (vector of raw
+        /// events is a no-op without grips and needs the Candle model).
+        #[arg(long, default_value = "bm25")]
+        index: String,
+
+        /// Outbox sequence to start from. Default: resume from checkpoint.
+        /// Pass 0 to re-index every event from the event log.
+        #[arg(long)]
+        from_sequence: Option<u64>,
+
+        /// Entries per commit
+        #[arg(long, default_value = "500")]
+        batch: usize,
+
+        /// Count work and print; write nothing (checkpoint unchanged)
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Path to search index directory (default `{db}/search`)
+        #[arg(long)]
+        search_path: Option<String>,
+
+        /// Path to vector index directory (default `{db}/vector`)
+        #[arg(long)]
+        vector_path: Option<String>,
+
+        /// PID file to check. Must match the path used at `start`.
+        #[arg(long)]
+        pid_file: Option<String>,
+    },
 }
 
 /// Scheduler subcommands
@@ -1237,6 +1275,76 @@ mod tests {
                     assert!(vector_path.is_none());
                 }
                 _ => panic!("Expected ClearIndex command"),
+            },
+            _ => panic!("Expected Admin command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_admin_backfill_index_defaults() {
+        let cli = Cli::parse_from(["memory-daemon", "admin", "backfill-index"]);
+        match cli.command {
+            Commands::Admin { command, .. } => match command {
+                AdminCommands::BackfillIndex {
+                    index,
+                    from_sequence,
+                    batch,
+                    dry_run,
+                    search_path,
+                    vector_path,
+                    pid_file,
+                } => {
+                    assert_eq!(index, "bm25");
+                    assert_eq!(from_sequence, None);
+                    assert_eq!(batch, 500);
+                    assert!(!dry_run);
+                    assert!(search_path.is_none());
+                    assert!(vector_path.is_none());
+                    assert!(pid_file.is_none());
+                }
+                _ => panic!("Expected BackfillIndex command"),
+            },
+            _ => panic!("Expected Admin command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_admin_backfill_index_with_options() {
+        let cli = Cli::parse_from([
+            "memory-daemon",
+            "admin",
+            "backfill-index",
+            "--index",
+            "all",
+            "--from-sequence",
+            "0",
+            "--batch",
+            "50",
+            "--dry-run",
+            "--search-path",
+            "/custom/search",
+            "--pid-file",
+            "/tmp/am.pid",
+        ]);
+        match cli.command {
+            Commands::Admin { command, .. } => match command {
+                AdminCommands::BackfillIndex {
+                    index,
+                    from_sequence,
+                    batch,
+                    dry_run,
+                    search_path,
+                    pid_file,
+                    ..
+                } => {
+                    assert_eq!(index, "all");
+                    assert_eq!(from_sequence, Some(0));
+                    assert_eq!(batch, 50);
+                    assert!(dry_run);
+                    assert_eq!(search_path.as_deref(), Some("/custom/search"));
+                    assert_eq!(pid_file.as_deref(), Some("/tmp/am.pid"));
+                }
+                _ => panic!("Expected BackfillIndex command"),
             },
             _ => panic!("Expected Admin command"),
         }
