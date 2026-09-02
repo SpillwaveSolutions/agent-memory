@@ -15,9 +15,9 @@ them provable.
 **Target work:**
 - Release pipeline guards (tag on main, crate version matches tag, all five platforms) — Phase 59
 - Committed LOCOMO LLM-judge result on the real dataset — Phase 60 / #39
-- Quality fixtures for vector search and the topic graph — Phase 60 / #40
+- Quality fixtures for vector search (#40) and the topic graph (#47) — Phase 60
 - Backfill, `install-service`, offline TOC rebuild, panic audit — Phase 61 / #41 #42 #43
-- Claude Code plugin registration + installer uninstall/status — Phase 61
+- Claude Code plugin registration + installer uninstall/status — Phase 61 / #48
 - Cross-encoder rerank only if 60-02 says retrieval is the bottleneck — Phase 62 / #44
 
 **Previous version:** v3.1.0 (Shipped 2026-09-01) — Make It True. No new
@@ -37,8 +37,8 @@ The system implements a complete 6-layer cognitive stack with control plane, mul
 - Layer 6: Ranking Policy (salience, usage, novelty, lifecycle) + StaleFilter (time-decay, supersession)
 - Control: Retrieval Policy (intent routing, tier detection, fallbacks) + MemoryOrchestrator (RRF fusion, optional LLM rerank, explainability)
 - Dedup: InFlightBuffer + HNSW composite gate, configurable threshold, fail-open
-- Installer: memory-installer crate with RuntimeConverter trait, 5 converters (Claude, Gemini, Codex, Copilot, generic skills), tool mapping tables
-- Adapters: Claude Code, Gemini CLI, Copilot CLI, Codex CLI (via installer). OpenCode removed in v3.1 Phase 57 — the converter reported success and wrote nothing
+- Installer: memory-installer crate with RuntimeConverter trait, converters for Claude, Gemini, Codex, Copilot, generic skills; tool mapping tables
+- Adapters: Claude Code, Gemini CLI, Copilot CLI, Codex CLI (via installer). Supported surfaces are those four; registration for Gemini/Codex/Copilot is v3.3+
 - Discovery: ListAgents, GetAgentActivity, agent-filtered topics
 - Testing: 1,205 workspace + 60 e2e cargo tests; 114 bats CLI tests; Tier 1 (Claude Code, Codex) gates PRs, Tier 2 (Gemini, Copilot) weekly
 - CI/CD: Dedicated E2E job + CLI matrix report; rust-toolchain pinned to 1.97

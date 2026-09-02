@@ -90,6 +90,9 @@ pub struct LocomoConversationResult {
     pub score: f64,
     pub by_type: HashMap<String, TypeScore>,
     pub questions: Vec<QuestionResult>,
+    /// Time spent polling index checkpoints after ingest. 0 on the mock path.
+    #[serde(default)]
+    pub drain_wait_ms: u64,
 }
 
 /// Aggregate across conversations. `metric` is the only name that may be
@@ -432,6 +435,7 @@ pub fn evaluate_sample(
         score,
         by_type,
         questions,
+        drain_wait_ms: 0,
     }
 }
 
@@ -442,6 +446,7 @@ pub fn aggregate_results(
     judge_label: &str,
     model: Option<String>,
     temperature: Option<f64>,
+    isolation: &str,
 ) -> LocomoAggregateResult {
     let mut total_questions = 0;
     let mut total_correct = 0;
@@ -475,13 +480,22 @@ pub fn aggregate_results(
         .collect();
 
     let mut caveats = vec![
-        "one isolated mock store per conversation (no cross-conversation bleed)".into(),
+        format!("isolation={isolation}"),
         format!(
             "metric is '{}' — do not quote as a published LOCOMO leaderboard number unless scorer is llm-judge with a pinned model",
             kind.metric_name()
         ),
         "dataset license is CC BY-NC 4.0; verify LICENSE.txt before commercial use".into(),
     ];
+    if isolation.contains("shared") {
+        caveats.push(
+            "shared daemon: conversation N can retrieve conversation 1..=N-1; \
+             numbers from this mode must not be committed"
+                .into(),
+        );
+    } else {
+        caveats.push("one isolated store per conversation (no cross-conversation bleed)".into());
+    }
     if kind == ScorerKind::Mock {
         caveats.push(
             "mock scorer is substring context_hit_rate over token-overlap retrieval; \
@@ -496,7 +510,7 @@ pub fn aggregate_results(
         temperature,
         model,
         dataset: dataset.to_string(),
-        isolation: "per-conversation temp store".into(),
+        isolation: isolation.to_string(),
         conversations: results.len(),
         total_questions,
         overall_score,
@@ -665,7 +679,15 @@ mod tests {
         assert!(
             result.by_type.contains_key("temporal") || result.by_type.contains_key("multi_hop")
         );
-        let agg = aggregate_results(&[result], ScorerKind::Mock, "fixture", "mock", None, None);
+        let agg = aggregate_results(
+            &[result],
+            ScorerKind::Mock,
+            "fixture",
+            "mock",
+            None,
+            None,
+            "per-conversation temp store",
+        );
         assert_eq!(agg.metric, "context_hit_rate");
         assert!(agg.caveats.iter().any(|c| c.contains("not comparable")));
     }

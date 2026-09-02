@@ -8,13 +8,13 @@ use tracing::{debug, info};
 use memory_service::pb::{
     memory_service_client::MemoryServiceClient, BrowseTocRequest, Event as ProtoEvent,
     EventRole as ProtoEventRole, EventType as ProtoEventType, ExpandGripRequest,
-    GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest, GetNodeRequest,
-    GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest, GetTocRootRequest,
-    GetTopTopicsRequest, GetTopicGraphStatusRequest, GetTopicsByQueryRequest,
-    GetVectorIndexStatusRequest, Grip as ProtoGrip, HybridSearchRequest, HybridSearchResponse,
-    IngestEventRequest, RouteQueryRequest, RouteQueryResponse, TeleportSearchRequest,
-    TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic, VectorIndexStatus,
-    VectorTeleportRequest, VectorTeleportResponse,
+    GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest, GetIndexCheckpointsRequest,
+    GetIndexCheckpointsResponse, GetNodeRequest, GetRankingStatusRequest, GetRankingStatusResponse,
+    GetRelatedTopicsRequest, GetTocRootRequest, GetTopTopicsRequest, GetTopicGraphStatusRequest,
+    GetTopicsByQueryRequest, GetVectorIndexStatusRequest, Grip as ProtoGrip, HybridSearchRequest,
+    HybridSearchResponse, IngestEventRequest, RouteQueryRequest, RouteQueryResponse,
+    TeleportSearchRequest, TeleportSearchResponse, TocNode as ProtoTocNode, Topic as ProtoTopic,
+    VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
 };
 use memory_types::{Event, EventRole, EventType};
 
@@ -336,6 +336,16 @@ impl MemoryClient {
         debug!("GetVectorIndexStatus request");
         let request = tonic::Request::new(GetVectorIndexStatusRequest {});
         let response = self.inner.get_vector_index_status(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Read BM25/vector index checkpoints and the outbox head (Phase 60-01).
+    pub async fn get_index_checkpoints(
+        &mut self,
+    ) -> Result<GetIndexCheckpointsResponse, ClientError> {
+        debug!("GetIndexCheckpoints request");
+        let request = tonic::Request::new(GetIndexCheckpointsRequest {});
+        let response = self.inner.get_index_checkpoints(request).await?;
         Ok(response.into_inner())
     }
 

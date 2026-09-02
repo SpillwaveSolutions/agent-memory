@@ -8,11 +8,12 @@ and a repo whose backlog is public.
 
 **Spec:** `docs/plans/v3.2-prove-it-plan.md`
 
-**Phases:** 59 Guardrails and Inventory (executing), 60 Real Numbers, 61
-Operate It, 62 Cross-encoder rerank (conditional on #39).
+**Phases:** 59 Guardrails and Inventory (complete #45), 60 Real Numbers
+(60-01 executing), 61 Operate It, 62 Cross-encoder rerank (conditional on #39).
 
-**Known Gaps (now issues):** #39 LOCOMO run, #40 vector/topic quality, #41
-backfill, #42 install-service, #43 TOC rebuild, #44 cross-encoder.
+**Known Gaps (issues labelled `v3.2`):** #39 LOCOMO run, #40 vector quality,
+#47 topic quality, #41 backfill, #42 install-service, #43 TOC rebuild,
+#48 uninstall/status, #44 cross-encoder.
 
 ---
 

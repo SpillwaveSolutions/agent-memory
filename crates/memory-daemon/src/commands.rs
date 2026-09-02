@@ -42,7 +42,7 @@ use crate::cli::{
     SchedulerCommands, TeleportCommand, TopicsCommand,
 };
 
-/// Get the PID file path
+/// Get the default PID file path
 fn pid_file_path() -> PathBuf {
     directories::BaseDirs::new()
         .map(|dirs| {
@@ -63,22 +63,26 @@ fn pid_file_path() -> PathBuf {
         .join("daemon.pid")
 }
 
+fn resolve_pid_file(override_path: Option<&str>) -> PathBuf {
+    override_path
+        .map(PathBuf::from)
+        .unwrap_or_else(pid_file_path)
+}
+
 /// Write PID to file
-fn write_pid_file() -> Result<()> {
-    let pid_path = pid_file_path();
+fn write_pid_file(pid_path: &Path) -> Result<()> {
     if let Some(parent) = pid_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(&pid_path, std::process::id().to_string())?;
+    fs::write(pid_path, std::process::id().to_string())?;
     info!("Wrote PID file: {:?}", pid_path);
     Ok(())
 }
 
 /// Remove PID file
-fn remove_pid_file() {
-    let pid_path = pid_file_path();
+fn remove_pid_file(pid_path: &Path) {
     if pid_path.exists() {
-        if let Err(e) = fs::remove_file(&pid_path) {
+        if let Err(e) = fs::remove_file(pid_path) {
             warn!("Failed to remove PID file: {}", e);
         } else {
             info!("Removed PID file");
@@ -87,9 +91,8 @@ fn remove_pid_file() {
 }
 
 /// Read PID from file
-fn read_pid_file() -> Option<u32> {
-    let pid_path = pid_file_path();
-    fs::read_to_string(&pid_path)
+fn read_pid_file(pid_path: &Path) -> Option<u32> {
+    fs::read_to_string(pid_path)
         .ok()
         .and_then(|s| s.trim().parse().ok())
 }
@@ -570,6 +573,7 @@ pub async fn start_daemon(
     port_override: Option<u16>,
     db_path_override: Option<&str>,
     log_level_override: Option<&str>,
+    pid_file_override: Option<&str>,
 ) -> Result<()> {
     if background {
         anyhow::bail!(
@@ -737,8 +741,10 @@ pub async fn start_daemon(
         None
     };
 
+    let pid_path = resolve_pid_file(pid_file_override);
+
     // Write PID file
-    write_pid_file()?;
+    write_pid_file(&pid_path)?;
 
     // Parse address
     let addr: SocketAddr = settings
@@ -797,17 +803,18 @@ pub async fn start_daemon(
     .await;
 
     // Cleanup
-    remove_pid_file();
+    remove_pid_file(&pid_path);
 
     result.map_err(|e| anyhow::anyhow!("Server error: {}", e))
 }
 
 /// Stop the running daemon by sending SIGTERM.
-pub fn stop_daemon() -> Result<()> {
-    let pid = read_pid_file().context("No PID file found - daemon may not be running")?;
+pub fn stop_daemon(pid_file_override: Option<&str>) -> Result<()> {
+    let pid_path = resolve_pid_file(pid_file_override);
+    let pid = read_pid_file(&pid_path).context("No PID file found - daemon may not be running")?;
 
     if !is_process_running(pid) {
-        remove_pid_file();
+        remove_pid_file(&pid_path);
         anyhow::bail!("Daemon not running (stale PID file removed)");
     }
 
@@ -835,7 +842,7 @@ pub fn stop_daemon() -> Result<()> {
 pub fn show_status() -> Result<()> {
     let pid_path = pid_file_path();
 
-    match read_pid_file() {
+    match read_pid_file(&pid_path) {
         Some(pid) if is_process_running(pid) => {
             println!("Memory daemon is running (PID {})", pid);
             println!("PID file: {:?}", pid_path);
@@ -1088,6 +1095,29 @@ pub async fn handle_query(endpoint: &str, command: QueryCommands) -> Result<()> 
             fields,
             limit,
         } => handle_search(endpoint, query, node, parent, fields, limit).await?,
+
+        QueryCommands::Checkpoints => {
+            let resp = client
+                .get_index_checkpoints()
+                .await
+                .context("GetIndexCheckpoints failed")?;
+            let checkpoints: Vec<serde_json::Value> = resp
+                .checkpoints
+                .iter()
+                .map(|c| {
+                    serde_json::json!({
+                        "index_type": c.index_type,
+                        "last_sequence": c.last_sequence,
+                        "processed_count": c.processed_count,
+                    })
+                })
+                .collect();
+            let payload = serde_json::json!({
+                "checkpoints": checkpoints,
+                "outbox_head": resp.outbox_head,
+            });
+            println!("{}", serde_json::to_string(&payload)?);
+        }
     }
 
     Ok(())
@@ -3303,6 +3333,12 @@ mod tests {
             .unwrap()
             .to_string_lossy()
             .contains("agent-memory"));
+    }
+
+    #[test]
+    fn test_resolve_pid_file_override() {
+        let path = resolve_pid_file(Some("/tmp/am-test.pid"));
+        assert_eq!(path, PathBuf::from("/tmp/am-test.pid"));
     }
 
     #[test]

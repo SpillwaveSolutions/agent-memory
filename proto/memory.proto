@@ -67,6 +67,10 @@ service MemoryService {
     // Get vector index status and statistics
     rpc GetVectorIndexStatus(GetVectorIndexStatusRequest) returns (VectorIndexStatus);
 
+    // Read BM25/vector index checkpoints and the outbox head (Phase 60-01).
+    // Used by the live-backend LOCOMO harness to wait for drain without sleep.
+    rpc GetIndexCheckpoints(GetIndexCheckpointsRequest) returns (GetIndexCheckpointsResponse);
+
     // Topic Graph RPCs (Phase 14 - TOPIC-08)
 
     // Get topic graph status and statistics
@@ -693,6 +697,26 @@ message VectorIndexStatus {
     string index_path = 5;
     // Index size in bytes
     int64 size_bytes = 6;
+}
+
+// Request for index checkpoints (Phase 60-01)
+message GetIndexCheckpointsRequest {}
+
+// One index's crash-recovery checkpoint.
+message IndexCheckpointInfo {
+    // "bm25" | "vector" | "combined"
+    string index_type = 1;
+    // Last outbox sequence processed
+    uint64 last_sequence = 2;
+    // Documents processed since checkpoint creation
+    uint64 processed_count = 3;
+}
+
+// Response: checkpoints plus the outbox head (next sequence to assign).
+message GetIndexCheckpointsResponse {
+    repeated IndexCheckpointInfo checkpoints = 1;
+    // Next outbox sequence that will be assigned
+    uint64 outbox_head = 2;
 }
 
 // ===== Topic Graph Messages (Phase 14 - TOPIC-08) =====

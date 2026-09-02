@@ -171,6 +171,31 @@ cargo run -p memory-bench -- all --backend mock --output benchmarks/results/cust
 `--backend cli` shells out to a running `memory` daemon; `memory add` /
 `memory search` failures abort the run (a dead daemon is not accuracy 0.0).
 
+## LOCOMO live backend (Phase 60-01)
+
+`--backend cli` on `memory-bench locomo` defaults to
+`--isolation daemon-per-conversation`: for each conversation the harness
+creates a tempdir, spawns `memory-daemon start --db-path <tmp> --port <free>
+--pid-file <tmp>/daemon.pid`, waits until `memory-daemon query checkpoints`
+answers, ingests, then **polls GetIndexCheckpoints** until the BM25
+checkpoint covers the outbox head (timeout 5 minutes). Result JSON records
+`"isolation": "per-conversation daemon"` and per-conversation
+`drain_wait_ms`.
+
+`--isolation shared` is local debugging only. It prints a bleed caveat and
+must not be committed.
+
+There is no `std::thread::sleep` standing in for drain. Poll interval is a
+channel `recv_timeout`.
+
+```bash
+# CI / local live-backend smoke (1 conversation, mock judge, spawned daemon)
+cargo run -p memory-bench -- locomo \
+  --dataset benchmarks/fixtures/locomo-smoke.json \
+  --backend cli --scorer mock \
+  --isolation daemon-per-conversation
+```
+
 Metrics:
 
 | Metric | What it is |
@@ -218,8 +243,13 @@ cargo run -p memory-bench -- smoke --output benchmarks/results/locomo-smoke.json
 # Full dataset, still not a LOCOMO score
 cargo run -p memory-bench -- locomo --dataset locomo-data --scorer mock
 
-# The only path that may be labeled locomo_llm_judge
-cargo run -p memory-bench -- locomo --dataset locomo-data --scorer llm-judge --output benchmarks/results/locomo-$(date -u +%F).json
+# Live daemon, isolated per conversation (the 60-02 path)
+cargo run -p memory-bench -- locomo --dataset locomo-data --backend cli --scorer llm-judge \
+  --isolation daemon-per-conversation --output benchmarks/results/locomo-$(date -u +%F).json
+
+# Cost-capped dry run
+cargo run -p memory-bench -- locomo --dataset locomo-data --backend cli --scorer llm-judge \
+  --limit-questions 200 --output benchmarks/results/locomo-$(date -u +%F)-partial.json
 ```
 
 `memory add --timestamp RFC3339 --session-id ID --role user|assistant` exists

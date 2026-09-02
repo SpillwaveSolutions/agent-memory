@@ -4,17 +4,30 @@ use std::path::Path;
 mod cli;
 
 use memory_bench::judge::{ApiJudge, Judge, MockJudge, ScorerKind};
-use memory_bench::runner::{BackendKind, MockStore, RunConfig};
+use memory_bench::runner::{BackendKind, IsolatedDaemon, Isolation, MockStore, RunConfig};
 use memory_bench::{baseline, fixture, locomo, report, runner, scorer};
 use scorer::BenchmarkReport;
+
+fn resolve_bin(configured: &str) -> String {
+    let p = Path::new(configured);
+    if p.is_file() {
+        return configured.to_string();
+    }
+    runner::find_bin(configured)
+        .map(|pb| pb.to_string_lossy().into_owned())
+        .unwrap_or_else(|| configured.to_string())
+}
 
 fn main() -> anyhow::Result<()> {
     let cli = cli::Cli::parse();
     let backend = BackendKind::parse(&cli.backend)?;
     let config = RunConfig {
-        memory_bin: cli.memory_bin.clone(),
+        memory_bin: resolve_bin(&cli.memory_bin),
+        daemon_bin: resolve_bin(&cli.daemon_bin),
         endpoint: cli.endpoint.clone(),
         backend,
+        isolation: Isolation::Shared,
+        limit_questions: None,
     };
 
     match cli.command {
@@ -57,6 +70,8 @@ fn main() -> anyhow::Result<()> {
             top,
             compare,
             baselines: _baselines,
+            isolation,
+            limit_questions,
         } => {
             let kind = ScorerKind::parse(&scorer)?;
             if compare && kind == ScorerKind::Mock {
@@ -65,9 +80,25 @@ fn main() -> anyhow::Result<()> {
                      and must not share a table with published LLM-judge numbers"
                 );
             }
+            let isolation = match isolation.as_deref() {
+                Some(s) => Isolation::parse(s)?,
+                None if backend == BackendKind::Cli => Isolation::DaemonPerConversation,
+                None => Isolation::Shared,
+            };
+            if backend == BackendKind::Cli && isolation == Isolation::Shared {
+                eprintln!(
+                    "warning: --isolation shared: conversation N can retrieve 1..=N-1 \
+                     (cross-conversation bleed). Do not commit this number."
+                );
+            }
             let judge: Box<dyn Judge> = match kind {
                 ScorerKind::Mock => Box::new(MockJudge),
                 ScorerKind::LlmJudge => Box::new(ApiJudge::from_env()?),
+            };
+            let config = RunConfig {
+                isolation,
+                limit_questions,
+                ..config
             };
             let aggregate = run_locomo(&dataset, judge.as_ref(), kind, top, &config)?;
             let json = serde_json::to_string_pretty(&aggregate)?;
@@ -122,26 +153,39 @@ fn run_locomo(
     top: usize,
     config: &RunConfig,
 ) -> anyhow::Result<locomo::LocomoAggregateResult> {
-    let conversations = locomo::load_dataset(Path::new(dataset))?;
+    let mut conversations = locomo::load_dataset(Path::new(dataset))?;
+    if let Some(limit) = config.limit_questions {
+        let mut left = limit;
+        for conv in &mut conversations {
+            if left == 0 {
+                conv.qa.clear();
+            } else if conv.qa.len() > left {
+                conv.qa.truncate(left);
+                left = 0;
+            } else {
+                left -= conv.qa.len();
+            }
+        }
+        conversations.retain(|c| !c.qa.is_empty());
+    }
     eprintln!(
-        "Loaded {} conversations from {} (backend={} scorer={})",
+        "Loaded {} conversations from {} (backend={} scorer={} isolation={})",
         conversations.len(),
         dataset,
         config.backend.as_str(),
-        kind.metric_name()
+        kind.metric_name(),
+        config.isolation.result_label(config.backend),
     );
 
     let mut results = Vec::new();
     for conv in &conversations {
-        // Fresh store per conversation — no shared-store bleed.
         match config.backend {
             BackendKind::Mock => {
                 let store = locomo::ingest_sample_mock(conv);
                 results.push(locomo::evaluate_sample(conv, &store, judge, top));
             }
             BackendKind::Cli => {
-                locomo::ingest_sample_cli(conv, config)?;
-                results.push(evaluate_sample_cli(conv, config, judge, top)?);
+                results.push(run_locomo_cli_conversation(conv, config, judge, top)?);
             }
         }
     }
@@ -162,7 +206,36 @@ fn run_locomo(
         &judge_label,
         model,
         temperature,
+        config.isolation.result_label(config.backend),
     ))
+}
+
+fn run_locomo_cli_conversation(
+    conv: &locomo::LocomoSample,
+    config: &RunConfig,
+    judge: &dyn Judge,
+    top: usize,
+) -> anyhow::Result<locomo::LocomoConversationResult> {
+    match config.isolation {
+        Isolation::DaemonPerConversation => {
+            let daemon = IsolatedDaemon::spawn(&config.daemon_bin)?;
+            let mut isolated = config.clone();
+            isolated.endpoint = daemon.endpoint.clone();
+            locomo::ingest_sample_cli(conv, &isolated)?;
+            let drain_wait_ms = runner::wait_for_drain(&isolated.daemon_bin, &isolated.endpoint)?;
+            let mut result = evaluate_sample_cli(conv, &isolated, judge, top)?;
+            result.drain_wait_ms = drain_wait_ms;
+            daemon.stop()?;
+            Ok(result)
+        }
+        Isolation::Shared => {
+            locomo::ingest_sample_cli(conv, config)?;
+            let drain_wait_ms = runner::wait_for_drain(&config.daemon_bin, &config.endpoint)?;
+            let mut result = evaluate_sample_cli(conv, config, judge, top)?;
+            result.drain_wait_ms = drain_wait_ms;
+            Ok(result)
+        }
+    }
 }
 
 fn evaluate_sample_cli(
@@ -171,9 +244,6 @@ fn evaluate_sample_cli(
     judge: &dyn Judge,
     top: usize,
 ) -> anyhow::Result<locomo::LocomoConversationResult> {
-    // Build a one-shot mock store from CLI retrieval *per question* by
-    // stuffing CLI hits into evaluate_sample would mix questions. Do it
-    // question-by-question and reuse locomo types.
     use locomo::{QuestionResult, TypeScore};
     use std::collections::HashMap;
 
@@ -236,6 +306,7 @@ fn evaluate_sample_cli(
         },
         by_type,
         questions,
+        drain_wait_ms: 0,
     })
 }
 

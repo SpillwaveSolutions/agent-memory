@@ -13,7 +13,7 @@
 - ✅ **v2.7 Multi-Runtime Portability** — Phases 45-50 (shipped 2026-03-22)
 - **v3.0 Competitive Parity & Benchmarks** — Phases 51-53 + Phase 51.5 (shipped 2026-05-14; Phase 53 merged as #30)
 - ✅ **v3.1 Make It True** — Phases 54-58 (shipped 2026-09-01 as v3.1.0)
-- **v3.2 Prove It** — Phases 59-62 (in progress; Phase 59 executing 2026-09-01)
+- **v3.2 Prove It** — Phases 59-62 (Phase 59 complete 2026-09-01; Phase 60 executing)
 
 ## Phases
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 51 -> 51.5 (merged out-of-band) -> 52 -> 53
 | v2.7 Multi-Runtime Portability | 45-50 | 11/11 | Complete | 2026-03-22 |
 | v3.0 Competitive Parity | 51-53 + 51.5, 53.5 | 10/10 | Complete | 2026-05-14 |
 | v3.1 Make It True | 54-58 | 14/14 | Complete | 2026-09-01 |
-| v3.2 Prove It | 59-62 | 3/13 | In progress | Phase 59 executing |
+| v3.2 Prove It | 59-62 | 3/13 | In progress | Phase 59 complete; 60-01 executing |
 
 ---
 
@@ -315,17 +315,17 @@ v3.1 made the claims true. v3.2 makes them provable: a real benchmark number,
 evidence behind every "Solid", and a daemon someone can run for a week.
 Nothing on this list is a new capability except Phase 62, which is conditional.
 
-### Phase 59: Guardrails and Inventory (3/3 plans) — IN EXECUTION 2026-09-01
+### Phase 59: Guardrails and Inventory (3/3 plans) — COMPLETE 2026-09-01 (#45)
 
 - [x] 59-01: Release pipeline checks (ancestor of main, crate version, all five platforms, CHANGELOG notes)
-- [x] 59-02: Orphan branch triage (`docs/plans/phase-59-orphan-branch-triage.md`)
-- [x] 59-03: Planning truth (PROJECT.md, ROADMAP, STATE, GitHub issues #39–#44)
+- [x] 59-02: Orphan branch triage (`docs/plans/phase-59-orphan-branch-triage.md`); OpenCode branch deleted
+- [x] 59-03: Planning truth (PROJECT.md, ROADMAP, STATE, 8 GitHub issues labelled `v3.2`)
 
-### Phase 60: Real Numbers (0/3)
+### Phase 60: Real Numbers (0/3) — 60-01 executing
 
-- [ ] 60-01: Live-backend isolation for `memory-bench locomo --backend cli`
+- [ ] 60-01: Live-backend isolation for `memory-bench locomo --backend cli` (this PR)
 - [ ] 60-02: The run — maintainer, needs API key + documented machine (#39)
-- [ ] 60-03: Vector and topic quality fixtures (#40)
+- [ ] 60-03: Vector (#40) and topic (#47) quality fixtures
 
 ### Phase 61: Operate It (0/5)
 
@@ -333,11 +333,11 @@ Nothing on this list is a new capability except Phase 62, which is conditional.
 - [ ] 61-02: `install-service` launchd/systemd (#42)
 - [ ] 61-03: Panic audit (`unwrap()`/`expect()` on request paths)
 - [ ] 61-04: Offline TOC rebuild (#43)
-- [ ] 61-05: Installer register / uninstall / status (CREG/META from 59-02)
+- [ ] 61-05: Installer register / uninstall / status (CREG/META from 59-02; #48)
 
 ### Phase 62: Cross-encoder rerank (conditional) (#44)
 
 - [ ] Only if 60-02 shows retrieval, not generation, is the bottleneck
 
-*Updated: 2026-09-01 — v3.1.0 released; v3.2 Prove It adopted; Phase 59 executing*
+*Updated: 2026-09-02 — Phase 59 complete (#45); expanded v3.2 plan adopted; 60-01 executing*
 

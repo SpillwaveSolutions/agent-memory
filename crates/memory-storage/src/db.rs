@@ -93,6 +93,11 @@ impl Storage {
         Ok(0)
     }
 
+    /// Next outbox sequence that will be assigned.
+    pub fn outbox_head(&self) -> u64 {
+        self.outbox_sequence.load(Ordering::SeqCst)
+    }
+
     /// Get next outbox sequence number
     fn next_outbox_sequence(&self) -> u64 {
         self.outbox_sequence.fetch_add(1, Ordering::SeqCst)
@@ -1080,6 +1085,23 @@ mod tests {
 
         let entries = storage.get_outbox_entries(0, 10).unwrap();
         assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_outbox_head_tracks_next_sequence() {
+        let (storage, _temp) = create_test_storage();
+        assert_eq!(storage.outbox_head(), 0);
+
+        let event_id = ulid::Ulid::new().to_string();
+        let outbox_entry = memory_types::OutboxEntry::for_index(event_id.clone(), 1000);
+        storage
+            .put_event(&event_id, b"test event", &outbox_entry.to_bytes().unwrap())
+            .unwrap();
+
+        assert_eq!(storage.outbox_head(), 1);
+        let entries = storage.get_outbox_entries(0, 10).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, 0);
     }
 
     #[test]

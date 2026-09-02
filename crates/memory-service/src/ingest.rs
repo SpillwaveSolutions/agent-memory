@@ -29,20 +29,21 @@ use crate::pb::{
     CompleteEpisodeResponse, Event as ProtoEvent, EventRole as ProtoEventRole,
     EventType as ProtoEventType, ExpandGripRequest, ExpandGripResponse, GetAgentActivityRequest,
     GetAgentActivityResponse, GetDedupStatusRequest, GetDedupStatusResponse, GetEventsRequest,
-    GetEventsResponse, GetNodeRequest, GetNodeResponse, GetRankingStatusRequest,
-    GetRankingStatusResponse, GetRelatedTopicsRequest, GetRelatedTopicsResponse,
-    GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse, GetSchedulerStatusRequest,
-    GetSchedulerStatusResponse, GetSimilarEpisodesRequest, GetSimilarEpisodesResponse,
-    GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest, GetTopTopicsResponse,
-    GetTopicGraphStatusRequest, GetTopicGraphStatusResponse, GetTopicsByQueryRequest,
-    GetTopicsByQueryResponse, GetVectorIndexStatusRequest, HybridSearchRequest,
-    HybridSearchResponse, IngestEventRequest, IngestEventResponse, ListAgentsRequest,
-    ListAgentsResponse, PauseJobRequest, PauseJobResponse, PruneBm25IndexRequest,
-    PruneBm25IndexResponse, PruneVectorIndexRequest, PruneVectorIndexResponse, RecordActionRequest,
-    RecordActionResponse, ResumeJobRequest, ResumeJobResponse, RouteQueryRequest,
-    RouteQueryResponse, SearchChildrenRequest, SearchChildrenResponse, SearchNodeRequest,
-    SearchNodeResponse, StartEpisodeRequest, StartEpisodeResponse, TeleportSearchRequest,
-    TeleportSearchResponse, VectorIndexStatus, VectorTeleportRequest, VectorTeleportResponse,
+    GetEventsResponse, GetIndexCheckpointsRequest, GetIndexCheckpointsResponse, GetNodeRequest,
+    GetNodeResponse, GetRankingStatusRequest, GetRankingStatusResponse, GetRelatedTopicsRequest,
+    GetRelatedTopicsResponse, GetRetrievalCapabilitiesRequest, GetRetrievalCapabilitiesResponse,
+    GetSchedulerStatusRequest, GetSchedulerStatusResponse, GetSimilarEpisodesRequest,
+    GetSimilarEpisodesResponse, GetTocRootRequest, GetTocRootResponse, GetTopTopicsRequest,
+    GetTopTopicsResponse, GetTopicGraphStatusRequest, GetTopicGraphStatusResponse,
+    GetTopicsByQueryRequest, GetTopicsByQueryResponse, GetVectorIndexStatusRequest,
+    HybridSearchRequest, HybridSearchResponse, IndexCheckpointInfo, IngestEventRequest,
+    IngestEventResponse, ListAgentsRequest, ListAgentsResponse, PauseJobRequest, PauseJobResponse,
+    PruneBm25IndexRequest, PruneBm25IndexResponse, PruneVectorIndexRequest,
+    PruneVectorIndexResponse, RecordActionRequest, RecordActionResponse, ResumeJobRequest,
+    ResumeJobResponse, RouteQueryRequest, RouteQueryResponse, SearchChildrenRequest,
+    SearchChildrenResponse, SearchNodeRequest, SearchNodeResponse, StartEpisodeRequest,
+    StartEpisodeResponse, TeleportSearchRequest, TeleportSearchResponse, VectorIndexStatus,
+    VectorTeleportRequest, VectorTeleportResponse,
 };
 use crate::query;
 use crate::retrieval::RetrievalHandler;
@@ -365,6 +366,49 @@ impl MemoryServiceImpl {
             retrieval = retrieval.with_api_summarizer(summarizer);
         }
         self.retrieval_service = Some(Arc::new(retrieval));
+    }
+
+    /// Read persisted BM25/vector checkpoints plus the outbox head.
+    ///
+    /// Missing checkpoints are omitted (a fresh store has none). The live-backend
+    /// LOCOMO harness polls this instead of sleeping.
+    pub fn read_index_checkpoints(&self) -> GetIndexCheckpointsResponse {
+        const KEYS: [(&str, &str); 3] = [
+            ("index_bm25", "bm25"),
+            ("index_vector", "vector"),
+            ("index_combined", "combined"),
+        ];
+        let mut checkpoints = Vec::new();
+        for (key, index_type) in KEYS {
+            match self.storage.get_checkpoint(key) {
+                Ok(Some(bytes)) => {
+                    let parsed = serde_json::from_slice::<serde_json::Value>(&bytes).ok();
+                    let last_sequence = parsed
+                        .as_ref()
+                        .and_then(|v| v.get("last_sequence"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let processed_count = parsed
+                        .as_ref()
+                        .and_then(|v| v.get("processed_count"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    checkpoints.push(IndexCheckpointInfo {
+                        index_type: index_type.to_string(),
+                        last_sequence,
+                        processed_count,
+                    });
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(key, error = %e, "failed to read index checkpoint");
+                }
+            }
+        }
+        GetIndexCheckpointsResponse {
+            checkpoints,
+            outbox_head: self.storage.outbox_head(),
+        }
     }
 
     /// Convert proto EventRole to domain EventRole
@@ -739,6 +783,16 @@ impl MemoryService for MemoryServiceImpl {
                 size_bytes: 0,
             })),
         }
+    }
+
+    /// Read BM25/vector index checkpoints and the outbox head.
+    ///
+    /// Phase 60-01: the live-backend LOCOMO harness polls this instead of sleeping.
+    async fn get_index_checkpoints(
+        &self,
+        _request: Request<GetIndexCheckpointsRequest>,
+    ) -> Result<Response<GetIndexCheckpointsResponse>, Status> {
+        Ok(Response::new(self.read_index_checkpoints()))
     }
 
     /// Get topic graph status and statistics.
@@ -1545,5 +1599,59 @@ mod tests {
 
         let event = MemoryServiceImpl::convert_event(proto).unwrap();
         assert!(event.agent.is_none()); // Empty string treated as None
+    }
+
+    #[tokio::test]
+    async fn test_get_index_checkpoints_empty_store() {
+        let (service, _temp) = create_test_service();
+        let resp = service
+            .get_index_checkpoints(Request::new(GetIndexCheckpointsRequest {}))
+            .await
+            .unwrap()
+            .into_inner();
+        assert_eq!(resp.outbox_head, 0);
+        assert!(resp.checkpoints.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_index_checkpoints_reads_bm25_and_outbox_head() {
+        let (service, _temp) = create_test_service();
+
+        let request = Request::new(IngestEventRequest {
+            event: Some(ProtoEvent {
+                event_id: ulid::Ulid::new().to_string(),
+                session_id: "session-123".to_string(),
+                timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                event_type: ProtoEventType::UserMessage as i32,
+                role: ProtoEventRole::User as i32,
+                text: "checkpoint probe".to_string(),
+                metadata: HashMap::new(),
+                agent: None,
+            }),
+        });
+        service.ingest_event(request).await.unwrap();
+
+        let checkpoint = serde_json::json!({
+            "index_type": "bm25",
+            "last_sequence": 0,
+            "processed_count": 1,
+            "last_processed_time": 0,
+            "created_at": 0,
+        });
+        service
+            .storage
+            .put_checkpoint("index_bm25", &serde_json::to_vec(&checkpoint).unwrap())
+            .unwrap();
+
+        let resp = service
+            .get_index_checkpoints(Request::new(GetIndexCheckpointsRequest {}))
+            .await
+            .unwrap()
+            .into_inner();
+        assert_eq!(resp.outbox_head, 1);
+        assert_eq!(resp.checkpoints.len(), 1);
+        assert_eq!(resp.checkpoints[0].index_type, "bm25");
+        assert_eq!(resp.checkpoints[0].last_sequence, 0);
+        assert_eq!(resp.checkpoints[0].processed_count, 1);
     }
 }

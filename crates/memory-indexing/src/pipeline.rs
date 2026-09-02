@@ -36,12 +36,13 @@ impl ProcessResult {
     /// Add a result for an index type.
     pub fn add_result(&mut self, index_type: IndexType, result: UpdateResult) {
         self.total_processed += result.processed;
-        if let Some(last_seq) = self.last_sequence {
-            if result.last_sequence > last_seq {
-                self.last_sequence = Some(result.last_sequence);
-            }
-        } else if result.last_sequence > 0 {
-            self.last_sequence = Some(result.last_sequence);
+        // Sequence 0 is a real outbox id. Using `last_sequence > 0` dropped the
+        // first event, so a one-entry drain never wrote a checkpoint.
+        if result.total() > 0 {
+            self.last_sequence = Some(match self.last_sequence {
+                Some(last_seq) => last_seq.max(result.last_sequence),
+                None => result.last_sequence,
+            });
         }
         self.by_index.insert(index_type, result);
     }
@@ -273,7 +274,12 @@ impl IndexingPipeline {
             if let Some(last_seq) = result.last_sequence {
                 for (index_type, checkpoint) in &mut self.checkpoints {
                     if let Some(idx_result) = result.by_index.get(index_type) {
-                        if idx_result.last_sequence > checkpoint.last_sequence {
+                        // Sequence 0 is a valid last_sequence. A fresh
+                        // checkpoint is last_sequence=0/processed_count=0, so
+                        // `>` would skip the first outbox entry forever.
+                        if checkpoint.processed_count == 0
+                            || idx_result.last_sequence > checkpoint.last_sequence
+                        {
                             checkpoint
                                 .update(idx_result.last_sequence, idx_result.processed as u64);
                         }
@@ -449,6 +455,18 @@ mod tests {
     }
 
     #[test]
+    fn test_add_result_records_sequence_zero() {
+        let mut result = ProcessResult::new();
+        let mut update = UpdateResult::new();
+        update.record_success();
+        update.set_sequence(0);
+        result.add_result(IndexType::Bm25, update);
+        assert_eq!(result.last_sequence, Some(0));
+        assert_eq!(result.total_processed, 1);
+        assert!(result.has_updates());
+    }
+
+    #[test]
     fn test_pipeline_creation() {
         let (storage, _temp) = create_test_storage();
         let pipeline = IndexingPipeline::new(storage, PipelineConfig::default());
@@ -535,6 +553,35 @@ mod tests {
         assert_eq!(result.total_processed, 5);
         assert!(result.last_sequence.is_some());
         assert!(result.committed);
+    }
+
+    #[test]
+    fn test_process_batch_sequence_zero_advances_checkpoint() {
+        let (storage, _temp_dir) = create_test_storage();
+        let outbox_entry = OutboxEntry::for_index("event-0".to_string(), 0);
+        let outbox_bytes = outbox_entry.to_bytes().unwrap();
+        storage
+            .put_event(&ulid::Ulid::new().to_string(), b"test", &outbox_bytes)
+            .unwrap();
+
+        let mut pipeline = IndexingPipeline::new(storage.clone(), PipelineConfig::default());
+        pipeline.add_updater(Box::new(MockUpdater::new(IndexType::Bm25, "bm25")));
+        pipeline.load_checkpoints().unwrap();
+
+        let result = pipeline.process_batch(100).unwrap();
+        assert!(result.has_updates());
+        assert_eq!(result.total_processed, 1);
+
+        let bytes = storage
+            .get_checkpoint("index_bm25")
+            .unwrap()
+            .expect("sequence-0 batch must persist a checkpoint");
+        let cp = IndexCheckpoint::from_bytes(&bytes).unwrap();
+        assert_eq!(cp.last_sequence, 0);
+        assert!(
+            cp.processed_count > 0,
+            "fresh checkpoint must record processed_count after seq 0"
+        );
     }
 
     #[test]
