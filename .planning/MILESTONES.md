@@ -1,6 +1,22 @@
 # Project Milestones: Agent Memory
 
-## v3.1 Make It True (Shipped: 2026-08-31)
+## v3.2 Prove It (In progress: 2026-09-01)
+
+**Goal:** v3.1 made the claims true; v3.2 makes them provable. A real LOCOMO
+number, evidence behind every "Solid", a daemon someone can run for a week,
+and a repo whose backlog is public.
+
+**Spec:** `docs/plans/v3.2-prove-it-plan.md`
+
+**Phases:** 59 Guardrails and Inventory (executing), 60 Real Numbers, 61
+Operate It, 62 Cross-encoder rerank (conditional on #39).
+
+**Known Gaps (now issues):** #39 LOCOMO run, #40 vector/topic quality, #41
+backfill, #42 install-service, #43 TOC rebuild, #44 cross-encoder.
+
+---
+
+## v3.1 Make It True (Shipped: 2026-09-01)
 
 **Delivered:** no new capabilities. Four phases closing the gap between what the
 project claimed and what it did, after a v3.0 verification document self-graded

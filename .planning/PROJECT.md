@@ -2,26 +2,30 @@
 
 ## Current State
 
-**Version:** v3.0 (In Progress)
-**Status:** Building retrieval orchestration, CLI API, and benchmark suite
+**Version:** v3.1.0 (Shipped 2026-09-01)
+**Status:** v3.2 "Prove It" in execution — make the v3.1 claims provable
 
-## Current Milestone: v3.0 Competitive Parity & Benchmarks
+## Current Milestone: v3.2 Prove It
 
-**Goal:** Close the three gaps that keep Agent-Memory from being the category leader: retrieval pipeline orchestration, a dead-simple CLI API, and a benchmark suite that produces a publishable LOCOMO score.
+**Goal:** a stranger arriving from a Show HN link finds a real LOCOMO number,
+evidence behind every "Solid", a daemon they can run for a week, and a repo
+that looks alive. No new capabilities. v3.1 made the claims true; v3.2 makes
+them provable.
 
-**Target features:**
-- Retrieval Orchestrator crate (query expansion, RRF fusion, LLM reranking)
-- Simple `memory` CLI binary (search, context, recall, add, timeline, summary)
-- Benchmark suite with custom harness + LOCOMO adapter
-- Positioning writeup (side quest, not a GSD phase)
+**Target work:**
+- Release pipeline guards (tag on main, crate version matches tag, all five platforms) — Phase 59
+- Committed LOCOMO LLM-judge result on the real dataset — Phase 60 / #39
+- Quality fixtures for vector search and the topic graph — Phase 60 / #40
+- Backfill, `install-service`, offline TOC rebuild, panic audit — Phase 61 / #41 #42 #43
+- Claude Code plugin registration + installer uninstall/status — Phase 61
+- Cross-encoder rerank only if 60-02 says retrieval is the bottleneck — Phase 62 / #44
 
-**Previous version:** v2.7 (Shipped 2026-03-22) — Multi-runtime installer with 6 converters
+**Previous version:** v3.1.0 (Shipped 2026-09-01) — Make It True. No new
+capabilities; closed the claim/reality gap (orchestrator reachable, hybrid
+actually fuses, honest benchmarks, shop window). See
+`docs/plans/v3.1-make-it-true-plan.md`.
 
-**Spec reference:** `docs/superpowers/specs/2026-03-21-v3-competitive-parity-design.md`
-**Plan references:**
-- `docs/superpowers/plans/2026-03-21-v3-phase-a-retrieval-orchestrator.md`
-- `docs/superpowers/plans/2026-03-21-v3-phase-b-simple-cli-api.md`
-- `docs/superpowers/plans/2026-03-21-v3-phase-c-benchmark-suite.md`
+**Spec reference:** `docs/plans/v3.2-prove-it-plan.md`
 
 The system implements a complete 6-layer cognitive stack with control plane, multi-agent support, semantic dedup, retrieval quality filtering, multi-runtime installer, and comprehensive testing:
 - Layer 0: Raw Events (RocksDB) — agent-tagged, dedup-aware (store-and-skip-outbox)
@@ -31,23 +35,23 @@ The system implements a complete 6-layer cognitive stack with control plane, mul
 - Layer 4: Semantic Teleport (Vector/HNSW) — also used for dedup similarity checks
 - Layer 5: Conceptual Discovery (Topic Graph) — agent-filtered queries
 - Layer 6: Ranking Policy (salience, usage, novelty, lifecycle) + StaleFilter (time-decay, supersession)
-- Control: Retrieval Policy (intent routing, tier detection, fallbacks)
+- Control: Retrieval Policy (intent routing, tier detection, fallbacks) + MemoryOrchestrator (RRF fusion, optional LLM rerank, explainability)
 - Dedup: InFlightBuffer + HNSW composite gate, configurable threshold, fail-open
-- Installer: memory-installer crate with RuntimeConverter trait, 6 converters, tool mapping tables
-- Adapters: Claude Code, OpenCode, Gemini CLI, Copilot CLI, Codex CLI (via installer)
+- Installer: memory-installer crate with RuntimeConverter trait, 5 converters (Claude, Gemini, Codex, Copilot, generic skills), tool mapping tables
+- Adapters: Claude Code, Gemini CLI, Copilot CLI, Codex CLI (via installer). OpenCode removed in v3.1 Phase 57 — the converter reported success and wrote nothing
 - Discovery: ListAgents, GetAgentActivity, agent-filtered topics
-- Testing: 46 cargo E2E tests + 144 bats CLI tests across 5 CLIs
-- CI/CD: Dedicated E2E job + CLI matrix report in GitHub Actions
-- Setup: Quickstart, full guide, agent setup docs + 4 wizard-style setup skills
-- Benchmarks: perf_bench harness with baseline metrics across all retrieval layers
+- Testing: 1,205 workspace + 60 e2e cargo tests; 114 bats CLI tests; Tier 1 (Claude Code, Codex) gates PRs, Tier 2 (Gemini, Copilot) weekly
+- CI/CD: Dedicated E2E job + CLI matrix report; rust-toolchain pinned to 1.97
+- Setup: Quickstart, full guide, agent setup docs + wizard-style setup skills
+- Benchmarks: honest custom harness (real recall@k) + LOCOMO adapter v2; committed results are mock-backend / mock-judge until #39
 
-~56,400 LOC Rust across 15 crates. memory-installer with 6 runtime converters. 46 E2E tests + 144 bats tests. Cross-CLI matrix report.
+~64,626 LOC Rust across 20 crates. First full-platform GitHub Release: v3.1.0.
 
 ## What This Is
 
 **Agent Memory is a cognitive architecture for agents** — not just a memory system.
 
-A local, append-only conversational memory system for AI agents (Claude Code, OpenCode, Gemini CLI, GitHub Copilot CLI) that supports agentic search via a permanent hierarchical Table of Contents (TOC), grounded in time-based navigation. The TOC acts as a Progressive Disclosure Architecture: the agent always starts with summaries and navigates downward only when needed. Indexes (vector/BM25) are accelerators, not dependencies.
+A local, append-only conversational memory system for AI agents (Claude Code, Gemini CLI, GitHub Copilot CLI, Codex CLI) that supports agentic search via a permanent hierarchical Table of Contents (TOC), grounded in time-based navigation. The TOC acts as a Progressive Disclosure Architecture: the agent always starts with summaries and navigates downward only when needed. Indexes (vector/BM25) are accelerators, not dependencies.
 
 **See:** [Cognitive Architecture Manifesto](../docs/COGNITIVE_ARCHITECTURE.md) for the complete philosophy.
 
@@ -270,11 +274,17 @@ Agent Memory implements a layered cognitive architecture:
 
 ### Deferred / Future
 
-- Cross-project unified memory
 - Per-agent dedup scoping
 - Consolidation hook (extract durable knowledge from events, needs NLP/LLM)
-- True daemonization (double-fork on Unix)
-- API-based summarizer wiring (OpenAI/Anthropic)
+- True daemonization (double-fork on Unix) — v3.2 ships launchd/systemd unit files instead (#42); double-fork stays deferred because it does not survive reboot
+- Cross-encoder rerank — extension point returns `NotImplemented`; build only if #39 shows retrieval is the bottleneck (#44)
+- REST/HTTP endpoint, Python SDK, memory views UI — v3.3+ (new capabilities; v3.2's job is proof and operability)
+
+### Shipped after this list was first written
+
+- API-based summarizer wiring (OpenAI/Anthropic) — Phase 51.5, PR #27, 2026-04-28
+- Cross-project federated query — Phase 53.5, PR #25; status remains Experimental
+- Retrieval orchestrator reachable from shipped binaries — v3.1 Phase 54, PR #32
 
 ### Out of Scope
 
@@ -289,7 +299,7 @@ Agent Memory implements a layered cognitive architecture:
 
 **Ingestion via Hooks (Passive Capture)**
 
-Conversations are captured via agent hooks (Claude Code, OpenCode, Gemini CLI, GitHub Copilot CLI). Hook handlers send events to the daemon via gRPC. This is zero-token-overhead passive listening.
+Conversations are captured via agent hooks (Claude Code, Gemini CLI, GitHub Copilot CLI, Codex CLI). Hook handlers send events to the daemon via gRPC. This is zero-token-overhead passive listening.
 
 Event types (1:1 from hooks):
 | Hook Event | Memory Event |
@@ -379,8 +389,8 @@ CLI client and agent skill query the daemon. Agent receives TOC navigation tools
 | Match expressions for tool maps | Compile-time exhaustive, zero overhead vs HashMap | ✓ Validated v2.7 |
 | Write-interceptor for dry-run | Single write_files() handles dry-run; converters produce data only | ✓ Validated v2.7 |
 | Hooks generated per-converter | Each runtime's hook mechanism too different for canonical YAML format | ✓ Validated v2.7 |
-| OpenCode converter as stub | Full impl deferred; OpenCode runtime format still evolving | — Deferred v2.7 |
+| OpenCode converter as stub | Full impl deferred; OpenCode runtime format still evolving | Resolved-by-removal v3.1 Phase 57 (#36) |
 | Archive adapters (not delete) | One release cycle before removal; README stubs redirect to installer | ✓ Validated v2.7 |
 
 ---
-*Last updated: 2026-03-22 after v3.0 milestone start*
+*Last updated: 2026-09-01 after v3.1.0 shipped and v3.2 Prove It adopted*

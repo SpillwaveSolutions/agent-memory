@@ -26,6 +26,14 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+  release-guards:
+    name: Release Guard Scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run release guard tests
+        run: bash scripts/release-guards-test.sh
+
   clippy:
     name: Clippy
     runs-on: ubuntu-24.04
@@ -232,7 +240,7 @@ jobs:
   # Summary job that depends on all other jobs
   ci-success:
     name: CI Success
-    needs: [fmt, clippy, test, build, doc, e2e, benchmark-smoke]
+    needs: [fmt, clippy, test, build, doc, e2e, benchmark-smoke, release-guards]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -244,7 +252,8 @@ jobs:
              [[ "${{ needs.build.result }}" != "success" ]] || \
              [[ "${{ needs.doc.result }}" != "success" ]] || \
              [[ "${{ needs.e2e.result }}" != "success" ]] || \
-             [[ "${{ needs.benchmark-smoke.result }}" != "success" ]]; then
+             [[ "${{ needs.benchmark-smoke.result }}" != "success" ]] || \
+             [[ "${{ needs.release-guards.result }}" != "success" ]]; then
             echo "One or more jobs failed"
             exit 1
           fi
