@@ -8,7 +8,9 @@ use std::sync::Arc;
 
 use tracing::{debug, info, warn};
 
-use memory_storage::Storage;
+use memory_storage::{EventKey, Storage};
+
+use memory_types::OutboxEntry;
 
 use crate::checkpoint::{IndexCheckpoint, IndexType};
 use crate::error::IndexingError;
@@ -50,6 +52,111 @@ impl ProcessResult {
     /// Check if any entries were processed.
     pub fn has_updates(&self) -> bool {
         self.total_processed > 0
+    }
+}
+
+/// Where a backfill read its work items from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BackfillSource {
+    /// Remaining outbox entries from the start sequence.
+    #[default]
+    Outbox,
+    /// Event log (outbox empty, or `--from-sequence 0` force re-index).
+    EventLog,
+}
+
+impl std::fmt::Display for BackfillSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BackfillSource::Outbox => write!(f, "outbox"),
+            BackfillSource::EventLog => write!(f, "event-log"),
+        }
+    }
+}
+
+/// Options for [`IndexingPipeline::backfill`].
+#[derive(Debug, Clone)]
+pub struct BackfillConfig {
+    /// Outbox/synthetic sequence to start from. `None` resumes from the
+    /// checkpoint (`last_sequence + 1` when `processed_count > 0`, else 0).
+    /// `Some(0)` re-indexes every event from the event log (needed to fill
+    /// empty pre-v3.1 `text_preview`s after the outbox has been drained).
+    pub from_sequence: Option<u64>,
+    /// Entries per commit.
+    pub batch_size: usize,
+    /// Count work and print; do not index or write checkpoints.
+    pub dry_run: bool,
+    /// Stop after this many batches. `None` runs to completion. Tests use
+    /// `Some(1)` as the equivalent of SIGINT after the first commit.
+    pub max_batches: Option<usize>,
+}
+
+impl Default for BackfillConfig {
+    fn default() -> Self {
+        Self {
+            from_sequence: None,
+            batch_size: 500,
+            dry_run: false,
+            max_batches: None,
+        }
+    }
+}
+
+impl BackfillConfig {
+    /// Resume from checkpoint (or 0 if none).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the start sequence. Pass `Some(0)` to force a full re-index.
+    pub fn with_from_sequence(mut self, from: Option<u64>) -> Self {
+        self.from_sequence = from;
+        self
+    }
+
+    /// Set the batch size.
+    pub fn with_batch_size(mut self, size: usize) -> Self {
+        self.batch_size = size;
+        self
+    }
+
+    /// Count only; write nothing.
+    pub fn with_dry_run(mut self, dry_run: bool) -> Self {
+        self.dry_run = dry_run;
+        self
+    }
+
+    /// Cap the number of batches (interrupt simulation).
+    pub fn with_max_batches(mut self, max_batches: Option<usize>) -> Self {
+        self.max_batches = max_batches;
+        self
+    }
+}
+
+/// Result of a backfill run.
+#[derive(Debug, Clone, Default)]
+pub struct BackfillReport {
+    /// Events offered to updaters this run. Zero on a second catch-up run.
+    pub documents: usize,
+    /// Entries visited (equals `documents` unless dry-run, in which case
+    /// this is the count that would have been indexed).
+    pub would_index: usize,
+    /// Updater-level skips (unused by the mock; reserved for callers).
+    pub skipped: usize,
+    /// Entries that failed to index (continue-on-error).
+    pub errors: usize,
+    /// Highest sequence written to the checkpoint. `None` if nothing ran.
+    pub last_sequence: Option<u64>,
+    /// Outbox vs event-log fallback.
+    pub source: BackfillSource,
+    /// Whether this run wrote nothing.
+    pub dry_run: bool,
+}
+
+impl BackfillReport {
+    /// True when this run indexed at least one event.
+    pub fn has_updates(&self) -> bool {
+        self.documents > 0
     }
 }
 
@@ -388,6 +495,208 @@ impl IndexingPipeline {
     pub fn updater_count(&self) -> usize {
         self.updaters.len()
     }
+
+    /// Sequence a default (no `--from-sequence`) backfill would start at.
+    ///
+    /// Fresh checkpoint (`processed_count == 0`) starts at 0 so sequence 0
+    /// is not skipped. A caught-up checkpoint resumes at `last_sequence + 1`.
+    pub fn resume_sequence(&self) -> u64 {
+        self.checkpoints
+            .values()
+            .map(|c| {
+                if c.processed_count > 0 {
+                    c.last_sequence.saturating_add(1)
+                } else {
+                    0
+                }
+            })
+            .min()
+            .unwrap_or(0)
+    }
+
+    /// Replay events into the registered indexes.
+    ///
+    /// Default start resumes from the checkpoint. `--from-sequence 0` (pass
+    /// `from_sequence: Some(0)`) re-indexes every event from the event log
+    /// so pre-v3.1 empty `text_preview`s can be filled after the outbox has
+    /// been cleaned. A second catch-up run reports 0 new documents.
+    /// `--dry-run` counts and writes nothing.
+    pub fn backfill<F>(
+        &mut self,
+        config: BackfillConfig,
+        mut progress: F,
+    ) -> Result<BackfillReport, IndexingError>
+    where
+        F: FnMut(usize, usize),
+    {
+        let start = config
+            .from_sequence
+            .unwrap_or_else(|| self.resume_sequence());
+        let batch_size = config.batch_size.max(1);
+        let force_event_log = config.from_sequence == Some(0);
+
+        let outbox_probe = self.storage.get_outbox_entries(start, 1)?;
+        let use_event_log = force_event_log || (start == 0 && outbox_probe.is_empty());
+        let source = if use_event_log {
+            BackfillSource::EventLog
+        } else {
+            BackfillSource::Outbox
+        };
+
+        let total = match source {
+            BackfillSource::Outbox => self.storage.count_outbox_from(start)? as usize,
+            BackfillSource::EventLog => {
+                let n = self.storage.get_stats()?.event_count as usize;
+                n.saturating_sub(start as usize)
+            }
+        };
+
+        let mut report = BackfillReport {
+            source,
+            dry_run: config.dry_run,
+            ..Default::default()
+        };
+
+        if total == 0 {
+            return Ok(report);
+        }
+
+        let mut cursor_seq = start;
+        let mut event_after: Option<EventKey> = None;
+        let mut event_seq: u64 = 0;
+        let mut batches = 0usize;
+
+        loop {
+            if config.max_batches.is_some_and(|max| batches >= max) {
+                info!(batches, "Backfill stopped at max_batches");
+                break;
+            }
+
+            let batch = match source {
+                BackfillSource::Outbox => {
+                    self.storage.get_outbox_entries(cursor_seq, batch_size)?
+                }
+                BackfillSource::EventLog => {
+                    self.fetch_event_batch(&mut event_after, &mut event_seq, start, batch_size)?
+                }
+            };
+
+            if batch.is_empty() {
+                break;
+            }
+
+            let batch_last = batch.last().map(|(s, _)| *s);
+            report.would_index += batch.len();
+
+            if !config.dry_run {
+                for updater in &self.updaters {
+                    for (sequence, entry) in &batch {
+                        match updater.index_document(entry) {
+                            Ok(()) => {}
+                            Err(e) => {
+                                warn!(
+                                    index = %updater.name(),
+                                    sequence = sequence,
+                                    event_id = %entry.event_id,
+                                    error = %e,
+                                    "Failed to index document during backfill"
+                                );
+                                if self.config.continue_on_error {
+                                    report.errors += 1;
+                                } else {
+                                    return Err(e);
+                                }
+                            }
+                        }
+                    }
+                }
+                report.documents += batch.len();
+
+                self.commit()?;
+                if let Some(seq) = batch_last {
+                    let n = batch.len() as u64;
+                    for checkpoint in self.checkpoints.values_mut() {
+                        checkpoint.update(seq, n);
+                    }
+                    self.save_checkpoints()?;
+                    report.last_sequence = Some(seq);
+                }
+            } else if let Some(seq) = batch_last {
+                report.last_sequence = Some(seq);
+            }
+
+            if let Some(seq) = batch_last {
+                cursor_seq = seq.saturating_add(1);
+            }
+
+            batches += 1;
+            progress(report.would_index, total);
+
+            if batch.len() < batch_size {
+                break;
+            }
+        }
+
+        // Event-log complete: pin last_sequence to at least outbox_head-1 so
+        // a subsequent live drain does not re-process, and default resume
+        // reports 0 new.
+        if !config.dry_run && source == BackfillSource::EventLog {
+            if let Some(last) = report.last_sequence {
+                let pin = self.storage.outbox_head().saturating_sub(1).max(last);
+                for checkpoint in self.checkpoints.values_mut() {
+                    if checkpoint.last_sequence < pin {
+                        checkpoint.last_sequence = pin;
+                    }
+                }
+                self.save_checkpoints()?;
+                report.last_sequence = Some(pin);
+            }
+        }
+
+        info!(
+            documents = report.documents,
+            would_index = report.would_index,
+            errors = report.errors,
+            source = %report.source,
+            dry_run = report.dry_run,
+            "Backfill complete"
+        );
+
+        Ok(report)
+    }
+
+    /// Page events and assign synthetic sequences 0..N-1.
+    fn fetch_event_batch(
+        &self,
+        after: &mut Option<EventKey>,
+        next_seq: &mut u64,
+        start: u64,
+        limit: usize,
+    ) -> Result<Vec<(u64, OutboxEntry)>, IndexingError> {
+        let mut out = Vec::with_capacity(limit.min(256));
+        while out.len() < limit {
+            let page = self.storage.get_events_page(after.as_ref(), 256)?;
+            if page.is_empty() {
+                break;
+            }
+            for (key, _) in page {
+                *after = Some(key.clone());
+                let seq = *next_seq;
+                *next_seq = next_seq.saturating_add(1);
+                if seq < start {
+                    continue;
+                }
+                out.push((
+                    seq,
+                    OutboxEntry::for_index(key.event_id(), key.timestamp_ms),
+                ));
+                if out.len() >= limit {
+                    break;
+                }
+            }
+        }
+        Ok(out)
+    }
 }
 
 #[cfg(test)]
@@ -710,5 +1019,173 @@ mod tests {
         result.add_result(IndexType::Vector, update2);
         assert_eq!(result.total_processed, 8);
         assert_eq!(result.last_sequence, Some(15));
+    }
+
+    fn seed_outbox_events(storage: &Storage, n: usize) {
+        for i in 0..n {
+            let event_id = ulid::Ulid::new().to_string();
+            let outbox_entry = OutboxEntry::for_index(event_id.clone(), i as i64 * 1000);
+            storage
+                .put_event(
+                    &event_id,
+                    format!("event-{i}").as_bytes(),
+                    &outbox_entry.to_bytes().unwrap(),
+                )
+                .unwrap();
+        }
+    }
+
+    fn pipeline_with_mock(storage: Arc<Storage>) -> IndexingPipeline {
+        let mut pipeline = IndexingPipeline::new(storage, PipelineConfig::default());
+        pipeline.add_updater(Box::new(MockUpdater::new(IndexType::Bm25, "bm25")));
+        pipeline.load_checkpoints().unwrap();
+        pipeline
+    }
+
+    #[test]
+    fn test_backfill_empty_store() {
+        let (storage, _temp) = create_test_storage();
+        let mut pipeline = pipeline_with_mock(storage);
+        let report = pipeline
+            .backfill(BackfillConfig::default(), |_, _| {})
+            .unwrap();
+        assert_eq!(report.documents, 0);
+        assert_eq!(report.would_index, 0);
+        assert!(!report.has_updates());
+    }
+
+    #[test]
+    fn test_backfill_outbox_then_second_run_zero() {
+        let (storage, _temp) = create_test_storage();
+        seed_outbox_events(&storage, 10);
+        let mut pipeline = pipeline_with_mock(storage.clone());
+
+        let report = pipeline
+            .backfill(BackfillConfig::default().with_batch_size(4), |_, _| {})
+            .unwrap();
+        assert_eq!(report.documents, 10);
+        assert_eq!(report.would_index, 10);
+        assert_eq!(report.source, BackfillSource::Outbox);
+        assert!(report.last_sequence.is_some());
+
+        let cp = pipeline.get_checkpoint(IndexType::Bm25).unwrap();
+        assert_eq!(cp.last_sequence, report.last_sequence.unwrap());
+        assert!(cp.processed_count >= 10);
+
+        let second = pipeline
+            .backfill(BackfillConfig::default(), |_, _| {})
+            .unwrap();
+        assert_eq!(second.documents, 0);
+        assert_eq!(second.would_index, 0);
+    }
+
+    #[test]
+    fn test_backfill_dry_run_writes_nothing() {
+        let (storage, _temp) = create_test_storage();
+        seed_outbox_events(&storage, 7);
+        let mut pipeline = pipeline_with_mock(storage.clone());
+
+        let before = storage.get_checkpoint("index_bm25").unwrap();
+        let report = pipeline
+            .backfill(BackfillConfig::default().with_dry_run(true), |_, _| {})
+            .unwrap();
+        assert!(report.dry_run);
+        assert_eq!(report.documents, 0);
+        assert_eq!(report.would_index, 7);
+        assert_eq!(storage.get_checkpoint("index_bm25").unwrap(), before);
+
+        let cp = pipeline.get_checkpoint(IndexType::Bm25).unwrap();
+        assert_eq!(cp.processed_count, 0);
+        assert_eq!(cp.last_sequence, 0);
+    }
+
+    #[test]
+    fn test_backfill_resumes_after_max_batches() {
+        let (storage, _temp) = create_test_storage();
+        seed_outbox_events(&storage, 10);
+        let mut pipeline = pipeline_with_mock(storage.clone());
+
+        let first = pipeline
+            .backfill(
+                BackfillConfig::default()
+                    .with_batch_size(3)
+                    .with_max_batches(Some(1)),
+                |_, _| {},
+            )
+            .unwrap();
+        assert_eq!(first.documents, 3);
+        assert_eq!(first.last_sequence, Some(2));
+
+        let mut pipeline2 = pipeline_with_mock(storage);
+        let rest = pipeline2
+            .backfill(BackfillConfig::default().with_batch_size(3), |_, _| {})
+            .unwrap();
+        assert_eq!(rest.documents, 7);
+        assert_eq!(rest.last_sequence, Some(9));
+    }
+
+    #[test]
+    fn test_backfill_event_log_when_outbox_empty() {
+        let (storage, _temp) = create_test_storage();
+        seed_outbox_events(&storage, 5);
+        // Simulate a drained/cleaned outbox: events remain, outbox gone.
+        storage.delete_outbox_entries(u64::MAX).unwrap();
+        assert!(storage.get_outbox_entries(0, 10).unwrap().is_empty());
+
+        let mut pipeline = pipeline_with_mock(storage.clone());
+        let report = pipeline
+            .backfill(BackfillConfig::default(), |_, _| {})
+            .unwrap();
+        assert_eq!(report.source, BackfillSource::EventLog);
+        assert_eq!(report.documents, 5);
+
+        let second = pipeline
+            .backfill(BackfillConfig::default(), |_, _| {})
+            .unwrap();
+        assert_eq!(second.documents, 0);
+        assert_eq!(second.would_index, 0);
+    }
+
+    #[test]
+    fn test_backfill_from_sequence_zero_reindexes() {
+        let (storage, _temp) = create_test_storage();
+        seed_outbox_events(&storage, 4);
+        let mut pipeline = pipeline_with_mock(storage);
+
+        let first = pipeline
+            .backfill(BackfillConfig::default(), |_, _| {})
+            .unwrap();
+        assert_eq!(first.documents, 4);
+
+        // Caught up. Force re-index of empty previews via --from-sequence 0.
+        let again = pipeline
+            .backfill(
+                BackfillConfig::default().with_from_sequence(Some(0)),
+                |_, _| {},
+            )
+            .unwrap();
+        assert_eq!(again.source, BackfillSource::EventLog);
+        assert_eq!(again.documents, 4);
+        assert_eq!(again.would_index, 4);
+    }
+
+    #[test]
+    fn test_backfill_progress_callback() {
+        let (storage, _temp) = create_test_storage();
+        seed_outbox_events(&storage, 5);
+        let mut pipeline = pipeline_with_mock(storage);
+        let ticks = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let ticks_clone = ticks.clone();
+        pipeline
+            .backfill(
+                BackfillConfig::default().with_batch_size(2),
+                move |n, total| {
+                    ticks_clone.lock().unwrap().push((n, total));
+                },
+            )
+            .unwrap();
+        let ticks = ticks.lock().unwrap().clone();
+        assert!(!ticks.is_empty());
+        assert_eq!(ticks.last().copied(), Some((5, 5)));
     }
 }

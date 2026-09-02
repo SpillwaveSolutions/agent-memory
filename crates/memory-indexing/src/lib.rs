@@ -12,6 +12,7 @@
 //! - [`Bm25IndexUpdater`]: BM25 full-text search updater using Tantivy
 //! - [`VectorIndexUpdater`]: Vector similarity search updater using HNSW
 //! - [`IndexingPipeline`]: Coordinates multiple updaters with checkpointing
+//! - [`BackfillConfig`] / [`BackfillReport`]: Offline event replay (`admin backfill-index`)
 //!
 //! ## Architecture
 //!
@@ -50,7 +51,9 @@ pub mod vector_updater;
 pub use bm25_updater::{Bm25IndexUpdater, BM25_SKIPPED_NOOP};
 pub use checkpoint::{IndexCheckpoint, IndexType};
 pub use error::IndexingError;
-pub use pipeline::{IndexingPipeline, PipelineConfig, ProcessResult};
+pub use pipeline::{
+    BackfillConfig, BackfillReport, BackfillSource, IndexingPipeline, PipelineConfig, ProcessResult,
+};
 pub use rebuild::{
     iter_all_grips, iter_all_toc_nodes, rebuild_bm25_index, rebuild_vector_index,
     LoggingProgressCallback, NoOpProgressCallback, ProgressCallback, RebuildConfig,

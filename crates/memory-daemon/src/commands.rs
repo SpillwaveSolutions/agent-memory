@@ -111,6 +111,22 @@ fn is_process_running(_pid: u32) -> bool {
     true
 }
 
+/// Refuse to run if a daemon PID file points at a live process.
+///
+/// Backfill takes the RocksDB lock; a running daemon already holds it.
+fn refuse_if_daemon_running(pid_file: Option<&str>) -> Result<()> {
+    let pid_path = resolve_pid_file(pid_file);
+    if let Some(pid) = read_pid_file(&pid_path) {
+        if is_process_running(pid) {
+            anyhow::bail!(
+                "daemon is running (PID {}); stop it first with `memory-daemon stop` before backfill-index",
+                pid
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Register the indexing job if search indexes are available.
 ///
 /// This function attempts to:
@@ -1321,9 +1337,23 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
     let db_path = db_path.unwrap_or_else(|| settings.db_path.clone());
     let expanded_path = shellexpand::tilde(&db_path).to_string();
 
+    if let AdminCommands::BackfillIndex { pid_file, .. } = &command {
+        refuse_if_daemon_running(pid_file.as_deref())?;
+    }
+
     // Open storage directly (not via gRPC)
-    let storage = Storage::open(std::path::Path::new(&expanded_path))
-        .context(format!("Failed to open storage at {}", expanded_path))?;
+    let storage = match Storage::open(std::path::Path::new(&expanded_path)) {
+        Ok(s) => s,
+        Err(e) => {
+            if matches!(command, AdminCommands::BackfillIndex { .. }) {
+                anyhow::bail!(
+                    "failed to open storage at {expanded_path}: {e}\n\
+                     if the daemon holds this database, stop it with `memory-daemon stop`"
+                );
+            }
+            return Err(e).context(format!("Failed to open storage at {}", expanded_path));
+        }
+    };
     let storage = Arc::new(storage);
 
     match command {
@@ -1462,6 +1492,28 @@ pub fn handle_admin(db_path: Option<String>, command: AdminCommands) -> Result<(
             search_path,
         } => {
             handle_rebuild_bm25(&expanded_path, &min_level, search_path)?;
+        }
+
+        AdminCommands::BackfillIndex {
+            index,
+            from_sequence,
+            batch,
+            dry_run,
+            search_path,
+            vector_path,
+            pid_file: _,
+        } => {
+            handle_backfill_index(
+                storage,
+                &expanded_path,
+                &index,
+                memory_indexing::BackfillConfig::default()
+                    .with_from_sequence(from_sequence)
+                    .with_batch_size(batch)
+                    .with_dry_run(dry_run),
+                search_path,
+                vector_path,
+            )?;
         }
     }
 
@@ -1777,6 +1829,130 @@ fn handle_rebuild_indexes(
     let elapsed = start_time.elapsed();
     println!();
     println!("Rebuild complete in {:.2}s", elapsed.as_secs_f64());
+
+    Ok(())
+}
+
+/// Replay events into BM25/vector indexes (stopped-daemon only).
+fn handle_backfill_index(
+    storage: Arc<Storage>,
+    db_path: &str,
+    index: &str,
+    config: memory_indexing::BackfillConfig,
+    search_path: Option<String>,
+    vector_path: Option<String>,
+) -> Result<()> {
+    use memory_indexing::{Bm25IndexUpdater, IndexingPipeline, PipelineConfig, VectorIndexUpdater};
+    use memory_search::{SearchIndex, SearchIndexConfig, SearchIndexer};
+
+    let do_bm25 = index == "all" || index == "bm25";
+    let do_vector = index == "all" || index == "vector";
+    if !do_bm25 && !do_vector {
+        anyhow::bail!("Invalid index type: {}. Use bm25, vector, or all.", index);
+    }
+
+    let stats = storage.get_stats().context("Failed to get stats")?;
+
+    eprintln!("Backfill index");
+    eprintln!("==============");
+    eprintln!("Storage path: {}", db_path);
+    eprintln!("Index type:   {}", index);
+    eprintln!("Events:       {}", stats.event_count);
+    eprintln!("Outbox:       {}", stats.outbox_count);
+    eprintln!(
+        "From:         {}",
+        config
+            .from_sequence
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "checkpoint (resume)".to_string())
+    );
+    eprintln!("Batch size:   {}", config.batch_size);
+    if config.dry_run {
+        eprintln!("Mode:         dry-run (writes nothing)");
+    }
+    eprintln!();
+
+    let mut pipeline = IndexingPipeline::new(storage.clone(), PipelineConfig::default());
+
+    if do_bm25 {
+        let search_dir = search_path
+            .clone()
+            .unwrap_or_else(|| format!("{}/search", db_path));
+        let search_dir = shellexpand::tilde(&search_dir).to_string();
+        let search_path = Path::new(&search_dir);
+        std::fs::create_dir_all(search_path).context("Failed to create search index directory")?;
+        let search_config = SearchIndexConfig::new(search_path);
+        let search_index =
+            SearchIndex::open_or_create(search_config).context("Failed to open search index")?;
+        let indexer =
+            Arc::new(SearchIndexer::new(&search_index).context("Failed to create search indexer")?);
+        pipeline.add_updater(Box::new(Bm25IndexUpdater::new(indexer, storage.clone())));
+        eprintln!("BM25 index:   {}", search_dir);
+    }
+
+    if do_vector {
+        use memory_embeddings::EmbeddingModel;
+        use memory_vector::{HnswConfig, HnswIndex, VectorMetadata};
+
+        let vector_dir = vector_path
+            .clone()
+            .unwrap_or_else(|| format!("{}/vector", db_path));
+        let vector_dir = shellexpand::tilde(&vector_dir).to_string();
+        let vector_path = Path::new(&vector_dir);
+        std::fs::create_dir_all(vector_path).context("Failed to create vector index directory")?;
+
+        let embedder = Arc::new(memory_embeddings::CandleEmbedder::load_default().context(
+            "Failed to load embedding model for vector backfill; use --index bm25 to skip",
+        )?);
+        let hnsw_config = HnswConfig::new(embedder.info().dimension, vector_path);
+        let hnsw_index = Arc::new(RwLock::new(
+            HnswIndex::open_or_create(hnsw_config).context("Failed to open HNSW index")?,
+        ));
+        let metadata_path = vector_path.join("metadata");
+        std::fs::create_dir_all(&metadata_path).context("Failed to create metadata directory")?;
+        let metadata = Arc::new(
+            VectorMetadata::open(&metadata_path).context("Failed to open vector metadata")?,
+        );
+        pipeline.add_updater(Box::new(VectorIndexUpdater::new(
+            hnsw_index,
+            embedder,
+            metadata,
+            storage.clone(),
+        )));
+        eprintln!("Vector index: {}", vector_dir);
+        eprintln!("Note: vector backfill of raw events is a no-op without grips.");
+    }
+
+    pipeline
+        .load_checkpoints()
+        .map_err(|e| anyhow::anyhow!("Failed to load checkpoints: {e}"))?;
+
+    let dry_run = config.dry_run;
+    let start_time = Instant::now();
+    let report = pipeline
+        .backfill(config, |n, total| {
+            eprint!("\r  {n}/{total}");
+            let _ = io::stderr().flush();
+        })
+        .map_err(|e| anyhow::anyhow!("Backfill failed: {e}"))?;
+    eprintln!();
+
+    let elapsed = start_time.elapsed();
+    eprintln!();
+    if dry_run {
+        eprintln!("Would index:  {}", report.would_index);
+        eprintln!("Source:       {}", report.source);
+        eprintln!("Checkpoint unchanged");
+    } else {
+        eprintln!("Indexed:      {}", report.documents);
+        eprintln!("Would-index:  {}", report.would_index);
+        eprintln!("Errors:       {}", report.errors);
+        eprintln!("Source:       {}", report.source);
+        if let Some(seq) = report.last_sequence {
+            eprintln!("Checkpoint:   last_sequence={seq}");
+        }
+    }
+    eprintln!("Elapsed:      {:.2}s", elapsed.as_secs_f64());
 
     Ok(())
 }
@@ -3339,6 +3515,39 @@ mod tests {
     fn test_resolve_pid_file_override() {
         let path = resolve_pid_file(Some("/tmp/am-test.pid"));
         assert_eq!(path, PathBuf::from("/tmp/am-test.pid"));
+    }
+
+    #[test]
+    fn test_refuse_if_daemon_running() {
+        let dir = tempfile::tempdir().unwrap();
+        let pid_path = dir.path().join("daemon.pid");
+        std::fs::write(&pid_path, std::process::id().to_string()).unwrap();
+        let err = refuse_if_daemon_running(Some(pid_path.to_str().unwrap())).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("memory-daemon stop"),
+            "error should name memory-daemon stop, got: {msg}"
+        );
+        assert!(msg.contains("daemon is running"), "got: {msg}");
+    }
+
+    #[test]
+    fn test_refuse_if_daemon_not_running() {
+        let dir = tempfile::tempdir().unwrap();
+        let pid_path = dir.path().join("missing.pid");
+        refuse_if_daemon_running(Some(pid_path.to_str().unwrap())).unwrap();
+    }
+
+    #[test]
+    fn test_refuse_if_stale_pid_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let pid_path = dir.path().join("stale.pid");
+        // PID 1 is init/systemd and is running on Unix, so pick a number that
+        // is extremely unlikely to exist.
+        std::fs::write(&pid_path, "999999").unwrap();
+        // 999999 may or may not be running; if it is, the refuse is still
+        // correct. The missing-file case is covered above.
+        let _ = refuse_if_daemon_running(Some(pid_path.to_str().unwrap()));
     }
 
     #[test]

@@ -35,22 +35,33 @@ still not implemented; the command now says so and fails, so scripts that
 treated its exit code as success will now stop. TOC nodes are produced by the
 daemon's scheduled rollup jobs.
 
-### Known gap: no backfill for events indexed before v3.1
+### Backfill for events indexed before v3.1
 
 BM25 documents added before v3.1 stored keywords but not text, so event hits
 came back with an empty `text_preview` and the LLM reranker was judging blank
 bodies. **Events indexed from v3.1 onward store text automatically.**
 
-There is currently **no supported way to backfill** the older ones. Do not
-reach for `admin rebuild-bm25` — despite the name it is a *prune*: it removes
-documents below `--min-level` (default `day`, which deletes your segment and
-grip documents) and re-indexes nothing. `admin rebuild-indexes` re-indexes TOC
-nodes and grips from storage, not raw events. Clearing the index with
-`admin clear-index --index bm25` does not reset the indexing checkpoint stored
-in RocksDB, so the outbox drain will not revisit already-processed events.
+To fill the older ones, stop the daemon and replay the event log:
 
-If old event previews matter to you, the only route today is a fresh store.
-This is tracked as a gap rather than papered over.
+```bash
+memory-daemon stop
+memory-daemon admin backfill-index --index bm25 --from-sequence 0
+memory-daemon start --foreground
+```
+
+`--from-sequence 0` is required when the outbox has already been drained
+(the usual case for a store that has been running): the default is to resume
+from the index checkpoint, which would report 0 new documents. `--dry-run`
+prints counts and writes nothing. A second run is a no-op (idempotent Tantivy
+upsert; checkpoint already at the outbox head). Progress `n/total` goes to
+stderr every batch. The command refuses to run if the daemon is up — it names
+`memory-daemon stop`.
+
+Do not reach for `admin rebuild-bm25` — despite the name it is a *prune*: it
+removes documents below `--min-level` (default `day`, which deletes your
+segment and grip documents) and re-indexes nothing. `admin rebuild-indexes`
+re-indexes TOC nodes and grips from storage, not raw events. Vector backfill
+of raw events is a no-op without grips; use `--index bm25` for this gap.
 
 ### Behaviour changes worth knowing
 

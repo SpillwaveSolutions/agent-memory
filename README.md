@@ -163,7 +163,7 @@ is experimental.
 | Passive hook capture → `memory-ingest` | **Solid** | Covered by the bats CLI suites on Linux + macOS |
 | TOC build and drill-down navigation | **Solid** | Year → Month → Week → Day → Segment → Grip |
 | Grips / provenance | **Solid** | Excerpts link back to the events they came from |
-| BM25 keyword search (Tantivy) | **Solid** | Exact tokens, no stemming (`jwt` does not match `JWTs`). Events indexed before v3.1 have empty `text_preview` and there is no backfill command — see [UPGRADING](docs/UPGRADING.md) and [#41](https://github.com/SpillwaveSolutions/agent-memory/issues/41) |
+| BM25 keyword search (Tantivy) | **Solid** | Exact tokens, no stemming (`jwt` does not match `JWTs`). Events indexed before v3.1 had empty `text_preview`; fill them with `memory-daemon admin backfill-index --index bm25 --from-sequence 0` after `memory-daemon stop` — see [UPGRADING](docs/UPGRADING.md) and [#41](https://github.com/SpillwaveSolutions/agent-memory/issues/41) |
 | Vector search (HNSW + Candle) | **Solid** | Mechanism is wired; retrieval *quality* is not yet measured ([#40](https://github.com/SpillwaveSolutions/agent-memory/issues/40)). First daemon start downloads the embedding model; with no network the daemon warns and runs BM25-only |
 | Topic graph | **Works** | Clustering quality is not benchmarked ([#47](https://github.com/SpillwaveSolutions/agent-memory/issues/47)) |
 | Hybrid fusion + `RouteQuery` orchestration | **Works** | Wired end-to-end in Phase 54; explainability reports what actually ran |
