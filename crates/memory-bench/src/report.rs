@@ -120,6 +120,7 @@ mod tests {
             pass_count: 8,
             failed_ids: vec![],
             caveats: vec!["mock retrieval".into()],
+            layers: "bm25".into(),
         }
     }
 

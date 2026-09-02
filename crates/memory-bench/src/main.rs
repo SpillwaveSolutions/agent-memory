@@ -4,6 +4,7 @@ use std::path::Path;
 mod cli;
 
 use memory_bench::judge::{ApiJudge, Judge, MockJudge, ScorerKind};
+use memory_bench::layers::RetrievalLayer;
 use memory_bench::runner::{BackendKind, IsolatedDaemon, Isolation, MockStore, RunConfig};
 use memory_bench::{baseline, fixture, locomo, report, runner, scorer};
 use scorer::BenchmarkReport;
@@ -28,6 +29,7 @@ fn main() -> anyhow::Result<()> {
         backend,
         isolation: Isolation::Shared,
         limit_questions: None,
+        layer: RetrievalLayer::Bm25,
     };
 
     match cli.command {
@@ -48,7 +50,10 @@ fn main() -> anyhow::Result<()> {
             output,
             compare,
             baselines,
+            layers,
         } => {
+            let mut config = config;
+            config.layer = RetrievalLayer::parse(&layers)?;
             let bench_report = run_all(&fixtures, &config)?;
             let baselines_data = if compare {
                 Some(baseline::Baselines::load(Path::new(&baselines))?)
@@ -62,6 +67,30 @@ fn main() -> anyhow::Result<()> {
                 std::fs::write(&path, &json)?;
                 eprintln!("Results written to {path}");
             }
+        }
+        cli::Commands::Run {
+            fixtures,
+            output,
+            category,
+            layers,
+        } => {
+            let mut config = config;
+            config.layer = RetrievalLayer::parse(&layers)?;
+            let bench_report = match category {
+                Some(prefix) => run_category(&prefix, &fixtures, &config)?,
+                None => run_all(&fixtures, &config)?,
+            };
+            print_report(&bench_report, output.as_deref())?;
+        }
+        cli::Commands::Semantic {
+            fixtures,
+            output,
+            layers,
+        } => {
+            let mut config = config;
+            config.layer = RetrievalLayer::parse(&layers)?;
+            let bench_report = run_category("semantic", &fixtures, &config)?;
+            print_report(&bench_report, output.as_deref())?;
         }
         cli::Commands::Locomo {
             dataset,
@@ -330,9 +359,19 @@ fn run_category(
     run_tests(&tests, Path::new(fixtures_dir), config)
 }
 
-/// Run all benchmark categories and aggregate into one report.
+fn is_semantic(t: &fixture::TestCase) -> bool {
+    t.id.starts_with("semantic")
+        || t.category
+            .as_deref()
+            .is_some_and(|c| c.starts_with("semantic"))
+}
+
+/// Run all benchmark categories except semantic (paraphrase set tanks BM25).
 fn run_all(fixtures_dir: &str, config: &RunConfig) -> anyhow::Result<BenchmarkReport> {
-    let tests = fixture::Fixture::load_dir(Path::new(fixtures_dir))?;
+    let tests: Vec<_> = fixture::Fixture::load_dir(Path::new(fixtures_dir))?
+        .into_iter()
+        .filter(|t| !is_semantic(t))
+        .collect();
     run_tests(&tests, Path::new(fixtures_dir), config)
 }
 
@@ -359,7 +398,7 @@ fn run_tests(
                     let path = runner::resolve_setup(fixtures_dir, setup_path);
                     store.ingest_file(&path)?;
                 }
-                store.search(&test.query, test.k.max(5))
+                store.search_with_layer(&test.query, test.k.max(5), config.layer)
             }
             BackendKind::Cli => {
                 for setup_path in &test.setup {
@@ -426,9 +465,22 @@ fn run_tests(
             .into(),
     ];
     if config.backend == BackendKind::Mock {
+        match config.layer {
+            RetrievalLayer::Bm25 => caveats.push(
+                "backend=mock uses in-process token-overlap retrieval; not a production quality number"
+                    .into(),
+            ),
+            RetrievalLayer::Vector => caveats.push(
+                "backend=mock vector is a committed paraphrase lexicon plus TF-IDF cosine, not Candle/HNSW"
+                    .into(),
+            ),
+            RetrievalLayer::Hybrid => caveats.push(
+                "backend=mock hybrid is RRF (k=60) of token-overlap and lexicon TF-IDF; not RouteQuery"
+                    .into(),
+            ),
+        }
         caveats.push(
-            "backend=mock uses in-process token-overlap retrieval; not a production quality number"
-                .into(),
+            "--layers is a mock-backend switch; CLI search is always RouteQuery hybrid".into(),
         );
     }
 
@@ -445,6 +497,7 @@ fn run_tests(
         pass_count,
         failed_ids,
         caveats,
+        layers: config.layer.as_str().to_string(),
     })
 }
 

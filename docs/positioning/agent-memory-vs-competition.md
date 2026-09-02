@@ -121,6 +121,17 @@ What this repository has committed, in `benchmarks/results/`:
 | `locomo-smoke.json` | 1 conversation, 4 questions, `metric = context_hit_rate`, `judge = mock`, score 0.5 | A mock judge on a 4-question fixture. It measures whether the harness works, not whether the memory is good. It is not LoCoMo and is not labelled LoCoMo |
 | `custom-harness-mock.json` | 25 fixture tests, `backend = mock`, 22 passing | The backend is in-process token-overlap retrieval. Its own `caveats` field says it is not a production quality number |
 
+### Claims Ledger (quality artifacts, not competitor scores)
+
+These rows exist so every README "Solid"/"Works" quality claim has a committed
+file next to it. They are **not** LOCOMO numbers and they are **not**
+commensurable with MemMachine / Mem0.
+
+| Claim | Artifact | What the number actually is |
+|---|---|---|
+| Vector quality on paraphrases (QUAL-01) | [`semantic-hybrid.json`](../../benchmarks/results/semantic-hybrid.json) vs [`semantic-bm25.json`](../../benchmarks/results/semantic-bm25.json) | Mock hybrid recall@5 = **1.00** vs BM25 **0.00** on 16 tests whose relevant sessions share meaning but not tokens with the query. Mock vector is a committed paraphrase lexicon + TF-IDF cosine, not Candle/HNSW. `--layers` is mock-only; live `memory search` is always RouteQuery hybrid |
+| Topic clustering (QUAL-02) | [`topics-quality.json`](../../benchmarks/results/topics-quality.json) | Purity and adjusted rand index from `TopicExtractor::cluster` on a synthetic 80-doc / 8-cluster TF-IDF corpus. Not Candle embeddings, not live TOC summaries |
+
 A run against a real backend with a real LLM judge has not been performed.
 Until one is committed next to the claim, this document, the README, and the
 repository make **no accuracy comparison to any of the systems above**. If that

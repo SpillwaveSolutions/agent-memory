@@ -321,11 +321,11 @@ Nothing on this list is a new capability except Phase 62, which is conditional.
 - [x] 59-02: Orphan branch triage (`docs/plans/phase-59-orphan-branch-triage.md`); OpenCode branch deleted
 - [x] 59-03: Planning truth (PROJECT.md, ROADMAP, STATE, 8 GitHub issues labelled `v3.2`)
 
-### Phase 60: Real Numbers (0/3) — 60-01 executing
+### Phase 60: Real Numbers (2/3) — 60-03 this PR; 60-02 maintainer
 
-- [ ] 60-01: Live-backend isolation for `memory-bench locomo --backend cli` (this PR)
+- [ ] 60-01: Live-backend isolation for `memory-bench locomo --backend cli` (PR #49)
 - [ ] 60-02: The run — maintainer, needs API key + documented machine (#39)
-- [ ] 60-03: Vector (#40) and topic (#47) quality fixtures
+- [x] 60-03: Vector (#40) and topic (#47) quality fixtures
 
 ### Phase 61: Operate It (0/5)
 

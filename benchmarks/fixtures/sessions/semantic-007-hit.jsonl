@@ -1,0 +1,4 @@
+{"role": "user", "content": "What TTL did we pick for Redis look-aside?"}
+{"role": "assistant", "content": "A fifteen-minute default ttl on Redis look-aside. No longer."}
+{"role": "assistant", "content": "Redis look-aside with a fifteen-minute default ttl is the written plan."}
+{"role": "assistant", "content": "I'll set the look-aside client to fifteen-minute default ttl."}

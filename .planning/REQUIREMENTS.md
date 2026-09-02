@@ -59,13 +59,13 @@ exactly one plan in `docs/plans/v3.2-prove-it-plan.md`.
 - [x] **BENCH-10**: Per-conversation isolation on `--backend cli` (60-01)
 - [x] **BENCH-11**: Deterministic drain wait (poll checkpoints, no blind sleep) (60-01)
 - [ ] **BENCH-12**: Committed `locomo_llm_judge` full-dataset result (60-02 / #39)
-- [ ] **BENCH-13**: Layer switch `bm25|vector|hybrid` on the custom harness (60-03)
+- [x] **BENCH-13**: Layer switch `bm25|vector|hybrid` on the custom harness (60-03)
 
 ### Quality evidence (QUAL)
 
-- [ ] **QUAL-01**: Semantic fixture set, ≥15 tests (60-03 / #40)
-- [ ] **QUAL-02**: Topic clustering purity + ARI artifact (60-03 / #47)
-- [ ] **QUAL-03**: README "Solid" rows cite committed artifacts (60-03)
+- [x] **QUAL-01**: Semantic fixture set, ≥15 tests (60-03 / #40)
+- [x] **QUAL-02**: Topic clustering purity + ARI artifact (60-03 / #47)
+- [x] **QUAL-03**: README "Solid" rows cite committed artifacts (60-03)
 
 ### Operate it (OPS)
 
@@ -122,10 +122,10 @@ exactly one plan in `docs/plans/v3.2-prove-it-plan.md`.
 | BENCH-10 | 60-01 | In progress |
 | BENCH-11 | 60-01 | In progress |
 | BENCH-12 | 60-02 | Open (#39) |
-| BENCH-13 | 60-03 | Open (#40) |
-| QUAL-01 | 60-03 | Open (#40) |
-| QUAL-02 | 60-03 | Open (#47) |
-| QUAL-03 | 60-03 | Open |
+| BENCH-13 | 60-03 | This PR |
+| QUAL-01 | 60-03 | This PR |
+| QUAL-02 | 60-03 | This PR |
+| QUAL-03 | 60-03 | This PR |
 | OPS-01 | 61-01 | Open (#41) |
 | OPS-02 | 61-02 | Open (#42) |
 | OPS-03 | 61-03 | Open |

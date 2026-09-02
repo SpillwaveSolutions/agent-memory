@@ -70,7 +70,7 @@ impl TfIdf {
     /// Calculate inverse document frequency.
     ///
     /// Uses smoothed IDF: log((N + 1) / (df + 1)) + 1
-    fn inverse_document_frequency(&self, term: &str) -> f32 {
+    pub fn inverse_document_frequency(&self, term: &str) -> f32 {
         let df = *self.doc_frequencies.get(term).unwrap_or(&0) as f32;
         let n = self.doc_count as f32;
 
@@ -113,9 +113,54 @@ impl TfIdf {
         self.doc_count
     }
 
-    /// Get unique term count.
+    /// Unique term count.
     pub fn term_count(&self) -> usize {
         self.term_frequencies.len()
+    }
+
+    /// Per-document L2-normalized TF-IDF vectors over the sorted corpus vocabulary.
+    pub fn document_vectors(&self, documents: &[&str]) -> Vec<Vec<f32>> {
+        self.document_vectors_capped(documents, usize::MAX)
+    }
+
+    /// Like [`document_vectors`] but keep at most `max_dim` highest-IDF terms
+    /// with document frequency ≥ 2. High-dim sparse TF-IDF makes HDBSCAN
+    /// treat everything as noise; capping is the clustering fixture's job.
+    pub fn document_vectors_capped(&self, documents: &[&str], max_dim: usize) -> Vec<Vec<f32>> {
+        let mut vocab: Vec<(String, f32)> = self
+            .term_frequencies
+            .keys()
+            .filter(|t| *self.doc_frequencies.get(*t).unwrap_or(&0) >= 2)
+            .map(|t| (t.clone(), self.inverse_document_frequency(t)))
+            .collect();
+        vocab.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        if vocab.len() > max_dim {
+            vocab.truncate(max_dim);
+        }
+        vocab.sort_by(|a, b| a.0.cmp(&b.0));
+        documents
+            .iter()
+            .map(|doc| {
+                let terms = tokenize(doc);
+                let mut tf: HashMap<&str, usize> = HashMap::new();
+                for t in &terms {
+                    *tf.entry(t.as_str()).or_insert(0) += 1;
+                }
+                let len = terms.len().max(1) as f32;
+                let mut v = vec![0.0f32; vocab.len()];
+                for (i, (term, idf)) in vocab.iter().enumerate() {
+                    let tfn = *tf.get(term.as_str()).unwrap_or(&0) as f32 / len;
+                    v[i] = tfn * idf;
+                }
+                let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+                if norm > 0.0 {
+                    for x in &mut v {
+                        *x /= norm;
+                    }
+                }
+                v
+            })
+            .collect()
     }
 }
 

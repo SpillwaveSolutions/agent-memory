@@ -1,0 +1,4 @@
+{"role": "user", "content": "Where do we send application lines after we dropped Fluent Bit?"}
+{"role": "assistant", "content": "Promtail into Loki. Fluent Bit is retired."}
+{"role": "assistant", "content": "Loki is the store; Promtail is the shipper. Fluent Bit stays off."}
+{"role": "assistant", "content": "I'll swap the Fluent Bit DaemonSet for Promtail."}

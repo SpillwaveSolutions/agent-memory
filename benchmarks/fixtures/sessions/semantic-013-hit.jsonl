@@ -1,0 +1,4 @@
+{"role": "user", "content": "Are we still doing full environment swaps?"}
+{"role": "assistant", "content": "No. Argo Rollouts canary. We abandoned full swaps."}
+{"role": "assistant", "content": "Argo Rollouts with a canary step. Full swaps are abandoned."}
+{"role": "assistant", "content": "I'll add the Argo Rollouts CR and a 10% canary weight."}

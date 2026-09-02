@@ -1,0 +1,15 @@
+{
+  "n_docs": 80,
+  "n_gold_clusters": 8,
+  "n_pred_clusters": 8,
+  "n_noise": 0,
+  "min_cluster_size": 5,
+  "embedding": "tfidf-l2-top32",
+  "purity": 1.0,
+  "adjusted_rand_index": 1.0,
+  "caveats": [
+    "synthetic 80-doc / 8-cluster corpus, not live TOC summaries",
+    "vectors are capped TF-IDF (top 32 terms), not Candle embeddings",
+    "cluster() is HDBSCAN via TopicExtractor; noise label is -1"
+  ]
+}

@@ -84,6 +84,8 @@ pub struct RunConfig {
     pub isolation: Isolation,
     /// Cap total questions across conversations.
     pub limit_questions: Option<usize>,
+    /// Retrieval layer for the custom harness.
+    pub layer: crate::layers::RetrievalLayer,
 }
 
 impl Default for RunConfig {
@@ -95,6 +97,7 @@ impl Default for RunConfig {
             backend: BackendKind::Mock,
             isolation: Isolation::Shared,
             limit_questions: None,
+            layer: crate::layers::RetrievalLayer::Bm25,
         }
     }
 }
@@ -164,26 +167,26 @@ impl MockStore {
         Ok(n)
     }
 
-    /// Rank events by query-term overlap. Isolated: only this store's events.
+    /// Rank events by the configured retrieval layer. Isolated: only this store's events.
     pub fn search(&self, query: &str, top_k: usize) -> QueryResult {
-        let start = Instant::now();
-        let terms = tokenize(query);
-        let mut scored: Vec<(f64, &StoredEvent)> = self
-            .events
-            .iter()
-            .map(|e| {
-                let hay = e.text.to_lowercase();
-                let score = terms.iter().filter(|t| hay.contains(t.as_str())).count() as f64;
-                (score, e)
-            })
-            .collect();
-        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(top_k);
+        self.search_with_layer(query, top_k, crate::layers::RetrievalLayer::Bm25)
+    }
 
-        let ranked: Vec<RankedHit> = scored
+    /// Rank events under a specific retrieval layer.
+    pub fn search_with_layer(
+        &self,
+        query: &str,
+        top_k: usize,
+        layer: crate::layers::RetrievalLayer,
+    ) -> QueryResult {
+        let start = Instant::now();
+        let docs: Vec<String> = self.events.iter().map(|e| e.text.clone()).collect();
+        let ranked_idx = crate::layers::rank(&docs, query, layer);
+        let ranked: Vec<RankedHit> = ranked_idx
             .into_iter()
-            .map(|(score, e)| RankedHit {
-                text: e.text.clone(),
+            .take(top_k)
+            .map(|(score, i)| RankedHit {
+                text: docs[i].clone(),
                 score,
             })
             .collect();
@@ -212,6 +215,7 @@ impl MockStore {
                 "tokens_estimated": tokens_estimated,
                 "confidence": ranked.first().map(|h| h.score).unwrap_or(0.0),
                 "backend": "mock",
+                "layers": layer.as_str(),
             }
         });
 
@@ -226,14 +230,6 @@ impl MockStore {
     pub fn event_count(&self) -> usize {
         self.events.len()
     }
-}
-
-fn tokenize(query: &str) -> Vec<String> {
-    query
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|s| s.len() > 1)
-        .map(|s| s.to_lowercase())
-        .collect()
 }
 
 fn parse_jsonl_line(line: &str) -> String {
@@ -724,6 +720,7 @@ mod tests {
         assert!(tests.iter().any(|t| t.id.starts_with("temporal-")));
         assert!(tests.iter().any(|t| t.id.starts_with("multi-")));
         assert!(tests.iter().any(|t| t.id.starts_with("compress-")));
+        assert!(tests.iter().any(|t| t.id.starts_with("semantic-")));
         assert!(tests.iter().all(|t| !t.relevant.is_empty()));
     }
 
@@ -754,6 +751,51 @@ mod tests {
         // Isolation: running the suite must not require a daemon and must
         // not panic. Accuracy is a mock number — asserted only as a pipeline.
         assert!(tests.len() >= 25);
+    }
+
+    #[test]
+    fn semantic_fixtures_bm25_below_point_four_vector_wins() {
+        let dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../benchmarks/fixtures");
+        let tests: Vec<_> = crate::fixture::Fixture::load_dir(&dir)
+            .unwrap()
+            .into_iter()
+            .filter(|t| t.id.starts_with("semantic-") || t.category.as_deref() == Some("semantic"))
+            .collect();
+        assert!(
+            tests.len() >= 15,
+            "QUAL-01 requires ≥15 semantic tests, found {}",
+            tests.len()
+        );
+
+        let recall_of = |layer: crate::layers::RetrievalLayer| -> f64 {
+            let mut recs = Vec::new();
+            for test in &tests {
+                let mut store = MockStore::new();
+                for setup in &test.setup {
+                    let path = resolve_setup(&dir, setup);
+                    store.ingest_file(&path).unwrap();
+                }
+                let result = store.search_with_layer(&test.query, test.k.max(5), layer);
+                let texts: Vec<String> = result.ranked.iter().map(|h| h.text.clone()).collect();
+                if let Some(r) = crate::scorer::compute_recall_at_k(&texts, &test.relevant, test.k)
+                {
+                    recs.push(r);
+                }
+            }
+            recs.iter().sum::<f64>() / recs.len() as f64
+        };
+
+        let bm25 = recall_of(crate::layers::RetrievalLayer::Bm25);
+        let vector = recall_of(crate::layers::RetrievalLayer::Vector);
+        assert!(
+            bm25 < 0.4,
+            "BM25 recall@5 on the paraphrase set must be < 0.4, got {bm25}"
+        );
+        assert!(
+            vector > bm25,
+            "vector recall@5 ({vector}) must beat BM25 ({bm25}) on the paraphrase set"
+        );
     }
 
     #[test]
@@ -907,6 +949,7 @@ mod tests {
             backend: BackendKind::Cli,
             isolation: Isolation::DaemonPerConversation,
             limit_questions: None,
+            layer: crate::layers::RetrievalLayer::Bm25,
         };
         let mut cfg_b = cfg_a.clone();
         cfg_b.endpoint = b.endpoint.clone();

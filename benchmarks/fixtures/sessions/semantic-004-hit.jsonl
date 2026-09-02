@@ -1,0 +1,4 @@
+{"role": "user", "content": "Did we buy LaunchDarkly or run something ourselves?"}
+{"role": "assistant", "content": "Unleash is self-hosted. We rejected LaunchDarkly on price."}
+{"role": "assistant", "content": "Flags go through Unleash; LaunchDarkly is off the table."}
+{"role": "assistant", "content": "I'll wire the Unleash client in the API tomorrow."}

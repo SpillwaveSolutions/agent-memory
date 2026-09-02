@@ -1,0 +1,4 @@
+{"role": "user", "content": "How do we change Postgres tables without a long lock?"}
+{"role": "assistant", "content": "Atlas apply with expand-contract. No other tool."}
+{"role": "assistant", "content": "expand-contract on Postgres tables, driven by Atlas apply."}
+{"role": "assistant", "content": "I'll write the Atlas apply file for the new column."}
