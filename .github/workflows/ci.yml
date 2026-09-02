@@ -236,11 +236,63 @@ jobs:
           print("smoke ok", d["metric"], "questions", d["total_questions"])
           PY
 
+  bench-cli-smoke:
+    name: Benchmark CLI Isolation Smoke
+    runs-on: ubuntu-24.04
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libclang-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.97"
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "bench-cli-smoke"
+
+      - name: Build daemon, CLI, and bench
+        run: cargo build -p memory-daemon -p memory-cli -p memory-bench
+
+      - name: Live-backend locomo smoke (spawn-per-conversation)
+        run: |
+          export PATH="$PWD/target/debug:$PATH"
+          cargo run -p memory-bench -- locomo \
+            --dataset benchmarks/fixtures/locomo-smoke.json \
+            --backend cli \
+            --scorer mock \
+            --isolation daemon-per-conversation \
+            --output /tmp/locomo-cli-smoke.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open("/tmp/locomo-cli-smoke.json"))
+          assert d["conversations"] == 1, d
+          assert d["isolation"] == "per-conversation daemon", d
+          assert d["metric"] == "context_hit_rate", d
+          conv = d["per_conversation"][0]
+          assert "drain_wait_ms" in conv, conv
+          assert conv["drain_wait_ms"] >= 0
+          print("cli smoke ok", d["isolation"], "drain_wait_ms", conv["drain_wait_ms"])
+          PY
+
+      - name: Isolation bleed test
+        env:
+          MEMORY_BENCH_LIVE: "1"
+        run: |
+          export PATH="$PWD/target/debug:$PATH"
+          cargo test -p memory-bench cli_isolated_daemons_do_not_bleed -- --nocapture
 
   # Summary job that depends on all other jobs
   ci-success:
     name: CI Success
-    needs: [fmt, clippy, test, build, doc, e2e, benchmark-smoke, release-guards]
+    needs: [fmt, clippy, test, build, doc, e2e, benchmark-smoke, bench-cli-smoke, release-guards]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -253,6 +305,7 @@ jobs:
              [[ "${{ needs.doc.result }}" != "success" ]] || \
              [[ "${{ needs.e2e.result }}" != "success" ]] || \
              [[ "${{ needs.benchmark-smoke.result }}" != "success" ]] || \
+             [[ "${{ needs.bench-cli-smoke.result }}" != "success" ]] || \
              [[ "${{ needs.release-guards.result }}" != "success" ]]; then
             echo "One or more jobs failed"
             exit 1

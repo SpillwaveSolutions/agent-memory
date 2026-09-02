@@ -15,9 +15,13 @@ pub struct Cli {
     #[arg(long, global = true, default_value = "mock")]
     pub backend: String,
 
-    /// gRPC endpoint for `--backend cli`.
+    /// gRPC endpoint for `--backend cli` (ignored when isolation spawns a daemon).
     #[arg(long, global = true, default_value = "http://127.0.0.1:50051")]
     pub endpoint: String,
+
+    /// Path to memory-daemon binary (used by `--isolation daemon-per-conversation`).
+    #[arg(long, global = true, default_value = "memory-daemon")]
+    pub daemon_bin: String,
 }
 
 /// Available benchmark subcommands.
@@ -85,6 +89,12 @@ pub enum Commands {
         /// Path to baselines TOML file.
         #[arg(long, default_value = "benchmarks/baselines.toml")]
         baselines: String,
+        /// Isolation: `daemon-per-conversation` (default for `--backend cli`) or `shared`.
+        #[arg(long, value_parser = ["daemon-per-conversation", "shared"])]
+        isolation: Option<String>,
+        /// Cap total questions across conversations (60-02 dry-run).
+        #[arg(long)]
+        limit_questions: Option<usize>,
     },
     /// CI smoke: 1-conversation fixture + mock backend + mock judge.
     Smoke {

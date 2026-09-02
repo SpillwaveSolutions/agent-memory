@@ -38,6 +38,7 @@ async fn main() -> Result<()> {
             background,
             port,
             db_path,
+            pid_file,
         } => {
             start_daemon(
                 cli.config.as_deref(),
@@ -45,11 +46,12 @@ async fn main() -> Result<()> {
                 port,
                 db_path.as_deref(),
                 cli.log_level.as_deref(),
+                pid_file.as_deref(),
             )
             .await?;
         }
-        Commands::Stop => {
-            stop_daemon()?;
+        Commands::Stop { pid_file } => {
+            stop_daemon(pid_file.as_deref())?;
         }
         Commands::Status { verbose, endpoint } => {
             show_status()?;

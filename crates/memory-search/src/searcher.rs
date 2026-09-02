@@ -111,6 +111,11 @@ impl TeleportSearcher {
             return Ok(Vec::new());
         }
 
+        // The outbox indexer commits on a separate IndexWriter. Tantivy's
+        // OnCommitWithDelay only notifies readers on the same Index object,
+        // so this process-local reader must reload to see the latest commit.
+        self.reload()?;
+
         let searcher = self.reader.searcher();
 
         // Parse the text query

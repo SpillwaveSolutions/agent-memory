@@ -23,8 +23,13 @@ grep -A2 '\[workspace.package\]' Cargo.toml   # version must equal the tag minus
 # Tag that SHA, not a local name that might have drifted:
 SHA="$(git rev-parse origin/main)"
 git tag -a vX.Y.Z "$SHA" -m "Release vX.Y.Z"
+git rev-parse 'vX.Y.Z^{commit}'   # must equal $SHA
 git push origin vX.Y.Z
 ```
+
+zsh: quote the peel (`'vX.Y.Z^{commit}'`). `^` is history expansion, and
+with `interactivecomments` a bare `#` starts a comment — both will silently
+rewrite the command. bash users can copy the block as-is.
 
 Pushing a tag matching `v[0-9]+.[0-9]+.[0-9]+` starts
 [`.github/workflows/release.yml`](../.github/workflows/release.yml).

@@ -93,20 +93,22 @@ GitHub Actions workflows in `.github/workflows/`:
 
 ### Release Process
 
-```bash
-# Bump version
-cargo set-version 0.2.0
+Do **not** tag `HEAD` of a local branch. Always tag an explicit SHA that is
+already on `origin/main`. The full procedure, what the pipeline refuses, and
+the zsh quoting trap (`^{commit}`, `#`) are in
+[`docs/RELEASING.md`](docs/RELEASING.md).
 
-# Commit and tag
-git add -A && git commit -m "chore: release v0.2.0"
-git tag -a v0.2.0 -m "Release v0.2.0"
-git push origin main --tags
+```bash
+git fetch origin
+SHA="$(git rev-parse origin/main)"
+git tag -a vX.Y.Z "$SHA" -m "Release vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
-The release workflow automatically builds for:
-- Linux x86_64 / ARM64
-- macOS Intel / Apple Silicon
-- Windows x86_64
+Do **not** `git push origin main --tags`. The release workflow builds for
+Linux x86_64 / ARM64, macOS Intel / Apple Silicon, and Windows x86_64, and
+refuses to publish unless every platform succeeded and the crate version
+matches the tag.
 
 ## GSD Workflow
 

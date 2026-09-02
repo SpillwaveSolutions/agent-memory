@@ -46,10 +46,20 @@ pub enum Commands {
         /// Override database path
         #[arg(long)]
         db_path: Option<String>,
+
+        /// PID file path. Defaults to `$XDG_RUNTIME_DIR/agent-memory/daemon.pid`.
+        /// Isolation harnesses pass a per-conversation path so they do not
+        /// clobber a user's running daemon.
+        #[arg(long)]
+        pid_file: Option<String>,
     },
 
     /// Stop the running daemon
-    Stop,
+    Stop {
+        /// PID file to signal. Must match the path used at start.
+        #[arg(long)]
+        pid_file: Option<String>,
+    },
 
     /// Show daemon status
     Status {
@@ -212,6 +222,9 @@ pub enum QueryCommands {
         #[arg(long, default_value = "10")]
         limit: u32,
     },
+
+    /// Print BM25/vector checkpoints and the outbox head as JSON (Phase 60-01).
+    Checkpoints,
 }
 
 /// Admin subcommands
@@ -701,7 +714,40 @@ mod tests {
     #[test]
     fn test_cli_stop() {
         let cli = Cli::parse_from(["memory-daemon", "stop"]);
-        assert!(matches!(cli.command, Commands::Stop));
+        assert!(matches!(cli.command, Commands::Stop { pid_file: None }));
+    }
+
+    #[test]
+    fn test_cli_stop_pid_file() {
+        let cli = Cli::parse_from(["memory-daemon", "stop", "--pid-file", "/tmp/am.pid"]);
+        match cli.command {
+            Commands::Stop { pid_file } => {
+                assert_eq!(pid_file.as_deref(), Some("/tmp/am.pid"));
+            }
+            _ => panic!("Expected Stop command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_start_pid_file() {
+        let cli = Cli::parse_from(["memory-daemon", "start", "--pid-file", "/tmp/am.pid"]);
+        match cli.command {
+            Commands::Start { pid_file, .. } => {
+                assert_eq!(pid_file.as_deref(), Some("/tmp/am.pid"));
+            }
+            _ => panic!("Expected Start command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_query_checkpoints() {
+        let cli = Cli::parse_from(["memory-daemon", "query", "checkpoints"]);
+        match cli.command {
+            Commands::Query { command, .. } => {
+                assert!(matches!(command, QueryCommands::Checkpoints));
+            }
+            _ => panic!("Expected Query command"),
+        }
     }
 
     #[test]
